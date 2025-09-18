@@ -1,0 +1,45 @@
+name: Deploy Luvwish
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Deploy Luvwish
+        uses: appleboy/ssh-action@v0.1.9
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          script: |
+            set -e
+            cd /var/www/Luvwish
+            echo "🚀 Pulling latest code from production branch..."
+            git fetch origin main
+            git reset --hard origin/main
+
+            echo "📦 Installing dependencies..."
+            npm ci --legacy-peer-deps
+
+            echo "🧱 Running Prisma migrations..."
+            npx prisma migrate deploy || echo "Migration failed or not needed"
+
+            echo "🔧 Generating Prisma client..."
+            npx prisma generate
+
+            echo "🏗️ Building project..."
+            npm run build || echo "⚠️ Build failed or script missing!"
+
+            echo "🌱 Seeding database..."
+            npm run prisma:seed || echo "No seed script defined"
+
+            echo "🚦 Restarting app with PM2..."
+            pm2 start dist/main.js --name Luvwish || pm2 restart Luvwish
