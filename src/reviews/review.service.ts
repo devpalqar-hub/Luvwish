@@ -26,11 +26,18 @@ export class ReviewService {
             throw new ForbiddenException('You already reviewed this product');
         }
 
+        const { images, ...reviewData } = dto;
+        
         return this.prisma.review.create({
             data: {
-                ...dto,
+                ...reviewData,
                 productId,
                 customerProfileId: profile.id,
+                ...(images && images.length > 0 && {
+                    images: {
+                        create: images.map(url => ({ url }))
+                    }
+                })
             },
         });
     }
@@ -42,6 +49,7 @@ export class ReviewService {
                 CustomerProfile: {
                     select: { id: true, name: true, profilePicture: true },
                 },
+                images: true,
             },
             orderBy: { createdAt: 'desc' },
         });
@@ -59,9 +67,21 @@ export class ReviewService {
             throw new ForbiddenException('Not allowed');
         }
 
+        const { images, ...reviewData } = dto;
+        
         return this.prisma.review.update({
             where: { id: reviewId },
-            data: dto,
+            data: {
+                ...reviewData,
+                ...(images !== undefined && {
+                    images: {
+                        deleteMany: {}, // Delete existing images
+                        ...(images.length > 0 && {
+                            create: images.map(url => ({ url }))
+                        })
+                    }
+                })
+            },
         });
     }
 
