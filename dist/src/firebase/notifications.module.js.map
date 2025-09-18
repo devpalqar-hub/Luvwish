@@ -1,1 +1,0 @@
-{"version":3,"file":"notifications.module.js","sourceRoot":"","sources":["../../../src/firebase/notifications.module.ts"],"names":[],"mappings":";;;;;;;;;AACA,2CAAwC;AACxC,yDAAqD;AACrD,yEAAqE;AAM9D,IAAM,mBAAmB,GAAzB,MAAM,mBAAmB;CAAG,CAAA;AAAtB,kDAAmB;8BAAnB,mBAAmB;IAJ/B,IAAA,eAAM,EAAC;QACN,SAAS,EAAE,CAAC,kCAAe,CAAC;QAC5B,WAAW,EAAE,CAAC,kDAAuB,CAAC;KACvC,CAAC;GACW,mBAAmB,CAAG"}
