@@ -13,7 +13,7 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v3
 
-      - name: Deploy Luvwish
+      - name: Deploy via SSH
         uses: appleboy/ssh-action@v0.1.9
         with:
           host: ${{ secrets.SSH_HOST }}
@@ -21,8 +21,13 @@ jobs:
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: |
             set -e
+            if [ ! -d /var/www/Luvwish ]; then
+              echo "📂 Cloning project for first time..."
+              git clone https://github.com/<your-username>/<your-repo>.git /var/www/Luvwish
+            fi
+
             cd /var/www/Luvwish
-            echo "🚀 Pulling latest code from production branch..."
+            echo "🚀 Pulling latest code..."
             git fetch origin main
             git reset --hard origin/main
 
@@ -30,7 +35,7 @@ jobs:
             npm ci --legacy-peer-deps
 
             echo "🧱 Running Prisma migrations..."
-            npx prisma migrate deploy || echo "Migration failed or not needed"
+            npx prisma migrate deploy || echo "No migrations applied"
 
             echo "🔧 Generating Prisma client..."
             npx prisma generate
@@ -42,4 +47,4 @@ jobs:
             npm run prisma:seed || echo "No seed script defined"
 
             echo "🚦 Restarting app with PM2..."
-            pm2 start dist/main.js --name Luvwish || pm2 restart Luvwish
+            pm2 restart Luvwish || pm2 start dist/main.js --name Luvwish
