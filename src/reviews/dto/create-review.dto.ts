@@ -1,4 +1,5 @@
-import { IsArray, IsInt, IsOptional, IsString, Max, Min } from 'class-validator';
+// dto/create-review.dto.ts
+import { IsInt, IsOptional, IsString, IsUUID, IsArray, IsUrl, Min, Max } from 'class-validator';
 
 export class CreateReviewDto {
     @IsInt()
@@ -10,8 +11,15 @@ export class CreateReviewDto {
     @IsString()
     comment?: string;
 
+    @IsUUID()
+    productId: string;
+
+    @IsOptional()
+    @IsUUID()
+    customerProfileId?: string;
+
     @IsOptional()
     @IsArray()
-    @IsString({ each: true })
+    @IsUrl({}, { each: true })
     images?: string[];
 }

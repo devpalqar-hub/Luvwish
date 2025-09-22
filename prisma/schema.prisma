@@ -247,19 +247,19 @@ model BankDetails {
 }
 
 model Review {
-  id                String           @id @default(uuid())
-  rating            Int
-  comment           String?
-  helpfulCount      Int     @default(0)
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
+  id           String   @id @default(uuid())
+  rating       Int // 1-5 stars
+  comment      String?
+  helpfulCount Int      @default(0)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 
   productId         String
   product           Product          @relation(fields: [productId], references: [id], onDelete: Cascade)
   customerProfileId String?
   CustomerProfile   CustomerProfile? @relation(fields: [customerProfileId], references: [id])
 
-  images ReviewImage[]   // relation instead of String[]
+  images ReviewImage[]
 
   @@unique([customerProfileId, productId])
   @@map("reviews")
@@ -270,10 +270,7 @@ model ReviewImage {
   url      String
   reviewId String
   review   Review @relation(fields: [reviewId], references: [id], onDelete: Cascade)
-
-  @@map("review_images")
 }
-
 
 model Coupon {
   id                  String           @id @default(uuid())

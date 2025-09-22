@@ -32,31 +32,25 @@ export class ProductsService {
     });
   }
 
-  async findAll(query: SearchFilterDto) {
+  async findAll(query: SearchFilterDto, customerProfileId?: string) {
     const { search, limit = 10, page = 1, minPrice } = query;
-
     const skip = (page - 1) * limit;
 
-    // build where condition
     const where: any = {
       AND: [
         search
           ? {
             OR: [
-              { name: { contains: search, mode: 'insensitive' } },
-              { description: { contains: search, mode: 'insensitive' } },
+              { name: { contains: search, } },
+              { description: { contains: search, } },
             ],
           }
           : {},
-        minPrice
-          ? {
-            discountedPrice: { lt: minPrice }, // ✅ filter by discountedPrice
-          }
-          : {},
+        minPrice ? { discountedPrice: { lt: minPrice } } : {},
       ],
     };
 
-    const [data, total] = await this.prisma.$transaction([
+    const [products, total] = await this.prisma.$transaction([
       this.prisma.product.findMany({
         where,
         include: { images: true },
@@ -67,7 +61,28 @@ export class ProductsService {
       this.prisma.product.count({ where }),
     ]);
 
-    return new PaginationResponseDto(data, total, page, limit);
+    // 🚀 Add is_wishlisted for each product
+    let productsWithWishlist = products;
+    if (customerProfileId) {
+      const wishlist = await this.prisma.wishlist.findMany({
+        where: { customerProfileId, productId: { in: products.map(p => p.id) } },
+        select: { productId: true },
+      });
+      const wishlistedIds = new Set(wishlist.map(w => w.productId));
+
+      productsWithWishlist = products.map(p => ({
+        ...p,
+        is_wishlisted: wishlistedIds.has(p.id),
+      }));
+    } else {
+      // if not logged in, default false
+      productsWithWishlist = products.map(p => ({
+        ...p,
+        is_wishlisted: false,
+      }));
+    }
+
+    return new PaginationResponseDto(productsWithWishlist, total, page, limit);
   }
 
 

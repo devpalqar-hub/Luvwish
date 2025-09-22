@@ -1,3 +1,4 @@
+// review.service.ts
 import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { CreateReviewDto } from './dto/create-review.dto';
@@ -5,100 +6,86 @@ import { UpdateReviewDto } from './dto/update-review.dto';
 
 @Injectable()
 export class ReviewService {
-    constructor(private readonly prisma: PrismaService) { }
+    constructor(private prisma: PrismaService) { }
 
-    async create(userId: string, productId: string, dto: CreateReviewDto) {
-        // get customer profile
-        const profile = await this.prisma.customerProfile.findUnique({
-            where: { userId },
-        });
-        if (!profile) throw new NotFoundException('Customer profile not found');
-
-        // check product exists
-        const product = await this.prisma.product.findUnique({ where: { id: productId } });
-        if (!product) throw new NotFoundException('Product not found');
-
-        // check if user already reviewed this product
-        const existing = await this.prisma.review.findUnique({
-            where: { customerProfileId_productId: { customerProfileId: profile.id, productId } },
-        });
-        if (existing) {
-            throw new ForbiddenException('You already reviewed this product');
-        }
-
-        const { images, ...reviewData } = dto;
-        
+    async create(dto: CreateReviewDto) {
         return this.prisma.review.create({
             data: {
-                ...reviewData,
-                productId,
-                customerProfileId: profile.id,
-                ...(images && images.length > 0 && {
-                    images: {
-                        create: images.map(url => ({ url }))
-                    }
-                })
+                rating: dto.rating,
+                comment: dto.comment,
+                productId: dto.productId,
+                customerProfileId: dto.customerProfileId,
+                images: {
+                    create: dto.images?.map(url => ({ url })) || [],
+                },
             },
+            include: { images: true },
         });
     }
 
-    async findAll(productId: string) {
+    async findByProduct(productId: string) {
         return this.prisma.review.findMany({
             where: { productId },
-            include: {
-                CustomerProfile: {
-                    select: { id: true, name: true, profilePicture: true },
-                },
-                images: true,
-            },
+            include: { images: true, CustomerProfile: true },
             orderBy: { createdAt: 'desc' },
         });
     }
 
-    async update(userId: string, reviewId: string, dto: UpdateReviewDto) {
-        const profile = await this.prisma.customerProfile.findUnique({
-            where: { userId },
+    async findOne(id: string) {
+        const review = await this.prisma.review.findUnique({
+            where: { id },
+            include: { images: true },
         });
-        if (!profile) throw new NotFoundException('Customer profile not found');
-
-        const review = await this.prisma.review.findUnique({ where: { id: reviewId } });
         if (!review) throw new NotFoundException('Review not found');
-        if (review.customerProfileId !== profile.id) {
-            throw new ForbiddenException('Not allowed');
-        }
+        return review;
+    }
 
-        const { images, ...reviewData } = dto;
-        
+    async update(id: string, dto: UpdateReviewDto, customerProfileId: string) {
+        const review = await this.prisma.review.findUnique({ where: { id } });
+        if (!review) throw new NotFoundException('Review not found');
+        if (review.customerProfileId !== customerProfileId)
+            throw new ForbiddenException('You cannot edit this review');
+
         return this.prisma.review.update({
-            where: { id: reviewId },
+            where: { id },
             data: {
-                ...reviewData,
-                ...(images !== undefined && {
-                    images: {
-                        deleteMany: {}, // Delete existing images
-                        ...(images.length > 0 && {
-                            create: images.map(url => ({ url }))
-                        })
+                ...dto,
+                images: dto.images
+                    ? {
+                        deleteMany: {}, // remove old images
+                        create: dto.images.map(url => ({ url })),
                     }
-                })
+                    : undefined,
             },
+            include: { images: true },
         });
     }
 
-    async remove(userId: string, reviewId: string) {
-        const profile = await this.prisma.customerProfile.findUnique({
-            where: { userId },
-        });
-        if (!profile) throw new NotFoundException('Customer profile not found');
-
-        const review = await this.prisma.review.findUnique({ where: { id: reviewId } });
+    async remove(id: string, customerProfileId: string) {
+        const review = await this.prisma.review.findUnique({ where: { id } });
         if (!review) throw new NotFoundException('Review not found');
-        if (review.customerProfileId !== profile.id) {
-            throw new ForbiddenException('Not allowed');
-        }
+        if (review.customerProfileId !== customerProfileId)
+            throw new ForbiddenException('You cannot delete this review');
 
-        await this.prisma.review.delete({ where: { id: reviewId } });
+        return this.prisma.review.delete({ where: { id } });
+    }
 
-        return { message: 'Review deleted successfully' };
+    async markHelpful(id: string) {
+        return this.prisma.review.update({
+            where: { id },
+            data: { helpfulCount: { increment: 1 } },
+        });
+    }
+
+    async getAverageRating(productId: string) {
+        const result = await this.prisma.review.aggregate({
+            where: { productId },
+            _avg: { rating: true },
+            _count: { rating: true },
+        });
+        return {
+            averageRating: result._avg.rating,
+            totalReviews: result._count.rating,
+        };
     }
 }
