@@ -58,6 +58,8 @@ model User {
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
   password  String?  @map("password")
+  resetOtp          String?   @default("0") // string default
+  resetOtpExpiresAt DateTime? @default(now()) // set to current time
 
   CustomerProfile CustomerProfile?
   AdminProfile    AdminProfile?

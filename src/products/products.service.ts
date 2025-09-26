@@ -132,4 +132,55 @@ export class ProductsService {
     }
     return this.prisma.product.delete({ where: { id } });
   }
+
+  async getRelatedProducts(productId: string, customerProfileId?: string) {
+    // 1. Get the product by ID
+    const product = await this.prisma.product.findUnique({
+      where: { id: productId },
+      select: { id: true, name: true },
+    });
+
+    if (!product) {
+      throw new NotFoundException('Product not found');
+    }
+
+    // 2. Find related products
+    const relatedProducts = await this.prisma.product.findMany({
+      where: {
+        AND: [
+          { id: { not: product.id } },
+          {
+            OR: [
+              { name: { contains: product.name.split(' ')[0].toLowerCase() } },
+            ],
+          },
+        ],
+      },
+      include: { images: true },
+      take: 10, // limit related products
+    });
+
+    // 3. Add is_wishlisted field
+    let productsWithWishlist = relatedProducts;
+    if (customerProfileId) {
+      const wishlist = await this.prisma.wishlist.findMany({
+        where: { customerProfileId, productId: { in: relatedProducts.map(p => p.id) } },
+        select: { productId: true },
+      });
+      const wishlistedIds = new Set(wishlist.map(w => w.productId));
+
+      productsWithWishlist = relatedProducts.map(p => ({
+        ...p,
+        is_wishlisted: wishlistedIds.has(p.id),
+      }));
+    } else {
+      productsWithWishlist = relatedProducts.map(p => ({
+        ...p,
+        is_wishlisted: false,
+      }));
+    }
+
+    return productsWithWishlist;
+  }
+
 }

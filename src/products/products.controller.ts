@@ -57,4 +57,13 @@ export class ProductsController {
   remove(@Param('id') id: string) {
     return this.productsService.remove(id);
   }
+
+  @Get(':id/related')
+  async getRelatedProducts(
+    @Param('id') productId: string,
+    @Query('customerProfileId') customerProfileId?: string,
+  ) {
+    return this.productsService.getRelatedProducts(productId, customerProfileId);
+  }
+
 }
