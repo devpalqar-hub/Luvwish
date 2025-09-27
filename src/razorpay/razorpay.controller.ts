@@ -1,24 +1,31 @@
-import { Controller, Post, Body } from '@nestjs/common';
+// src/payment/payment.controller.ts
+import { Controller, Post, Body, UseGuards, Request } from '@nestjs/common';
 import { RazorpayService } from './razorpay.service';
+import { CreatePaymentIntentDto } from './dto/checkout.dto';
+import { JwtAuthGuard } from 'src/common/guards/jwt-auth.guard';
 
-@Controller('razorpay')
+@Controller('payments')
 export class RazorpayController {
-  // constructor(private readonly razorpayService: RazorpayService) { }
-  // @Post('create-order')
-  // async createOrder(@Body('amount') amount: number) {
-  //   return this.razorpayService.createOrder(amount);
-  // }
-  // @Post('verify-payment')
-  // async verifyPayment(
-  //   @Body('razorpay_order_id') razorpay_order_id: string,
-  //   @Body('razorpay_payment_id') razorpay_payment_id: string,
-  //   @Body('razorpay_signature') razorpay_signature: string,
-  // ) {
-  //   const isValid = await this.razorpayService.verifyPayment(
-  //     razorpay_signature,
-  //     razorpay_order_id,
-  //     razorpay_payment_id,
-  //   );
-  //   return { valid: isValid };
-  // }
+  constructor(private readonly razorpayService: RazorpayService) { }
+
+  @UseGuards(JwtAuthGuard)
+  @Post('create-order')
+  async createOrder(@Request() req, @Body() dto: CreatePaymentIntentDto) {
+    return this.razorpayService.createOrder(dto, req.user.customerProfileId);
+  }
+
+  @Post('verify-payment')
+  async verifyPayment(@Body() body: {
+    razorpay_order_id: string;
+    razorpay_payment_id: string;
+    razorpay_signature: string;
+  }) {
+    return this.razorpayService.verifyPaymentSignature(
+      body.razorpay_order_id,
+      body.razorpay_payment_id,
+      body.razorpay_signature
+    );
+  }
+
+  // Add endpoints for verifying payments, handling webhooks, etc.
 }

@@ -1,27 +1,26 @@
-import { DynamicModule, Module } from '@nestjs/common';
-import { ConfigModule, ConfigService } from '@nestjs/config';
-import { RazorpayController } from './razorpay.controller';
-import { OrdersModule } from 'src/orders/orders.module';
-import { OrdersService } from 'src/orders/orders.service';
-import { RazorpayService } from './razorpay.service';
+// src/razorpay/razorpay.module.ts
+import { Module, DynamicModule } from '@nestjs/common';
+import Razorpay from 'razorpay';
+import { PrismaModule } from '../prisma/prisma.module';
+
+export interface RazorpayModuleOptions {
+  key_id: string;
+  key_secret: string;
+}
 
 @Module({})
 export class RazorpayModule {
-  static forRootAsync(): DynamicModule {
+  static forRoot(options: RazorpayModuleOptions): DynamicModule {
     return {
       module: RazorpayModule,
-      controllers: [RazorpayController],
-      imports: [ConfigModule.forRoot(), OrdersModule],
       providers: [
-        OrdersService,
-        RazorpayService,
         {
-          provide: 'STRIPE_API_KEY',
-          useFactory: async (configService: ConfigService) =>
-            configService.get('STRIPE_API_KEY'),
-          inject: [ConfigService],
+          provide: 'RAZORPAY_CLIENT', // Token to inject Razorpay instance
+          useValue: new Razorpay(options),
         },
       ],
+      exports: ['RAZORPAY_CLIENT'], // Export for injection in other modules
+      imports: [PrismaModule]
     };
   }
 }

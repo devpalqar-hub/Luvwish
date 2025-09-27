@@ -32,7 +32,10 @@ import { BankDetailsModule } from './bank-details/bank-details.module';
     WishlistModule,
     BankDetailsModule,
 
-    RazorpayModule.forRootAsync(),
+    RazorpayModule.forRoot({
+      key_id: process.env.RAZORPAY_KEY_ID, // Use environment variables for keys
+      key_secret: process.env.RAZORPAY_KEY_SECRET,
+    }),
   ],
 })
 export class AppModule { }
