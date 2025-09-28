@@ -72,7 +72,6 @@ export class RazorpayService {
             quantity: item.quantity,
             discountedPrice: item.discountedPrice,
             actualPrice: item.actualPrice,
-            paymentId: 'razorpay_temp', // placeholder, will update after Razorpay order creation
           })),
         },
       },
@@ -82,7 +81,7 @@ export class RazorpayService {
     // 3️⃣ Create Razorpay order
     const options = {
       amount: Math.round(amount * 100), // in paisa
-      currency: currency ?? 'INR',
+      currency: 'INR',
       receipt: order.orderNumber,
     };
 
@@ -110,34 +109,46 @@ export class RazorpayService {
     }
   }
 
-  async verifyPaymentSignature(razorpayOrderId: string, razorpayPaymentId: string, razorpaySignature: string) {
+
+  async verifyPaymentSignature(
+    razorpayOrderId: string,
+    razorpayPaymentId: string,
+    razorpaySignature: string,
+  ) {
+    // Step 1: Generate expected signature
     const generatedSignature = crypto
       .createHmac('sha256', process.env.RAZORPAY_KEY_SECRET)
-      .update(razorpayOrderId + '|' + razorpayPaymentId)
+      .update(`${razorpayOrderId}|${razorpayPaymentId}`)
       .digest('hex');
 
-    if (generatedSignature === razorpaySignature) {
-      // Payment verified
-      const existingOrder = await this.prisma.order.findUnique({
-        where: { trackingID: razorpayOrderId },
-      });
-      if (!existingOrder) {
-        return { success: false, message: 'Order not found for verification' };
-      }
-      const order = await this.prisma.order.update({
-        where: { id: existingOrder.id },
-        data: {
-          paymentStatus: 'completed',
-          status: 'confirmed',
-        },
-      });
-      return { success: true, order };
-    } else {
-      // Signature mismatch
+    if (generatedSignature !== razorpaySignature) {
       return { success: false, message: 'Payment verification failed' };
     }
-  }
 
+    // Step 2: Find your DB order by razorpayOrderId (trackingID) or orderNumber (receipt)
+    const existingOrder = await this.prisma.order.findFirst({
+      where: {
+        trackingID: razorpayOrderId, // if you stored it here
+        // OR
+        // orderNumber: yourReceipt
+      },
+    });
+
+    if (!existingOrder) {
+      return { success: false, message: 'Order not found for verification' };
+    }
+
+    // Step 3: Update payment status
+    const order = await this.prisma.order.update({
+      where: { id: existingOrder.id },
+      data: {
+        paymentStatus: 'completed',
+        status: 'confirmed',
+      },
+    });
+
+    return { success: true, order };
+  }
 
 
   // Add more methods for payment verification, refunds, etc.

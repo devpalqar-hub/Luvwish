@@ -1,7 +1,5 @@
-// src/razorpay/razorpay.module.ts
 import { Module, DynamicModule } from '@nestjs/common';
-import Razorpay from 'razorpay';
-import { PrismaModule } from '../prisma/prisma.module';
+const Razorpay = require('razorpay');
 
 export interface RazorpayModuleOptions {
   key_id: string;
@@ -11,16 +9,20 @@ export interface RazorpayModuleOptions {
 @Module({})
 export class RazorpayModule {
   static forRoot(options: RazorpayModuleOptions): DynamicModule {
+    const razorpayProvider = {
+      provide: 'RAZORPAY_CLIENT',
+      useFactory: () => {
+        return new Razorpay({
+          key_id: options.key_id,
+          key_secret: options.key_secret,
+        });
+      },
+    };
+
     return {
       module: RazorpayModule,
-      providers: [
-        {
-          provide: 'RAZORPAY_CLIENT', // Token to inject Razorpay instance
-          useValue: new Razorpay(options),
-        },
-      ],
-      exports: ['RAZORPAY_CLIENT'], // Export for injection in other modules
-      imports: [PrismaModule]
+      providers: [razorpayProvider],
+      exports: [razorpayProvider],
     };
   }
 }
