@@ -13,6 +13,7 @@ import { CouponModule } from './coupouns/coupouns.module';
 import { NotificationsModule } from './firebase/notifications.module';
 import { WishlistModule } from './wishlist/wishlist.module';
 import { BankDetailsModule } from './bank-details/bank-details.module';
+import { MailerModule } from '@nestjs-modules/mailer';
 
 @Module({
   imports: [
@@ -32,7 +33,24 @@ import { BankDetailsModule } from './bank-details/bank-details.module';
     WishlistModule,
     BankDetailsModule,
 
-    RazorpayModule.forRootAsync(),
+    RazorpayModule.forRoot({
+      key_id: process.env.RAZORPAY_KEY_ID, // Use environment variables for keys
+      key_secret: process.env.RAZORPAY_KEY_SECRET,
+    }),
+    MailerModule.forRoot({
+      transport: {
+        host: 'smtp.gmail.com',       // your SMTP host
+        port: 587,
+        secure: false,
+        auth: {
+          user: process.env.MAIL_USER,
+          pass: process.env.MAIL_PASS,
+        },
+      },
+      defaults: {
+        from: '"No Reply" <no-wishyougrowth@gmail.com>',
+      },
+    }),
   ],
 })
 export class AppModule { }

@@ -9,7 +9,7 @@ import { PaginationDto } from 'src/pagination/dto/pagination.dto';
 import { PaginationResponseDto } from 'src/pagination/pagination-response.dto';
 @Injectable()
 export class WishlistService {
-  constructor(private prisma: PrismaService) {}
+  constructor(private prisma: PrismaService) { }
 
   async addToWishlist(dto: CreateWishlistDto, userId: string) {
     const { productId } = dto;
@@ -55,7 +55,13 @@ export class WishlistService {
     const [data, total] = await this.prisma.$transaction([
       this.prisma.wishlist.findMany({
         where: { customerProfileId: customerProfile.id }, // ✅ correct FK
-        include: { product: true },
+        include: {
+          product: {
+            include: {
+              images: true, // ✅ fixed include syntax
+            },
+          },
+        },
         skip: pagination.skip,
         take: pagination.limit,
         orderBy: { createdAt: 'desc' },
@@ -72,6 +78,7 @@ export class WishlistService {
       pagination.limit,
     );
   }
+
 
   async removeFromWishlist(id: string, userId: string) {
     const customerProfile = await this.prisma.customerProfile.findUnique({

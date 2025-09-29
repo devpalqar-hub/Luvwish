@@ -6,6 +6,8 @@ CREATE TABLE `users` (
     `created_at` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
     `updated_at` DATETIME(3) NOT NULL,
     `password` VARCHAR(191) NULL,
+    `resetOtp` VARCHAR(191) NULL DEFAULT '0',
+    `resetOtpExpiresAt` DATETIME(3) NULL DEFAULT CURRENT_TIMESTAMP(3),
 
     UNIQUE INDEX `users_email_key`(`email`),
     PRIMARY KEY (`id`)
