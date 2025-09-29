@@ -14,6 +14,10 @@ import { NotificationsModule } from './firebase/notifications.module';
 import { WishlistModule } from './wishlist/wishlist.module';
 import { BankDetailsModule } from './bank-details/bank-details.module';
 import { MailerModule } from '@nestjs-modules/mailer';
+import { AddressModule } from './address/address.module';
+import { RazorpayService } from './razorpay/razorpay.service';
+import { RazorpayController } from './razorpay/razorpay.controller';
+import { OrdersModule } from './orders/orders.module';
 
 @Module({
   imports: [
@@ -32,6 +36,8 @@ import { MailerModule } from '@nestjs-modules/mailer';
     NotificationsModule,
     WishlistModule,
     BankDetailsModule,
+    AddressModule,
+    OrdersModule,
 
     RazorpayModule.forRoot({
       key_id: process.env.RAZORPAY_KEY_ID, // Use environment variables for keys
@@ -52,5 +58,7 @@ import { MailerModule } from '@nestjs-modules/mailer';
       },
     }),
   ],
+  providers: [RazorpayService],
+  controllers: [RazorpayController],
 })
 export class AppModule { }

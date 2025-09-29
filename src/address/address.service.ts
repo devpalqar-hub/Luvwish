@@ -9,51 +9,96 @@ import { UpdateAddressDto } from './dto/update-address.dto';
 
 @Injectable()
 export class AddressService {
-  constructor(private prisma: PrismaService) {}
+  constructor(private prisma: PrismaService) { }
 
   async create(createAddressDto: CreateAddressDto, profile_id: string) {
     const profile = await this.prisma.customerProfile.findUnique({
-      where: { id: profile_id },
+      where: { userId: profile_id },
     });
     if (!profile) {
       throw new NotFoundException('CustomerProfile Not Found');
     }
     return this.prisma.address.create({
-      data: { ...createAddressDto, customerProfileId: profile_id },
+      data: { ...createAddressDto, customerProfileId: profile.id },
     });
   }
 
+  // ✅ GET ALL addresses of a profile
   async findAll(profile_id: string) {
+    const profile = await this.prisma.customerProfile.findUnique({
+      where: { userId: profile_id },
+    });
+    if (!profile) {
+      throw new NotFoundException('CustomerProfile Not Found');
+    }
     return this.prisma.address.findMany({
-      where: { customerProfileId: profile_id },
+      where: { customerProfileId: profile.id },
       orderBy: { createdAt: 'desc' },
     });
   }
 
-  async findOne(profile_id: string, id: string) {
-    const address = await this.prisma.address.findUnique({ where: { id } });
-    if (!address)
-      throw new NotFoundException(`Address with id ${id} not found`);
-    if (address.customerProfileId !== profile_id) {
-      throw new ForbiddenException(
-        'You are not allowed to access this address',
-      );
+  // ✅ GET BY ID
+  async findOne(profile_id: string, addressId: string) {
+    const profile = await this.prisma.customerProfile.findUnique({
+      where: { userId: profile_id },
+    });
+    if (!profile) {
+      throw new NotFoundException('CustomerProfile Not Found');
+    }
+    const address = await this.prisma.address.findFirst({
+      where: { id: addressId, customerProfileId: profile.id },
+    });
+    if (!address) {
+      throw new NotFoundException('Address not found');
     }
     return address;
   }
 
-  async update(profile_id: string, id: string, dto: UpdateAddressDto) {
-    await this.findOne(profile_id, id); // ensure belongs to profile
+  // ✅ UPDATE
+  // update method
+  async update(profile_id: string, addressId: string, updateDto: UpdateAddressDto) {
+    // fetch profile first
+    const profile = await this.prisma.customerProfile.findUnique({
+      where: { userId: profile_id },
+    });
+    if (!profile) {
+      throw new NotFoundException('CustomerProfile Not Found');
+    }
+
+    // ensure address belongs to the profile
+    const address = await this.prisma.address.findFirst({
+      where: { id: addressId, customerProfileId: profile.id },
+    });
+    if (!address) {
+      throw new NotFoundException('Address not found');
+    }
+
+    // remove customerProfileId if accidentally passed
+    const { customerProfileId, ...data } = updateDto;
+
     return this.prisma.address.update({
-      where: { id },
-      data: dto,
+      where: { id: addressId },
+      data, // 👈 safe update (no foreign key overwrite)
     });
   }
 
-  async remove(profile_id: string, id: string) {
-    await this.findOne(profile_id, id); // ensure belongs to profile
+
+  // ✅ DELETE
+  async remove(profile_id: string, addressId: string) {
+    const profile = await this.prisma.customerProfile.findUnique({
+      where: { userId: profile_id },
+    });
+    if (!profile) {
+      throw new NotFoundException('CustomerProfile Not Found');
+    }
+    const address = await this.prisma.address.findFirst({
+      where: { id: addressId, customerProfileId: profile.id },
+    });
+    if (!address) {
+      throw new NotFoundException('Address not found');
+    }
     return this.prisma.address.delete({
-      where: { id },
+      where: { id: addressId },
     });
   }
 }
