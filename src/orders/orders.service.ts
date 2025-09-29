@@ -9,6 +9,7 @@ import { UpdateOrderDto } from './dto/update-orders.dto';
 import { OrderStatus } from '@prisma/client';
 import { PaginationResponseDto } from 'src/pagination/pagination-response.dto';
 import { PaginationDto } from 'src/pagination/dto/pagination.dto';
+import { UpdateOrderStatusDto } from './dto/update-order-status.dto';
 
 @Injectable()
 export class OrdersService {
@@ -155,5 +156,29 @@ export class OrdersService {
         shippingAddress: true,
       },
     });
+  }
+
+  async updateOrderStatus(id: string, dto: UpdateOrderStatusDto) {
+    // ensure order exists
+    const existing = await this.prisma.order.findUnique({ where: { id } });
+    if (!existing) throw new NotFoundException(`Order with id ${id} not found`);
+
+    // update
+    const updated = await this.prisma.order.update({
+      where: { id },
+      data: {
+        ...(dto.status && { status: dto.status }),
+        ...(dto.paymentStatus && { paymentStatus: dto.paymentStatus }),
+      },
+      include: {
+        items: true,
+        shippingAddress: true,
+      },
+    });
+
+    return {
+      message: 'Order updated successfully',
+      data: updated,
+    };
   }
 }

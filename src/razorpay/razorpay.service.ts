@@ -11,6 +11,10 @@ export class RazorpayService {
 
   async createOrder(dto: CreatePaymentIntentDto, customerProfileId: string) {
     const { productId, quantity, cartId, currency } = dto;
+    const customerProfile = await this.prisma.customerProfile.findUnique({
+      where: { userId: customerProfileId },
+    });
+    if (!customerProfile) throw new Error('Customer profile not found');
 
     let amount = 0;
     let orderItemsData = []; // for creating order_items
@@ -35,7 +39,7 @@ export class RazorpayService {
     else if (cartId) {
       // Get all cart items for the customer
       const cartItems = await this.prisma.cartItem.findMany({
-        where: { customerProfileId: customerProfileId },
+        where: { customerProfileId: customerProfile.id },
         include: { product: true },
       });
 
@@ -61,11 +65,11 @@ export class RazorpayService {
     // 2️⃣ Create Order in DB with pending status
     const order = await this.prisma.order.create({
       data: {
+        customerProfileId: customerProfile.id,
         orderNumber: `ORD-${Date.now()}`, // simple unique number
         status: 'pending',
         paymentStatus: 'pending',
         totalAmount: amount,
-        customerProfileId,
         items: {
           create: orderItemsData.map((item) => ({
             productId: item.productId,

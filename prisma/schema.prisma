@@ -181,8 +181,8 @@ model Order {
 
   items             OrderItem[]
   shippingAddress   Address?         @relation("ShippingAddress", fields: [shippingAddressId], references: [id])
-  CustomerProfile   CustomerProfile? @relation(fields: [customerProfileId], references: [id])
-  customerProfileId String?
+  CustomerProfile   CustomerProfile @relation(fields: [customerProfileId], references: [id])
+  customerProfileId String
   Payment           Payment[]
 
   @@map("orders")
