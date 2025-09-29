@@ -20,7 +20,7 @@ import { RolesGuard } from 'src/common/guards/roles.guard';
 import { Roles } from 'src/common/decorators/roles.decorator';
 @Controller('orders')
 export class OrdersController {
-  constructor(private readonly ordersService: OrdersService) {}
+  constructor(private readonly ordersService: OrdersService) { }
 
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('ADMIN')
@@ -32,7 +32,7 @@ export class OrdersController {
   @UseGuards(JwtAuthGuard)
   @Get()
   findAll(@Query() pagination: PaginationDto, @Request() req) {
-    const profile_id = req.user.customerProfile.id;
+    const profile_id = req.user.id;
     return this.ordersService.findAll(pagination, profile_id);
   }
 

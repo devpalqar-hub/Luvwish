@@ -12,7 +12,7 @@ import { PaginationDto } from 'src/pagination/dto/pagination.dto';
 
 @Injectable()
 export class OrdersService {
-  constructor(private prisma: PrismaService) {}
+  constructor(private prisma: PrismaService) { }
 
   async create(createOrderDto: CreateOrderDto) {
     const { items, ...orderData } = createOrderDto;
@@ -36,22 +36,37 @@ export class OrdersService {
   }
 
   async findAll(pagination: PaginationDto, profile_id: string) {
+    const profile = await this.prisma.customerProfile.findUnique({
+      where: { userId: profile_id },
+    });
+    if (!profile) {
+      throw new NotFoundException('CustomerProfile Not Found');
+    }
+
+    const page = Number(pagination.page) || 1;
+    const limit = Number(pagination.limit) || 10;
+    const skip = (page - 1) * limit;
+
+    const whereClause = { customerProfileId: profile.id };
+
     const [data, total] = await this.prisma.$transaction([
       this.prisma.order.findMany({
-        where: { customerProfileId: profile_id },
+        where: whereClause,
+        skip,
+        take: limit,
         include: {
           items: true,
           shippingAddress: true,
         },
         orderBy: { createdAt: 'desc' },
       }),
-      this.prisma.order.count(),
+      this.prisma.order.count({ where: whereClause }),
     ]);
     return new PaginationResponseDto(
       data,
       total,
-      pagination.page,
-      pagination.limit,
+      page,
+      limit,
     );
   }
 
@@ -76,16 +91,16 @@ export class OrdersService {
         ...orderData,
         ...(items
           ? {
-              items: {
-                deleteMany: {}, // clear old items
-                create: items.map((item) => ({
-                  productId: item.productId,
-                  quantity: item.quantity,
-                  actualPrice: item.actualPrice,
-                  discountedPrice: item.discountedPrice,
-                })),
-              },
-            }
+            items: {
+              deleteMany: {}, // clear old items
+              create: items.map((item) => ({
+                productId: item.productId,
+                quantity: item.quantity,
+                actualPrice: item.actualPrice,
+                discountedPrice: item.discountedPrice,
+              })),
+            },
+          }
           : {}),
       },
       include: {
