@@ -17,6 +17,8 @@ import { RolesGuard } from 'src/common/guards/roles.guard';
 import { Roles } from 'src/common/decorators/roles.decorator';
 import { UpdateProductDto } from './dto/update-product.dto';
 import { SearchFilterDto } from 'src/pagination/dto/search-filter.dto';
+import { UpdateStockDto } from './dto/update-stock.dto';
+import { E } from '@faker-js/faker/dist/airline-CHFQMWko';
 
 @Controller('products')
 export class ProductsController {
@@ -53,6 +55,7 @@ export class ProductsController {
   // 🔹 Delete product
   // 🔹 Update product (with images)
   @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('ADMIN')
   @Delete(':id')
   remove(@Param('id') id: string) {
     return this.productsService.remove(id);
@@ -64,6 +67,14 @@ export class ProductsController {
     @Query('customerProfileId') customerProfileId?: string,
   ) {
     return this.productsService.getRelatedProducts(productId, customerProfileId);
+  }
+
+
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('ADMIN')
+  @Patch('update-stock')
+  async updateStock(@Body() dto: UpdateStockDto) {
+    return this.productsService.updateStock(dto);
   }
 
 }

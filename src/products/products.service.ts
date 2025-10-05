@@ -5,6 +5,7 @@ import { PaginationDto } from 'src/pagination/dto/pagination.dto';
 import { PaginationResponseDto } from 'src/pagination/pagination-response.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
 import { SearchFilterDto } from 'src/pagination/dto/search-filter.dto';
+import { UpdateStockDto } from './dto/update-stock.dto';
 
 @Injectable()
 export class ProductsService {
@@ -181,6 +182,28 @@ export class ProductsService {
     }
 
     return productsWithWishlist;
+  }
+
+
+  async updateStock(dto: UpdateStockDto) {
+    const product = await this.prisma.product.findUnique({
+      where: { id: dto.productId },
+    });
+
+    if (!product) {
+      throw new NotFoundException('Product not found');
+    }
+
+    return this.prisma.product.update({
+      where: { id: dto.productId },
+      data: { stockCount: product.stockCount + dto.quantity },
+      select: {
+        id: true,
+        name: true,
+        stockCount: true,
+        updatedAt: true,
+      },
+    });
   }
 
 }

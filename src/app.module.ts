@@ -12,12 +12,13 @@ import { RazorpayModule } from './razorpay/razorpay.module';
 import { CouponModule } from './coupouns/coupouns.module';
 import { NotificationsModule } from './firebase/notifications.module';
 import { WishlistModule } from './wishlist/wishlist.module';
-import { BankDetailsModule } from './bank-details/bank-details.module';
 import { MailerModule } from '@nestjs-modules/mailer';
 import { AddressModule } from './address/address.module';
 import { RazorpayService } from './razorpay/razorpay.service';
 import { RazorpayController } from './razorpay/razorpay.controller';
 import { OrdersModule } from './orders/orders.module';
+import { TrackingDetailModule } from './tracking/tracking-detail.module';
+import { ReviewModule } from './reviews/review.module';
 
 @Module({
   imports: [
@@ -35,9 +36,10 @@ import { OrdersModule } from './orders/orders.module';
     CouponModule,
     NotificationsModule,
     WishlistModule,
-    BankDetailsModule,
     AddressModule,
     OrdersModule,
+    TrackingDetailModule,
+    ReviewModule,
 
     RazorpayModule.forRoot({
       key_id: process.env.RAZORPAY_KEY_ID, // Use environment variables for keys

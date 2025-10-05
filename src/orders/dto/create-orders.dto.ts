@@ -51,7 +51,7 @@ export class CreateOrderDto {
 
   @IsOptional()
   @IsString()
-  trackingID?: string;
+  razorpay_id?: string;
 
   // ✅ Nested items
   @ValidateNested({ each: true })

@@ -1,4 +1,4 @@
-import { IsOptional, IsUUID, IsEnum, IsNumber, Min } from 'class-validator';
+import { IsOptional, IsUUID, IsEnum, IsNumber, Min, IsString } from 'class-validator';
 
 export enum SupportedCurrency {
   USD = 'usd',
@@ -19,6 +19,9 @@ export class CreatePaymentIntentDto {
   @IsNumber()
   @Min(1)
   quantity?: number;
+
+  @IsString()
+  ShippingAddressId: string;
 
   @IsEnum(SupportedCurrency)
   currency: SupportedCurrency;
