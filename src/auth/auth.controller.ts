@@ -24,6 +24,8 @@ import { UpdateCustomerProfileDto } from 'src/users/dto/update-customer-profile.
 import { UsersService } from 'src/users/users.service';
 import { ChangePasswordDto } from 'src/users/dto/change-password.dto';
 import { FileInterceptor } from '@nestjs/platform-express';
+import { ForgotPasswordDto } from './dto/forgot-password.dto';
+import { ResetPasswordDto } from './dto/reset-password.dto';
 
 @Controller('auth')
 export class AuthController {
@@ -102,6 +104,16 @@ export class AuthController {
   @Patch('change-password')
   async changePassword(@Request() req, @Body() dto: ChangePasswordDto) {
     const userId = req.user.id;
-    return this.userService.changePassword(userId, dto);
+    return this.authService.changePassword(userId, dto);
+  }
+
+  @Post('forgot-password')
+  async forgotPassword(@Body() dto: ForgotPasswordDto) {
+    return this.authService.forgotPassword(dto);
+  }
+
+  @Post('reset-password')
+  async resetPassword(@Body() dto: ResetPasswordDto) {
+    return this.authService.resetPassword(dto);
   }
 }

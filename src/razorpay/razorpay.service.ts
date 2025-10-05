@@ -10,17 +10,23 @@ export class RazorpayService {
   constructor(@Inject('RAZORPAY_CLIENT') private readonly razorpayClient: Razorpay, private prisma: PrismaService) { }
 
   async createOrder(dto: CreatePaymentIntentDto, customerProfileId: string) {
-    const { productId, quantity, cartId, currency } = dto;
+    const { productId, quantity, cartId, currency, ShippingAddressId } = dto;
     const customerProfile = await this.prisma.customerProfile.findUnique({
       where: { userId: customerProfileId },
     });
     if (!customerProfile) throw new Error('Customer profile not found');
 
+    const shippingAddrs = await this.prisma.address.findUnique({
+      where: { id: ShippingAddressId, customerProfileId: customerProfile.id },
+    });
+    if (!shippingAddrs) throw new Error('Shipping address is required');
+
     let amount = 0;
-    let orderItemsData = []; // for creating order_items
+    let orderItemsData = [];
 
     // 1️⃣ Calculate total amount
     if (productId) {
+      if (!quantity || quantity < 1) throw new Error('Quantity must be at least 1');
       const pdt = await this.prisma.product.findUnique({
         where: { id: productId },
       });
@@ -37,7 +43,6 @@ export class RazorpayService {
       });
     }
     else if (cartId) {
-      // Get all cart items for the customer
       const cartItems = await this.prisma.cartItem.findMany({
         where: { customerProfileId: customerProfile.id },
         include: { product: true },
@@ -62,14 +67,15 @@ export class RazorpayService {
       throw new Error('Either productId or cartId must be provided');
     }
 
-    // 2️⃣ Create Order in DB with pending status
+    // 2️⃣ Create Order
     const order = await this.prisma.order.create({
       data: {
         customerProfileId: customerProfile.id,
-        orderNumber: `ORD-${Date.now()}`, // simple unique number
+        orderNumber: `ORD-${Date.now()}`,
         status: 'pending',
         paymentStatus: 'pending',
         totalAmount: amount,
+        shippingAddressId: shippingAddrs.id,
         items: {
           create: orderItemsData.map((item) => ({
             productId: item.productId,
@@ -79,35 +85,41 @@ export class RazorpayService {
           })),
         },
       },
-      include: { items: true },
     });
 
-    // 3️⃣ Create Razorpay order
+    // 3️⃣ Clear cart if cartId was given
+    if (cartId) {
+      await this.prisma.cartItem.deleteMany({
+        where: { customerProfileId: customerProfile.id },
+      });
+      // optionally: delete the cart record itself
+      await this.prisma.cartItem.delete({
+        where: { id: cartId },
+      }).catch(() => { }); // ignore if cart is optional
+    }
+
+    // 4️⃣ Create Razorpay order
     const options = {
-      amount: Math.round(amount * 100), // in paisa
+      amount: Math.round(amount * 100),
       currency: 'INR',
       receipt: order.orderNumber,
     };
 
     try {
       const razorpayOrder = await this.razorpayClient.orders.create(options);
-
-      // Optional: store Razorpay order id in DB (trackingID)
-      await this.prisma.order.update({
+      console.log('Razorpay Order:', razorpayOrder.id);
+      const updatedOrder = await this.prisma.order.update({
         where: { id: order.id },
-        data: {
-          trackingID: razorpayOrder.id, // can store Razorpay order id here
-        },
+        data: { razorpay_id: razorpayOrder.id },
       });
 
       return {
         message: 'Order created successfully',
-        order,
+        updatedOrder,
         razorpayOrder,
       };
     } catch (error) {
       console.error('Error creating Razorpay order:', error);
-      // roll back the order if Razorpay order fails
       await this.prisma.order.delete({ where: { id: order.id } });
       throw error;
     }
@@ -132,7 +144,7 @@ export class RazorpayService {
     // Step 2: Find your DB order by razorpayOrderId (trackingID) or orderNumber (receipt)
     const existingOrder = await this.prisma.order.findFirst({
       where: {
-        trackingID: razorpayOrderId, // if you stored it here
+        razorpay_id: razorpayOrderId, // if you stored it here
         // OR
         // orderNumber: yourReceipt
       },

@@ -8,6 +8,7 @@ import {
   Delete,
   UseGuards,
   Request,
+  Query,
   Req,
 } from '@nestjs/common';
 import { CartService } from './cart.service';
@@ -29,9 +30,13 @@ export class CartController {
 
   @UseGuards(JwtAuthGuard)
   @Get()
-  async getCart(@Request() req) {
-    const profile_id = req.user.id;
-    return this.cartService.getCart(profile_id);
+  async getCart(
+    @Request() req,
+    @Query('page') page = '1',
+    @Query('limit') limit = '10',
+  ) {
+    const userId = req.user.id; // 👈 assuming JWT stores `id`
+    return this.cartService.getCart(userId, Number(page), Number(limit));
   }
 
   @UseGuards(JwtAuthGuard)

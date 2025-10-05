@@ -1,0 +1,64 @@
+Testing
+
+address -- done
+auth -- done
+cart -- done 
+coupoun -- done
+notifications -- done
+products -- done
+wishlist -- done
+
+
+razorpay -- remaining
+reviews -- remaining
+orders -- remaining
+
+
+{
+                "id": "52f224b6-f45f-4650-a2a4-086c5bcc7078",
+                "orderNumber": "ORD-1759571212287",
+                "status": "pending",
+                "paymentStatus": "pending",
+                "totalAmount": "398",
+                "shippingCost": "0",
+                "taxAmount": "0",
+                "discountAmount": "0",
+                "notes": null,
+                "trackingID": "order_RPLr9Z1o44wpbJ",
+                "createdAt": "2025-10-04T09:46:52.288Z",
+                "updatedAt": "2025-10-04T09:46:52.515Z",
+                "customerProfileId": "ecd540ee-9041-4f70-ae9e-ef6757f9d126",
+                "shippingAddress": {
+                    "id": "eeb0d4f1-95d1-404c-87c1-4a5e4058407d",
+                    "customerProfileId": "ecd540ee-9041-4f70-ae9e-ef6757f9d126",
+                    "name": "John Doe",
+                    "address": "123 MG Road",
+                    "city": "Bangalore",
+                    "state": "Karnataka",
+                    "postalCode": "560001",
+                    "landmark": "Near Central Mall",
+                    "country": "India",
+                    "phone": "+919876543210",
+                    "isDefault": true,
+                    "createdAt": "2025-10-03T17:58:45.606Z",
+                    "updatedAt": "2025-10-03T17:58:45.606Z"
+                },
+                "items": [
+                    {
+                        "id": "bd6dd7b0-6b4c-4fe8-b98a-6c3ae034fc07",
+                        "quantity": 2,
+                        "product": {
+                            "id": "1ff6de84-5d65-4da8-8b9b-24cf472d4286",
+                            "name": "Period Pain Relief Heat Patch",
+                            "categoryName": "Women's Sanitary Items",
+                            "discountedPrice": "199",
+                            "actualPrice": "249",
+                            "description": "Self-heating period pain relief patch designed to soothe abdominal cramps during menstruation. Provides up to 8 hours of gentle, consistent warmth to relax muscles and reduce discomfort. Slim, discreet, and easy to wear under clothing.",
+                            "stockCount": 595,
+                            "isStock": true,
+                            "createdAt": "2025-10-03T17:09:11.751Z",
+                            "updatedAt": "2025-10-03T17:43:59.479Z"
+                        }
+                    }
+                ]
+            }
