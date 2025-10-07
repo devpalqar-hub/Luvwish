@@ -7,18 +7,18 @@ import {
   Patch,
   Delete,
   UseGuards,
+  Request,
   Query,
 } from '@nestjs/common';
 import { ProductsService } from './products.service';
 import { CreateProductDto } from './dto/create-product.dto';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
-import { PaginationDto } from 'src/pagination/dto/pagination.dto';
 import { RolesGuard } from 'src/common/guards/roles.guard';
 import { Roles } from 'src/common/decorators/roles.decorator';
 import { UpdateProductDto } from './dto/update-product.dto';
 import { SearchFilterDto } from 'src/pagination/dto/search-filter.dto';
 import { UpdateStockDto } from './dto/update-stock.dto';
-import { E } from '@faker-js/faker/dist/airline-CHFQMWko';
+import { OptionalJwtAuthGuard } from 'src/common/guards/ optional-jwt-auth.guard';
 
 @Controller('products')
 export class ProductsController {
@@ -33,10 +33,14 @@ export class ProductsController {
     return this.productsService.create(createProductDto);
   }
 
+  @UseGuards(OptionalJwtAuthGuard)
   @Get()
-  findAll(@Query() query: SearchFilterDto) {
-    return this.productsService.findAll(query);
+  findAll(@Query() query: SearchFilterDto, @Request() req) {
+    // If user is logged in (set by your JWT middleware), use their id
+    const userId = req.user?.id || req.user?.sub; // handle either shape
+    return this.productsService.findAll(query, userId);
   }
+
 
   // 🔹 Get single product
   @Get(':id')

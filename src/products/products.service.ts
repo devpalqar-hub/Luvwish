@@ -6,6 +6,7 @@ import { PaginationResponseDto } from 'src/pagination/pagination-response.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
 import { SearchFilterDto } from 'src/pagination/dto/search-filter.dto';
 import { UpdateStockDto } from './dto/update-stock.dto';
+import { th } from '@faker-js/faker/.';
 
 @Injectable()
 export class ProductsService {
@@ -33,7 +34,16 @@ export class ProductsService {
     });
   }
 
-  async findAll(query: SearchFilterDto, customerProfileId?: string) {
+  async findAll(query: SearchFilterDto, userId?: string) {
+    let customerProfileId: string | undefined; // ✅ Declare outside
+
+    if (userId) {
+      const customerProfile = await this.prisma.customerProfile.findUnique({
+        where: { userId },
+      });
+      customerProfileId = customerProfile?.id; // ✅ Assign inside
+    }
+
     const { search, limit = 10, page = 1, minPrice } = query;
     const skip = (page - 1) * limit;
 
@@ -42,8 +52,8 @@ export class ProductsService {
         search
           ? {
             OR: [
-              { name: { contains: search, } },
-              { description: { contains: search, } },
+              { name: { contains: search } },
+              { description: { contains: search } },
             ],
           }
           : {},
@@ -63,12 +73,16 @@ export class ProductsService {
     ]);
 
     // 🚀 Add is_wishlisted for each product
-    let productsWithWishlist = products;
+    let productsWithWishlist;
     if (customerProfileId) {
       const wishlist = await this.prisma.wishlist.findMany({
-        where: { customerProfileId, productId: { in: products.map(p => p.id) } },
+        where: {
+          customerProfileId,
+          productId: { in: products.map(p => p.id) },
+        },
         select: { productId: true },
       });
+
       const wishlistedIds = new Set(wishlist.map(w => w.productId));
 
       productsWithWishlist = products.map(p => ({
@@ -85,6 +99,7 @@ export class ProductsService {
 
     return new PaginationResponseDto(productsWithWishlist, total, page, limit);
   }
+
 
 
 
