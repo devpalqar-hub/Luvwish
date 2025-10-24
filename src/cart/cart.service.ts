@@ -64,12 +64,6 @@ export class CartService {
       });
     }
 
-    // 6. Update product stock (optional, if you want stock to reduce immediately)
-    await this.prisma.product.update({
-      where: { id: productId },
-      data: { stockCount: { decrement: quantity } },
-    });
-
     return {
       message: 'Product added to cart successfully',
       cartItem,
@@ -82,9 +76,7 @@ export class CartService {
     });
     if (!customerProfile)
       throw new NotFoundException('Customer profile not found');
-
     const skip = (page - 1) * limit;
-
     // 1️⃣ Get paginated cart items
     const [cartItems, totalCount] = await this.prisma.$transaction([
       this.prisma.cartItem.findMany({
