@@ -9,6 +9,7 @@ import { UpdateOrderDto } from './dto/update-orders.dto';
 import { OrderStatus } from '@prisma/client';
 import { PaginationResponseDto } from 'src/pagination/pagination-response.dto';
 import { PaginationDto } from 'src/pagination/dto/pagination.dto';
+import { UpdateOrderStatusDto } from './dto/update-order-status.dto';
 
 @Injectable()
 export class OrdersService {
@@ -54,21 +55,43 @@ export class OrdersService {
         where: whereClause,
         skip,
         take: limit,
-        include: {
-          items: true,
-          shippingAddress: true,
+        select: {
+          id: true,
+          orderNumber: true,
+          status: true,
+          paymentStatus: true,
+          totalAmount: true,
+          shippingCost: true,
+          taxAmount: true,
+          discountAmount: true,
+          notes: true,
+          razorpay_id: true,
+          createdAt: true,
+          updatedAt: true,
+          customerProfileId: true,
+          // 🚫 omit shippingAddressId
+          shippingAddress: true, // ✅ include full address object
+          tracking: true,
+          items: {
+            select: {
+              id: true,
+              quantity: true,
+              discountedPrice: false,
+              actualPrice: false,
+              product: true, // ✅ include product details
+            },
+          },
         },
         orderBy: { createdAt: 'desc' },
       }),
       this.prisma.order.count({ where: whereClause }),
     ]);
-    return new PaginationResponseDto(
-      data,
-      total,
-      page,
-      limit,
-    );
+
+    return new PaginationResponseDto(data, total, page, limit);
   }
+
+
+
 
   async findOne(id: string) {
     const order = await this.prisma.order.findUnique({
@@ -79,6 +102,51 @@ export class OrdersService {
       },
     });
     if (!order) throw new NotFoundException(`Order with id ${id} not found`);
+    return order;
+  }
+
+  async findOneOrder(orderId: string, profile_id: string) {
+    // find customer profile
+    const profile = await this.prisma.customerProfile.findUnique({
+      where: { userId: profile_id },
+    });
+    if (!profile) {
+      throw new NotFoundException('CustomerProfile Not Found');
+    }
+
+    // find the order belonging to this customer
+    const order = await this.prisma.order.findFirst({
+      where: { id: orderId, customerProfileId: profile.id },
+      select: {
+        id: true,
+        orderNumber: true,
+        status: true,
+        paymentStatus: true,
+        totalAmount: true,
+        shippingCost: true,
+        taxAmount: true,
+        discountAmount: true,
+        notes: true,
+        razorpay_id: true,
+        createdAt: true,
+        updatedAt: true,
+        customerProfileId: true,
+        shippingAddress: true,
+        tracking: true,
+        items: {
+          select: {
+            id: true,
+            quantity: true,
+            product: true,
+          },
+        },
+      },
+    });
+
+    if (!order) {
+      throw new NotFoundException(`Order with ID ${orderId} not found`);
+    }
+
     return order;
   }
 
@@ -137,23 +205,102 @@ export class OrdersService {
     });
   }
 
-  async updateTrackingDetails(orderId: string, trackingDetails: string) {
-    // 1. Check if order exists
-    const order = await this.prisma.order.findUnique({
-      where: { id: orderId },
-    });
-    if (!order)
-      throw new NotFoundException(`Order with id ${orderId} not found`);
-    return this.prisma.order.update({
-      where: { id: orderId },
+  async updateOrderStatus(id: string, dto: UpdateOrderStatusDto) {
+    // ensure order exists
+    const existing = await this.prisma.order.findUnique({ where: { id } });
+    if (!existing) throw new NotFoundException(`Order with id ${id} not found`);
+
+    // update
+    const updated = await this.prisma.order.update({
+      where: { id },
       data: {
-        trackingID: trackingDetails, // make sure your Order model has this field
-        status: 'shipped', // or 'processing', depending on your workflow
+        ...(dto.status && { status: dto.status }),
+        ...(dto.paymentStatus && { paymentStatus: dto.paymentStatus }),
       },
       include: {
         items: true,
         shippingAddress: true,
       },
     });
+
+    return {
+      message: 'Order updated successfully',
+      data: updated,
+    };
   }
+
+
+  async adminFindAll(pagination: PaginationDto & {
+    search?: string;
+    status?: string;
+    startDate?: string;
+    endDate?: string;
+  }) {
+    const page = Number(pagination.page) || 1;
+    const limit = Number(pagination.limit) || 10;
+    const skip = (page - 1) * limit;
+
+    // Build where clause dynamically
+    const whereClause: any = {};
+
+    if (pagination.search) {
+      whereClause.orderNumber = {
+        contains: pagination.search.toLowerCase()
+      };
+    }
+
+    if (pagination.status) {
+      whereClause.status = pagination.status;
+    }
+
+    if (pagination.startDate && pagination.endDate) {
+      whereClause.createdAt = {
+        gte: new Date(pagination.startDate),
+        lte: new Date(pagination.endDate),
+      };
+    }
+
+    const [data, total] = await this.prisma.$transaction([
+      this.prisma.order.findMany({
+        where: whereClause,
+        skip,
+        take: limit,
+        orderBy: { createdAt: 'desc' },
+        select: {
+          id: true,
+          orderNumber: true,
+          status: true,
+          paymentStatus: true,
+          totalAmount: true,
+          shippingCost: true,
+          taxAmount: true,
+          discountAmount: true,
+          notes: true,
+          razorpay_id: true,
+          createdAt: true,
+          updatedAt: true,
+          CustomerProfile: { select: { id: true, name: true } },
+          shippingAddress: true,
+          tracking: true,
+          items: {
+            select: {
+              id: true,
+              quantity: true,
+              product: {
+                select: {
+                  id: true,
+                  name: true,
+                  actualPrice: true,
+                },
+              },
+            },
+          },
+        },
+      }),
+      this.prisma.order.count({ where: whereClause }),
+    ]);
+
+    return new PaginationResponseDto(data, total, page, limit);
+  }
+
 }

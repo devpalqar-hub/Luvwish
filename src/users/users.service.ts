@@ -251,9 +251,10 @@ export class UsersService {
       throw new BadRequestException('Old password is incorrect');
     }
     const hashed = await bcrypt.hash(dto.newPassword, 10);
-    return this.prisma.user.update({
+    this.prisma.user.update({
       where: { id: userId },
       data: { password: hashed },
     });
+    return { message: 'Password changed successfully' };
   }
 }

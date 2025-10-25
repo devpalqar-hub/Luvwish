@@ -11,6 +11,10 @@ import { OrderStatus, PaymentStatus } from '@prisma/client';
 import { CreateOrderItemDto } from './create-order-item.dto';
 
 export class CreateOrderDto {
+
+  @IsString()
+  customerProfileId: string;
+
   @IsString()
   orderNumber: string;
 
@@ -47,7 +51,7 @@ export class CreateOrderDto {
 
   @IsOptional()
   @IsString()
-  trackingID?: string;
+  razorpay_id?: string;
 
   // ✅ Nested items
   @ValidateNested({ each: true })
