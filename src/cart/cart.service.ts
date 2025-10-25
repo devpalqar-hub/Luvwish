@@ -64,30 +64,61 @@ export class CartService {
       });
     }
 
-    // 6. Update product stock (optional, if you want stock to reduce immediately)
-    await this.prisma.product.update({
-      where: { id: productId },
-      data: { stockCount: { decrement: quantity } },
-    });
-
     return {
       message: 'Product added to cart successfully',
       cartItem,
     };
   }
 
-  async getCart(userId: string) {
+  async getCart(userId: string, page = 1, limit = 10) {
     const customerProfile = await this.prisma.customerProfile.findUnique({
       where: { userId },
     });
     if (!customerProfile)
       throw new NotFoundException('Customer profile not found');
+    const skip = (page - 1) * limit;
+    // 1️⃣ Get paginated cart items
+    const [cartItems, totalCount] = await this.prisma.$transaction([
+      this.prisma.cartItem.findMany({
+        where: { customerProfileId: customerProfile.id },
+        skip,
+        take: limit,
+        include: {
+          product: {
+            include: { images: true },
+          },
+        },
+        orderBy: { createdAt: 'desc' },
+      }),
+      this.prisma.cartItem.count({
+        where: { customerProfileId: customerProfile.id },
+      }),
+    ]);
 
-    return this.prisma.cartItem.findMany({
+    // 2️⃣ Calculate total amount of *all items*, not just paginated ones
+    const allCartItems = await this.prisma.cartItem.findMany({
       where: { customerProfileId: customerProfile.id },
-      include: { product: { include: { images: true } } },
+      include: { product: true },
     });
+
+    const totalAmount = allCartItems.reduce((sum, item) => {
+      if (!item.product) return sum;
+      const qty = item.quantity ?? 1;
+      return sum + Number(item.product.discountedPrice) * qty;
+    }, 0);
+
+    return {
+      items: cartItems,
+      totalAmount,
+      pagination: {
+        page,
+        limit,
+        totalCount,
+        totalPages: Math.ceil(totalCount / limit),
+      },
+    };
   }
+
 
   async updateCartItem(
     userId: string,
