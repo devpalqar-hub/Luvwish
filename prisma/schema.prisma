@@ -115,10 +115,38 @@ model UserOtp {
   @@index([userId])
 }
 
+model Category {
+  id          String   @id @default(uuid())
+  name        String   @unique
+  slug        String   @unique
+  description String?  @db.Text
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  subCategories SubCategory[]
+
+  @@map("categories")
+}
+
+model SubCategory {
+  id          String   @id @default(uuid())
+  name        String
+  slug        String   @unique
+  description String?  @db.Text
+  categoryId  String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  category Category  @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  products Product[]
+
+  @@map("sub_categories")
+}
+
 model Product {
   id              String   @id @default(uuid())
   name            String
-  categoryName    String
+  subCategoryId   String?
   discountedPrice Decimal  @db.Decimal(10, 2)
   actualPrice     Decimal  @db.Decimal(10, 2)
   description     String?  @db.Text
@@ -127,11 +155,13 @@ model Product {
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
-  images     ProductImage[]
-  cartItems  CartItem[]
-  orderItems OrderItem[]
-  reviews    Review[]
-  Wishlist   Wishlist[]
+  subCategory  SubCategory?        @relation(fields: [subCategoryId], references: [id], onDelete: SetNull)
+  images       ProductImage[]
+  variations   ProductVariation[]
+  cartItems    CartItem[]
+  orderItems   OrderItem[]
+  reviews      Review[]
+  Wishlist     Wishlist[]
 
   @@map("products")
 }
@@ -149,18 +179,50 @@ model ProductImage {
   @@map("product_images")
 }
 
-model CartItem {
-  id        String   @id @default(uuid())
-  productId String?
-  quantity  Int?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+model ProductVariation {
+  id         String   @id @default(uuid())
+  productId  String
+  sku        String   @unique
+  price      Decimal  @db.Decimal(10, 2)
+  stockCount Int      @default(0)
+  isActive   Boolean  @default(true)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
 
-  product           Product?         @relation(fields: [productId], references: [id], onDelete: Cascade)
-  CustomerProfile   CustomerProfile? @relation(fields: [customerProfileId], references: [id])
+  product    Product           @relation(fields: [productId], references: [id], onDelete: Cascade)
+  options    VariationOption[]
+  cartItems  CartItem[]
+  orderItems OrderItem[]
+
+  @@map("product_variations")
+}
+
+model VariationOption {
+  id                 String   @id @default(uuid())
+  productVariationId String
+  attributeName      String
+  attributeValue     String
+  createdAt          DateTime @default(now())
+
+  productVariation ProductVariation @relation(fields: [productVariationId], references: [id], onDelete: Cascade)
+
+  @@map("variation_options")
+}
+
+model CartItem {
+  id                 String   @id @default(uuid())
+  productId          String?
+  productVariationId String?
+  quantity           Int?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  product           Product?          @relation(fields: [productId], references: [id], onDelete: Cascade)
+  productVariation  ProductVariation? @relation(fields: [productVariationId], references: [id], onDelete: Cascade)
+  CustomerProfile   CustomerProfile?  @relation(fields: [customerProfileId], references: [id])
   customerProfileId String?
 
-  @@unique([customerProfileId, productId])
+  @@unique([customerProfileId, productId, productVariationId])
   @@map("cart_items")
 }
 
@@ -190,16 +252,19 @@ model Order {
 }
 
 model OrderItem {
-  id              String  @id @default(uuid())
-  orderId         String
-  productId       String
-  quantity        Int
-  discountedPrice Decimal @db.Decimal(10, 2)
-  actualPrice     Decimal @db.Decimal(10, 2)
+  id                 String  @id @default(uuid())
+  orderId            String
+  productId          String
+  productVariationId String?
+  variationDetails   Json?
+  quantity           Int
+  discountedPrice    Decimal @db.Decimal(10, 2)
+  actualPrice        Decimal @db.Decimal(10, 2)
 
-  order   Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  product Product @relation(fields: [productId], references: [id])
-  Review  Review?
+  order            Order             @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product          Product           @relation(fields: [productId], references: [id])
+  productVariation ProductVariation? @relation(fields: [productVariationId], references: [id], onDelete: SetNull)
+  Review           Review?
 
   @@map("order_items")
 }
