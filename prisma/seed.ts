@@ -53,7 +53,6 @@ async function main() {
     const productsData = [
         {
             name: "Organic Cotton Sanitary Pads - Ultra Thin",
-            categoryName: "Women's Sanitary Items",
             discountedPrice: 149,
             actualPrice: 199,
             stockCount: 500,
@@ -68,7 +67,6 @@ async function main() {
         },
         {
             name: "Herbal Pantyliners - Daily Fresh",
-            categoryName: "Women's Sanitary Items",
             discountedPrice: 79,
             actualPrice: 99,
             stockCount: 300,
@@ -82,7 +80,6 @@ async function main() {
         },
         {
             name: "Overnight Sanitary Pads - XL",
-            categoryName: "Women's Sanitary Items",
             discountedPrice: 199,
             actualPrice: 249,
             stockCount: 450,
@@ -96,7 +93,6 @@ async function main() {
         },
         {
             name: "Reusable Menstrual Cup - Medium",
-            categoryName: "Women's Sanitary Items",
             discountedPrice: 499,
             actualPrice: 699,
             stockCount: 200,
@@ -110,7 +106,6 @@ async function main() {
         },
         {
             name: "Period Pain Relief Heat Patch",
-            categoryName: "Women's Sanitary Items",
             discountedPrice: 199,
             actualPrice: 249,
             stockCount: 600,
@@ -134,7 +129,6 @@ async function main() {
         const product = await prisma.product.create({
             data: {
                 name: faker.commerce.productName(),
-                categoryName: faker.commerce.department(),
                 discountedPrice: faker.number.float({ min: 100, max: 500, fractionDigits: 2 }),
                 actualPrice: faker.number.float({ min: 500, max: 1000, fractionDigits: 2 }),
                 description: faker.commerce.productDescription(),
