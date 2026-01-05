@@ -30,7 +30,19 @@ export class ProductsService {
           }
           : undefined,
       },
-      include: { images: true },
+      include: {
+        images: true,
+        subCategory: {
+          include: {
+            category: true,
+          },
+        },
+        variations: {
+          include: {
+            options: true,
+          },
+        },
+      },
     });
   }
 
@@ -44,7 +56,7 @@ export class ProductsService {
       customerProfileId = customerProfile?.id; // ✅ Assign inside
     }
 
-    const { search, limit = 10, page = 1, minPrice } = query;
+    const { search, limit = 10, page = 1, minPrice, maxPrice, categoryId, subCategoryId } = query;
     const skip = (page - 1) * limit;
 
     const where: any = {
@@ -57,14 +69,29 @@ export class ProductsService {
             ],
           }
           : {},
-        minPrice ? { discountedPrice: { lt: minPrice } } : {},
-      ],
+        minPrice ? { discountedPrice: { gte: minPrice } } : {},
+        maxPrice ? { discountedPrice: { lte: maxPrice } } : {},
+        subCategoryId ? { subCategoryId } : {},
+        categoryId ? { subCategory: { categoryId } } : {},
+      ].filter(condition => Object.keys(condition).length > 0),
     };
 
     const [products, total] = await this.prisma.$transaction([
       this.prisma.product.findMany({
         where,
-        include: { images: true },
+        include: {
+          images: true,
+          subCategory: {
+            include: {
+              category: true,
+            },
+          },
+          variations: {
+            include: {
+              options: true,
+            },
+          },
+        },
         orderBy: { createdAt: 'desc' },
         skip,
         take: limit,
@@ -107,7 +134,19 @@ export class ProductsService {
   async findOne(id: string) {
     const product = await this.prisma.product.findUnique({
       where: { id },
-      include: { images: true },
+      include: {
+        images: true,
+        subCategory: {
+          include: {
+            category: true,
+          },
+        },
+        variations: {
+          include: {
+            options: true,
+          },
+        },
+      },
     });
 
     if (!product)
@@ -137,7 +176,19 @@ export class ProductsService {
           }
           : {}),
       },
-      include: { images: true },
+      include: {
+        images: true,
+        subCategory: {
+          include: {
+            category: true,
+          },
+        },
+        variations: {
+          include: {
+            options: true,
+          },
+        },
+      },
     });
   }
 
@@ -172,7 +223,19 @@ export class ProductsService {
           },
         ],
       },
-      include: { images: true },
+      include: {
+        images: true,
+        subCategory: {
+          include: {
+            category: true,
+          },
+        },
+        variations: {
+          include: {
+            options: true,
+          },
+        },
+      },
       take: 10, // limit related products
     });
 
