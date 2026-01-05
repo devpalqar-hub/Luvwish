@@ -1,4 +1,4 @@
-import { IsOptional, IsString } from 'class-validator';
+import { IsOptional, IsString, IsUUID } from 'class-validator';
 import { PaginationDto } from './pagination.dto';
 
 export class SearchFilterDto extends PaginationDto {
@@ -8,7 +8,15 @@ export class SearchFilterDto extends PaginationDto {
 
   @IsOptional()
   @IsString()
-  category?: string;
+  category?: string; // Deprecated: use categoryId instead
+
+  @IsOptional()
+  @IsUUID()
+  categoryId?: string;
+
+  @IsOptional()
+  @IsUUID()
+  subCategoryId?: string;
 
   @IsOptional()
   minPrice?: number;
