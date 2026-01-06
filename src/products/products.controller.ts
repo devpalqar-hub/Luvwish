@@ -29,11 +29,11 @@ export class ProductsController {
   constructor(
     private readonly productsService: ProductsService,
     private readonly s3Service: S3Service,
-  ) { }
+  ) {}
 
   // 🔹 Create product with images
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('ADMIN')
+  @Roles('ADMIN', 'SUPER_ADMIN')
   @Post()
   @UseInterceptors(FilesInterceptor('images', 10)) // Max 10 images
   async create(
@@ -50,7 +50,6 @@ export class ProductsController {
     const userId = req.user?.id || req.user?.sub; // handle either shape
     return this.productsService.findAll(query, userId);
   }
-
 
   // 🔹 Get single product
   @Get(':id')
@@ -85,9 +84,11 @@ export class ProductsController {
     @Param('id') productId: string,
     @Query('customerProfileId') customerProfileId?: string,
   ) {
-    return this.productsService.getRelatedProducts(productId, customerProfileId);
+    return this.productsService.getRelatedProducts(
+      productId,
+      customerProfileId,
+    );
   }
-
 
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('ADMIN')
@@ -101,9 +102,7 @@ export class ProductsController {
   @Roles('ADMIN')
   @Post('upload-images')
   @UseInterceptors(FilesInterceptor('images', 10)) // Max 10 images
-  async uploadProductImages(
-    @UploadedFiles() images: Express.Multer.File[],
-  ) {
+  async uploadProductImages(@UploadedFiles() images: Express.Multer.File[]) {
     return this.s3Service.uploadMultipleFiles(images, 'products');
   }
 }
