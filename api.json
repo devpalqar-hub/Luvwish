@@ -1,10 +1,10 @@
 {
   "info": {
     "name": "Luvwish E-Commerce API",
-    "description": "Complete API collection for Luvwish E-Commerce platform with COD/Online payments, notifications, and simplified variations",
+    "description": "Complete API collection for Luvwish E-Commerce platform with AWS S3 image uploads, COD/Online payments, notifications, and simplified variations",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
     "_postman_id": "luvwish-ecommerce-api",
-    "version": "2.2.0"
+    "version": "2.3.0"
   },
   "auth": {
     "type": "bearer",
@@ -668,7 +668,71 @@
           }
         },
         {
-          "name": "Create Product",
+          "name": "Create Product (with File Upload)",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{jwt_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "images",
+                  "type": "file",
+                  "src": "",
+                  "description": "Product image files (max 10, 5MB each)"
+                },
+                {
+                  "key": "name",
+                  "value": "Cotton T-Shirt",
+                  "type": "text"
+                },
+                {
+                  "key": "categoryName",
+                  "value": "Clothing",
+                  "type": "text"
+                },
+                {
+                  "key": "discountedPrice",
+                  "value": "19.99",
+                  "type": "text"
+                },
+                {
+                  "key": "actualPrice",
+                  "value": "24.99",
+                  "type": "text"
+                },
+                {
+                  "key": "stockCount",
+                  "value": "100",
+                  "type": "text"
+                },
+                {
+                  "key": "description",
+                  "value": "Comfortable cotton t-shirt",
+                  "type": "text"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/products",
+              "host": ["{{base_url}}"],
+              "path": ["products"]
+            },
+            "description": "Create a new product with direct file upload. Files are automatically uploaded to S3."
+          }
+        },
+        {
+          "name": "Create Product (with URLs)",
           "request": {
             "auth": {
               "type": "bearer",
@@ -689,17 +753,102 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"name\": \"Cotton T-Shirt\",\n  \"subCategoryId\": \"<subcategory-id>\",\n  \"discountedPrice\": 19.99,\n  \"actualPrice\": 24.99,\n  \"stockCount\": 100,\n  \"description\": \"Comfortable cotton t-shirt\",\n  \"isStock\": true,\n  \"images\": [\n    {\n      \"url\": \"https://example.com/image1.jpg\",\n      \"altText\": \"Product image\",\n      \"isMain\": true,\n      \"sortOrder\": 0\n    }\n  ]\n}"
+              "raw": "{\n  \"name\": \"Cotton T-Shirt\",\n  \"categoryName\": \"Clothing\",\n  \"discountedPrice\": 19.99,\n  \"actualPrice\": 24.99,\n  \"stockCount\": 100,\n  \"description\": \"Comfortable cotton t-shirt\",\n  \"isStock\": true,\n  \"images\": [\n    {\n      \"url\": \"https://example.com/image1.jpg\",\n      \"altText\": \"Product image\",\n      \"isMain\": true,\n      \"sortOrder\": 0\n    }\n  ]\n}"
             },
             "url": {
               "raw": "{{base_url}}/products",
               "host": ["{{base_url}}"],
               "path": ["products"]
-            }
+            },
+            "description": "Create a new product with image URLs (backward compatible)."
           }
         },
         {
-          "name": "Update Product",
+          "name": "Upload Product Images",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{jwt_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "images",
+                  "type": "file",
+                  "src": "",
+                  "description": "Image files to upload (max 10)"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/products/upload-images",
+              "host": ["{{base_url}}"],
+              "path": ["products", "upload-images"]
+            },
+            "description": "Upload product images separately and get S3 URLs to use in product creation."
+          }
+        },
+        {
+          "name": "Update Product (with File Upload)",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{jwt_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "PATCH",
+            "header": [],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "images",
+                  "type": "file",
+                  "src": "",
+                  "description": "New product image files (replaces all existing images)"
+                },
+                {
+                  "key": "name",
+                  "value": "Updated Product Name",
+                  "type": "text"
+                },
+                {
+                  "key": "discountedPrice",
+                  "value": "18.99",
+                  "type": "text"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/products/:id",
+              "host": ["{{base_url}}"],
+              "path": ["products", ":id"],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": ""
+                }
+              ]
+            },
+            "description": "Update product with file upload. WARNING: This replaces all existing images."
+          }
+        },
+        {
+          "name": "Update Product (with URLs)",
           "request": {
             "auth": {
               "type": "bearer",
@@ -720,7 +869,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"name\": \"Updated Product\",\n  \"discountedPrice\": 18.99\n}"
+              "raw": "{\n  \"name\": \"Updated Product\",\n  \"discountedPrice\": 18.99,\n  \"images\": [\n    {\n      \"url\": \"https://example.com/new-image.jpg\",\n      \"altText\": \"Updated image\",\n      \"isMain\": true,\n      \"sortOrder\": 0\n    }\n  ]\n}"
             },
             "url": {
               "raw": "{{base_url}}/products/:id",
@@ -732,7 +881,8 @@
                   "value": ""
                 }
               ]
-            }
+            },
+            "description": "Update product with image URLs (backward compatible)."
           }
         },
         {
@@ -792,6 +942,155 @@
                 }
               ]
             }
+          }
+        }
+      ]
+    },
+    {
+      "name": "S3 Upload",
+      "item": [
+        {
+          "name": "Upload Single Image",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{jwt_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "file",
+                  "type": "file",
+                  "src": "",
+                  "description": "Single image file to upload (max 5MB)"
+                },
+                {
+                  "key": "folder",
+                  "value": "products",
+                  "type": "text",
+                  "description": "Optional folder name (default: products)"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/s3/upload",
+              "host": ["{{base_url}}"],
+              "path": ["s3", "upload"]
+            },
+            "description": "Upload a single image file to AWS S3. Returns the S3 URL."
+          }
+        },
+        {
+          "name": "Upload Multiple Images",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{jwt_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "files",
+                  "type": "file",
+                  "src": "",
+                  "description": "Multiple image files to upload (max 10, 5MB each)"
+                },
+                {
+                  "key": "folder",
+                  "value": "products",
+                  "type": "text",
+                  "description": "Optional folder name (default: products)"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/s3/upload-multiple",
+              "host": ["{{base_url}}"],
+              "path": ["s3", "upload-multiple"]
+            },
+            "description": "Upload multiple image files to AWS S3. Returns array of S3 URLs."
+          }
+        },
+        {
+          "name": "Delete Single File",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{jwt_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"key\": \"products/uuid-filename.jpg\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/s3/delete",
+              "host": ["{{base_url}}"],
+              "path": ["s3", "delete"]
+            },
+            "description": "Delete a file from S3 by its key."
+          }
+        },
+        {
+          "name": "Delete Multiple Files",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{jwt_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"keys\": [\"products/uuid1.jpg\", \"products/uuid2.jpg\"]\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/s3/delete-multiple",
+              "host": ["{{base_url}}"],
+              "path": ["s3", "delete-multiple"]
+            },
+            "description": "Delete multiple files from S3 by their keys."
           }
         }
       ]
