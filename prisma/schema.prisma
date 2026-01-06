@@ -219,6 +219,7 @@ model Order {
   orderNumber       String          @unique
   status            OrderStatus     @default(pending)
   paymentStatus     PaymentStatus   @default(pending)
+  paymentMethod     PaymentMethod   @default(cash_on_delivery)
   totalAmount       Decimal         @db.Decimal(10, 2)
   shippingCost      Decimal         @default(0) @db.Decimal(10, 2)
   taxAmount         Decimal         @default(0) @db.Decimal(10, 2)

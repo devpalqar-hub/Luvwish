@@ -28,5 +28,4 @@ export class RazorpayController {
     );
   }
 
-  // Add endpoints for verifying payments, handling webhooks, etc.
 }
