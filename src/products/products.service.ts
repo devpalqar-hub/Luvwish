@@ -67,7 +67,13 @@ export class ProductsService {
         minPrice ? { discountedPrice: { gte: minPrice } } : {},
         maxPrice ? { discountedPrice: { lte: maxPrice } } : {},
         subCategoryId ? { subCategoryId } : {},
-        categoryId ? { subCategory: { categoryId } } : {},
+        categoryId ? { 
+          subCategory: { 
+            is: {
+              categoryId 
+            }
+          } 
+        } : {},
       ].filter(condition => Object.keys(condition).length > 0),
     };
 
