@@ -19,6 +19,7 @@ import { RazorpayController } from './razorpay/razorpay.controller';
 import { OrdersModule } from './orders/orders.module';
 import { TrackingDetailModule } from './tracking/tracking-detail.module';
 import { ReviewModule } from './reviews/review.module';
+import { ProductVariationsModule } from './product-variations/product-variations.module';
 
 
 @Module({
@@ -38,6 +39,7 @@ import { ReviewModule } from './reviews/review.module';
     NotificationsModule,
     WishlistModule,
     AddressModule,
+    ProductVariationsModule,
     OrdersModule,
     TrackingDetailModule,
     ReviewModule,

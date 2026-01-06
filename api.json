@@ -1,10 +1,10 @@
 {
   "info": {
     "name": "Luvwish E-Commerce API",
-    "description": "Complete API collection for Luvwish E-Commerce platform with subcategories and simplified product variations",
+    "description": "Complete API collection for Luvwish E-Commerce platform with COD/Online payments, notifications, and simplified variations",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
     "_postman_id": "luvwish-ecommerce-api",
-    "version": "2.1.0"
+    "version": "2.2.0"
   },
   "auth": {
     "type": "bearer",
@@ -2057,6 +2057,151 @@
                   "value": ""
                 }
               ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Payments",
+      "item": [
+        {
+          "name": "Create Order (COD or Online)",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{jwt_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"productId\": \"<product-id>\",\n  \"quantity\": 2,\n  \"ShippingAddressId\": \"<address-id>\",\n  \"currency\": \"inr\",\n  \"paymentMethod\": \"cash_on_delivery\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/payments/create-order",
+              "host": ["{{base_url}}"],
+              "path": ["payments", "create-order"]
+            }
+          }
+        },
+        {
+          "name": "Create Order from Cart (COD)",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{jwt_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"cartId\": \"true\",\n  \"ShippingAddressId\": \"<address-id>\",\n  \"currency\": \"inr\",\n  \"paymentMethod\": \"cash_on_delivery\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/payments/create-order",
+              "host": ["{{base_url}}"],
+              "path": ["payments", "create-order"]
+            }
+          }
+        },
+        {
+          "name": "Create Order (Online Payment)",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{jwt_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"productId\": \"<product-id>\",\n  \"quantity\": 1,\n  \"ShippingAddressId\": \"<address-id>\",\n  \"currency\": \"inr\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/payments/create-order",
+              "host": ["{{base_url}}"],
+              "path": ["payments", "create-order"]
+            }
+          }
+        },
+        {
+          "name": "Verify Payment",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"razorpay_order_id\": \"order_MfR2xXYzX9ABCD\",\n  \"razorpay_payment_id\": \"pay_MfR2xXYzX9ABCD\",\n  \"razorpay_signature\": \"signature-hash\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/payments/verify-payment",
+              "host": ["{{base_url}}"],
+              "path": ["payments", "verify-payment"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Notifications",
+      "item": [
+        {
+          "name": "Send Notification",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"token\": \"<fcm-device-token>\",\n  \"title\": \"Order Update\",\n  \"message\": \"Your order has been shipped!\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/notifications/send",
+              "host": ["{{base_url}}"],
+              "path": ["notifications", "send"]
             }
           }
         }
