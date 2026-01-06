@@ -33,7 +33,7 @@ export class ProductsController {
 
   // 🔹 Create product with images
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('ADMIN')
+  @Roles('ADMIN','SUPER_ADMIN')
   @Post()
   @UseGuards(JwtAuthGuard)
   create(@Body() createProductDto: CreateProductDto) {
