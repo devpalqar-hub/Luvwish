@@ -1,5 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { S3Service } from '../s3/s3.service';
 import { CreateProductDto } from './dto/create-product.dto';
 import { PaginationDto } from 'src/pagination/dto/pagination.dto';
 import { PaginationResponseDto } from 'src/pagination/pagination-response.dto';
@@ -9,18 +10,42 @@ import { UpdateStockDto } from './dto/update-stock.dto';
 
 @Injectable()
 export class ProductsService {
-  constructor(private readonly prisma: PrismaService) { }
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly s3Service: S3Service,
+  ) { }
 
-  // 🔹 Create product with multiple images
-  async create(createProductDto: CreateProductDto) {
+  // 🔹 Create product with file upload and product data
+  async createWithUpload(
+    createProductDto: CreateProductDto,
+    imageFiles?: Express.Multer.File[],
+  ) {
     const { images, ...productData } = createProductDto;
+
+    // Upload images to S3 if files are provided
+    let uploadedImages = [];
+    if (imageFiles && imageFiles.length > 0) {
+      const uploadResults = await this.s3Service.uploadMultipleFiles(
+        imageFiles,
+        'products',
+      );
+      uploadedImages = uploadResults.map((result, index) => ({
+        url: result.url,
+        altText: `Product image ${index + 1}`,
+        isMain: index === 0, // First image is main
+        sortOrder: index,
+      }));
+    }
+
+    // Merge uploaded images with provided image URLs (if any)
+    const allImages = [...uploadedImages, ...(images || [])];
 
     return this.prisma.product.create({
       data: {
         ...productData,
-        images: images?.length
+        images: allImages.length
           ? {
-            create: images.map((img) => ({
+            create: allImages.map((img) => ({
               url: img.url,
               altText: img.altText,
               isMain: img.isMain ?? false,
@@ -39,6 +64,11 @@ export class ProductsService {
         variations: true,
       },
     });
+  }
+
+  // 🔹 Create product with image URLs only (backward compatibility)
+  async create(createProductDto: CreateProductDto) {
+    return this.createWithUpload(createProductDto);
   }
 
   async findAll(query: SearchFilterDto, userId?: string) {
@@ -147,19 +177,41 @@ export class ProductsService {
     return product;
   }
 
-  // 🔹 Update product (including images)
-  async update(id: string, updateProductDto: UpdateProductDto) {
+  // 🔹 Update product with file upload
+  async updateWithUpload(
+    id: string,
+    updateProductDto: UpdateProductDto,
+    imageFiles?: Express.Multer.File[],
+  ) {
     const { images, ...productData } = updateProductDto;
+
+    // Upload new images to S3 if files are provided
+    let uploadedImages = [];
+    if (imageFiles && imageFiles.length > 0) {
+      const uploadResults = await this.s3Service.uploadMultipleFiles(
+        imageFiles,
+        'products',
+      );
+      uploadedImages = uploadResults.map((result, index) => ({
+        url: result.url,
+        altText: `Product image ${index + 1}`,
+        isMain: index === 0,
+        sortOrder: index,
+      }));
+    }
+
+    // Merge uploaded images with provided image URLs
+    const allImages = [...uploadedImages, ...(images || [])];
 
     return this.prisma.product.update({
       where: { id },
       data: {
         ...productData,
-        ...(images
+        ...(allImages.length > 0
           ? {
             images: {
               deleteMany: {}, // remove old images
-              create: images.map((img) => ({
+              create: allImages.map((img) => ({
                 url: img.url,
                 altText: img.altText,
                 isMain: img.isMain ?? false,
@@ -179,6 +231,11 @@ export class ProductsService {
         variations: true,
       },
     });
+  }
+
+  // 🔹 Update product with image URLs only (backward compatibility)
+  async update(id: string, updateProductDto: UpdateProductDto) {
+    return this.updateWithUpload(id, updateProductDto);
   }
 
   // 🔹 Delete product
