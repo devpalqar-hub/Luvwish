@@ -33,11 +33,14 @@ export class ProductsController {
 
   // 🔹 Create product with images
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('ADMIN','SUPER_ADMIN')
+  @Roles('ADMIN')
   @Post()
-  @UseGuards(JwtAuthGuard)
-  create(@Body() createProductDto: CreateProductDto) {
-    return this.productsService.create(createProductDto);
+  @UseInterceptors(FilesInterceptor('images', 10)) // Max 10 images
+  async create(
+    @Body() createProductDto: CreateProductDto,
+    @UploadedFiles() images?: Express.Multer.File[],
+  ) {
+    return this.productsService.createWithUpload(createProductDto, images);
   }
 
   @UseGuards(OptionalJwtAuthGuard)
@@ -59,8 +62,13 @@ export class ProductsController {
   @Patch(':id')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('ADMIN')
-  update(@Param('id') id: string, @Body() updateProductDto: UpdateProductDto) {
-    return this.productsService.update(id, updateProductDto);
+  @UseInterceptors(FilesInterceptor('images', 10)) // Max 10 images
+  async update(
+    @Param('id') id: string,
+    @Body() updateProductDto: UpdateProductDto,
+    @UploadedFiles() images?: Express.Multer.File[],
+  ) {
+    return this.productsService.updateWithUpload(id, updateProductDto, images);
   }
 
   // 🔹 Delete product

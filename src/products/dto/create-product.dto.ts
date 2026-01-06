@@ -31,7 +31,7 @@ export class CreateProductDto {
   name: string;
 
   @IsString()
-  categoryName: string;
+  subCategoryId: string;
 
   @IsNumber()
   discountedPrice: number;
