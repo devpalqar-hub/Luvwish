@@ -7,7 +7,7 @@ import {
   ValidateNested,
 } from 'class-validator';
 import { Type } from 'class-transformer';
-import { OrderStatus, PaymentStatus } from '@prisma/client';
+import { OrderStatus, PaymentStatus, PaymentMethod } from '@prisma/client';
 import { CreateOrderItemDto } from './create-order-item.dto';
 
 export class CreateOrderDto {
@@ -25,6 +25,10 @@ export class CreateOrderDto {
   @IsOptional()
   @IsEnum(PaymentStatus)
   paymentStatus?: PaymentStatus;
+
+  @IsOptional()
+  @IsEnum(PaymentMethod)
+  paymentMethod?: PaymentMethod;
 
   @IsNumber()
   totalAmount: number;

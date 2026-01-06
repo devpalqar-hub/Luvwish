@@ -10,7 +10,7 @@ export class RazorpayService {
   constructor(@Inject('RAZORPAY_CLIENT') private readonly razorpayClient: Razorpay, private prisma: PrismaService) { }
 
   async createOrder(dto: CreatePaymentIntentDto, customerProfileId: string) {
-    const { productId, quantity, cartId, currency, ShippingAddressId } = dto;
+    const { productId, quantity, cartId, currency, ShippingAddressId, paymentMethod } = dto;
     const customerProfile = await this.prisma.customerProfile.findUnique({
       where: { userId: customerProfileId },
     });
@@ -74,6 +74,7 @@ export class RazorpayService {
         orderNumber: `ORD-${Date.now()}`,
         status: 'pending',
         paymentStatus: 'pending',
+        paymentMethod: paymentMethod || 'cash_on_delivery',
         totalAmount: amount,
         shippingAddressId: shippingAddrs.id,
         items: {
@@ -94,7 +95,17 @@ export class RazorpayService {
       });
     }
 
-    // 4️⃣ Create Razorpay order
+    // 4️⃣ Handle payment method
+    if (paymentMethod === 'cash_on_delivery') {
+      // For COD, no Razorpay order needed
+      return {
+        message: 'Order created successfully with Cash on Delivery',
+        order,
+        paymentMethod: 'cash_on_delivery',
+      };
+    }
+
+    // 5️⃣ Create Razorpay order for online payments
     const options = {
       amount: Math.round(amount * 100),
       currency: 'INR',
