@@ -43,7 +43,9 @@ Authorization: Bearer YOUR_JWT_TOKEN
 - `DELETE /s3/delete-multiple` - Delete multiple images
 
 ### Products Module Integration
-- `POST /products/upload-images` - Upload product images directly
+- `POST /products` - Create product with image files (multipart/form-data)
+- `PATCH /products/:id` - Update product with image files (multipart/form-data)
+- `POST /products/upload-images` - Upload product images separately
 
 ## File Structure
 ```
