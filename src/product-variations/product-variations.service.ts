@@ -8,7 +8,7 @@ export class ProductVariationsService {
   constructor(private readonly prisma: PrismaService) {}
 
   async create(createProductVariationDto: CreateProductVariationDto) {
-    const { productId, options, ...variationData } = createProductVariationDto;
+    const { productId, ...variationData } = createProductVariationDto;
 
     // Verify product exists
     const product = await this.prisma.product.findUnique({
@@ -32,15 +32,8 @@ export class ProductVariationsService {
       data: {
         ...variationData,
         productId,
-        options: {
-          create: options.map(option => ({
-            attributeName: option.attributeName,
-            attributeValue: option.attributeValue,
-          })),
-        },
       },
       include: {
-        options: true,
         product: true,
       },
     });
@@ -49,9 +42,6 @@ export class ProductVariationsService {
   async findByProductId(productId: string) {
     return this.prisma.productVariation.findMany({
       where: { productId },
-      include: {
-        options: true,
-      },
       orderBy: { createdAt: 'desc' },
     });
   }
@@ -60,7 +50,6 @@ export class ProductVariationsService {
     const variation = await this.prisma.productVariation.findUnique({
       where: { id },
       include: {
-        options: true,
         product: true,
       },
     });
@@ -74,8 +63,6 @@ export class ProductVariationsService {
 
   async update(id: string, updateProductVariationDto: UpdateProductVariationDto) {
     await this.findOne(id);
-
-    const { options, ...variationData } = updateProductVariationDto;
 
     if (updateProductVariationDto.sku) {
       const existingVariation = await this.prisma.productVariation.findFirst({
@@ -94,22 +81,8 @@ export class ProductVariationsService {
 
     return this.prisma.productVariation.update({
       where: { id },
-      data: {
-        ...variationData,
-        ...(options
-          ? {
-              options: {
-                deleteMany: {},
-                create: options.map(option => ({
-                  attributeName: option.attributeName,
-                  attributeValue: option.attributeValue,
-                })),
-              },
-            }
-          : {}),
-      },
+      data: updateProductVariationDto,
       include: {
-        options: true,
         product: true,
       },
     });

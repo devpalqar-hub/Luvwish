@@ -1,10 +1,10 @@
 {
   "info": {
     "name": "Luvwish E-Commerce API",
-    "description": "Complete API collection for Luvwish E-Commerce platform with subcategories and product variations",
+    "description": "Complete API collection for Luvwish E-Commerce platform with subcategories and simplified product variations",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
     "_postman_id": "luvwish-ecommerce-api",
-    "version": "2.0.0"
+    "version": "2.1.0"
   },
   "auth": {
     "type": "bearer",
@@ -857,7 +857,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"productId\": \"<product-id>\",\n  \"sku\": \"TSHIRT-L-BLUE\",\n  \"price\": 19.99,\n  \"stockCount\": 50,\n  \"isActive\": true,\n  \"options\": [\n    {\n      \"attributeName\": \"Size\",\n      \"attributeValue\": \"Large\"\n    },\n    {\n      \"attributeName\": \"Color\",\n      \"attributeValue\": \"Blue\"\n    }\n  ]\n}"
+              "raw": "{\n  \"productId\": \"<product-id>\",\n  \"variationName\": \"Blue T-Shirt - Large\",\n  \"sku\": \"TSHIRT-L-BLUE\",\n  \"price\": 19.99,\n  \"stockCount\": 50,\n  \"isAvailable\": true\n}"
             },
             "url": {
               "raw": "{{base_url}}/product-variations",
@@ -888,7 +888,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"price\": 18.99,\n  \"stockCount\": 75\n}"
+              "raw": "{\n  \"variationName\": \"Blue T-Shirt - Large (Updated)\",\n  \"price\": 18.99,\n  \"stockCount\": 75,\n  \"isAvailable\": true\n}"
             },
             "url": {
               "raw": "{{base_url}}/product-variations/:id",
@@ -1211,7 +1211,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"orderNumber\": \"ORD-2024-001\",\n  \"customerProfileId\": \"<customer-profile-id>\",\n  \"totalAmount\": 99.99,\n  \"shippingCost\": 5.00,\n  \"taxAmount\": 8.50,\n  \"discountAmount\": 0,\n  \"shippingAddressId\": \"<address-id>\",\n  \"items\": [\n    {\n      \"productId\": \"<product-id>\",\n      \"productVariationId\": \"<variation-id>\",\n      \"quantity\": 2,\n      \"discountedPrice\": 19.99,\n      \"actualPrice\": 24.99,\n      \"variationDetails\": {\n        \"sku\": \"TSHIRT-L-BLUE\",\n        \"options\": [\n          {\"attributeName\": \"Size\", \"attributeValue\": \"Large\"}\n        ]\n      }\n    }\n  ]\n}"
+              "raw": "{\n  \"orderNumber\": \"ORD-2024-001\",\n  \"customerProfileId\": \"<customer-profile-id>\",\n  \"totalAmount\": 99.99,\n  \"shippingCost\": 5.00,\n  \"taxAmount\": 8.50,\n  \"discountAmount\": 0,\n  \"shippingAddressId\": \"<address-id>\",\n  \"items\": [\n    {\n      \"productId\": \"<product-id>\",\n      \"productVariationId\": \"<variation-id>\",\n      \"quantity\": 2,\n      \"discountedPrice\": 19.99,\n      \"actualPrice\": 24.99,\n      \"variationDetails\": {\n        \"variationName\": \"Blue T-Shirt - Large\",\n        \"sku\": \"TSHIRT-L-BLUE\"\n      }\n    }\n  ]\n}"
             },
             "url": {
               "raw": "{{base_url}}/orders",

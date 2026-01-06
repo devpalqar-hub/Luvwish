@@ -6,7 +6,6 @@ import { PaginationResponseDto } from 'src/pagination/pagination-response.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
 import { SearchFilterDto } from 'src/pagination/dto/search-filter.dto';
 import { UpdateStockDto } from './dto/update-stock.dto';
-import { th } from '@faker-js/faker/.';
 
 @Injectable()
 export class ProductsService {
@@ -37,11 +36,7 @@ export class ProductsService {
             category: true,
           },
         },
-        variations: {
-          include: {
-            options: true,
-          },
-        },
+        variations: true,
       },
     });
   }
@@ -86,11 +81,7 @@ export class ProductsService {
               category: true,
             },
           },
-          variations: {
-            include: {
-              options: true,
-            },
-          },
+          variations: true,
         },
         orderBy: { createdAt: 'desc' },
         skip,
@@ -141,11 +132,7 @@ export class ProductsService {
             category: true,
           },
         },
-        variations: {
-          include: {
-            options: true,
-          },
-        },
+        variations: true,
       },
     });
 
@@ -183,11 +170,7 @@ export class ProductsService {
             category: true,
           },
         },
-        variations: {
-          include: {
-            options: true,
-          },
-        },
+        variations: true,
       },
     });
   }
@@ -230,11 +213,7 @@ export class ProductsService {
             category: true,
           },
         },
-        variations: {
-          include: {
-            options: true,
-          },
-        },
+        variations: true,
       },
       take: 10, // limit related products
     });

@@ -180,33 +180,21 @@ model ProductImage {
 }
 
 model ProductVariation {
-  id         String   @id @default(uuid())
-  productId  String
-  sku        String   @unique
-  price      Decimal  @db.Decimal(10, 2)
-  stockCount Int      @default(0)
-  isActive   Boolean  @default(true)
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
+  id            String   @id @default(uuid())
+  productId     String
+  variationName String
+  sku           String   @unique
+  price         Decimal  @db.Decimal(10, 2)
+  stockCount    Int      @default(0)
+  isAvailable   Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 
-  product    Product           @relation(fields: [productId], references: [id], onDelete: Cascade)
-  options    VariationOption[]
+  product    Product     @relation(fields: [productId], references: [id], onDelete: Cascade)
   cartItems  CartItem[]
   orderItems OrderItem[]
 
   @@map("product_variations")
-}
-
-model VariationOption {
-  id                 String   @id @default(uuid())
-  productVariationId String
-  attributeName      String
-  attributeValue     String
-  createdAt          DateTime @default(now())
-
-  productVariation ProductVariation @relation(fields: [productVariationId], references: [id], onDelete: Cascade)
-
-  @@map("variation_options")
 }
 
 model CartItem {
