@@ -9,8 +9,12 @@ import {
   UseGuards,
   Request,
   Query,
+  UseInterceptors,
+  UploadedFiles,
 } from '@nestjs/common';
+import { FilesInterceptor } from '@nestjs/platform-express';
 import { ProductsService } from './products.service';
+import { S3Service } from '../s3/s3.service';
 import { CreateProductDto } from './dto/create-product.dto';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { RolesGuard } from 'src/common/guards/roles.guard';
@@ -22,7 +26,10 @@ import { OptionalJwtAuthGuard } from 'src/common/guards/ optional-jwt-auth.guard
 
 @Controller('products')
 export class ProductsController {
-  constructor(private readonly productsService: ProductsService) { }
+  constructor(
+    private readonly productsService: ProductsService,
+    private readonly s3Service: S3Service,
+  ) { }
 
   // 🔹 Create product with images
   @UseGuards(JwtAuthGuard, RolesGuard)
@@ -81,4 +88,14 @@ export class ProductsController {
     return this.productsService.updateStock(dto);
   }
 
+  // 🔹 Upload product images
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('ADMIN')
+  @Post('upload-images')
+  @UseInterceptors(FilesInterceptor('images', 10)) // Max 10 images
+  async uploadProductImages(
+    @UploadedFiles() images: Express.Multer.File[],
+  ) {
+    return this.s3Service.uploadMultipleFiles(images, 'products');
+  }
 }
