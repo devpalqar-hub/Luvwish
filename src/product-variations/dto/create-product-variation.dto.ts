@@ -1,10 +1,11 @@
-import { IsString, IsNumber, IsBoolean, IsOptional, IsArray, ValidateNested, IsUUID } from 'class-validator';
-import { Type } from 'class-transformer';
-import { VariationOptionDto } from './variation-option.dto';
+import { IsString, IsNumber, IsBoolean, IsOptional, IsUUID } from 'class-validator';
 
 export class CreateProductVariationDto {
   @IsUUID()
   productId: string;
+
+  @IsString()
+  variationName: string;
 
   @IsString()
   sku: string;
@@ -17,10 +18,5 @@ export class CreateProductVariationDto {
 
   @IsOptional()
   @IsBoolean()
-  isActive?: boolean;
-
-  @IsArray()
-  @ValidateNested({ each: true })
-  @Type(() => VariationOptionDto)
-  options: VariationOptionDto[];
+  isAvailable?: boolean;
 }
