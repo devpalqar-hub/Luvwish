@@ -92,10 +92,6 @@ export class RazorpayService {
       await this.prisma.cartItem.deleteMany({
         where: { customerProfileId: customerProfile.id },
       });
-      // optionally: delete the cart record itself
-      await this.prisma.cartItem.delete({
-        where: { id: cartId },
-      }).catch(() => { }); // ignore if cart is optional
     }
 
     // 4️⃣ Create Razorpay order
