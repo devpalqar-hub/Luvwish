@@ -22,6 +22,7 @@ import { ReviewModule } from './reviews/review.module';
 import { ProductVariationsModule } from './product-variations/product-variations.module';
 import { CategoriesModule } from './categories/categories.module';
 import { SubCategoriesModule } from './subcategories/subcategories.module';
+import { S3Module } from './s3/s3.module';
 
 @Module({
   imports: [
@@ -46,6 +47,7 @@ import { SubCategoriesModule } from './subcategories/subcategories.module';
     CategoriesModule,
     SubCategoriesModule,
     ReviewModule,
+    S3Module,
     RazorpayModule.forRoot({
       key_id: process.env.RAZORPAY_KEY_ID, // Use environment variables for keys
       key_secret: process.env.RAZORPAY_KEY_SECRET,
