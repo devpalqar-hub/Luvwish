@@ -20,7 +20,8 @@ import { OrdersModule } from './orders/orders.module';
 import { TrackingDetailModule } from './tracking/tracking-detail.module';
 import { ReviewModule } from './reviews/review.module';
 import { ProductVariationsModule } from './product-variations/product-variations.module';
-
+import { CategoriesModule } from './categories/categories.module';
+import { SubCategoriesModule } from './subcategories/subcategories.module';
 
 @Module({
   imports: [
@@ -42,6 +43,8 @@ import { ProductVariationsModule } from './product-variations/product-variations
     ProductVariationsModule,
     OrdersModule,
     TrackingDetailModule,
+    CategoriesModule,
+    SubCategoriesModule,
     ReviewModule,
     RazorpayModule.forRoot({
       key_id: process.env.RAZORPAY_KEY_ID, // Use environment variables for keys
@@ -49,7 +52,7 @@ import { ProductVariationsModule } from './product-variations/product-variations
     }),
     MailerModule.forRoot({
       transport: {
-        host: 'smtp.gmail.com',       // your SMTP host
+        host: 'smtp.gmail.com', // your SMTP host
         port: 587,
         secure: false,
         auth: {
@@ -65,4 +68,4 @@ import { ProductVariationsModule } from './product-variations/product-variations
   providers: [RazorpayService],
   controllers: [RazorpayController],
 })
-export class AppModule { }
+export class AppModule {}
