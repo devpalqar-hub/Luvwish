@@ -79,7 +79,11 @@ export class OrdersService {
               quantity: true,
               discountedPrice: false,
               actualPrice: false,
-              product: true, // ✅ include product details
+              product: {
+                include: {
+                  images: true, // ✅ include product images
+                },
+              },
             },
           },
         },
@@ -139,7 +143,11 @@ export class OrdersService {
           select: {
             id: true,
             quantity: true,
-            product: true,
+            product: {
+              include: {
+                images: true, // ✅ include product images
+              },
+            },
           },
         },
       },
@@ -294,6 +302,7 @@ export class OrdersService {
                   id: true,
                   name: true,
                   actualPrice: true,
+                  images: true, // ✅ include product images
                 },
               },
             },
