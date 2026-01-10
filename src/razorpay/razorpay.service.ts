@@ -68,11 +68,12 @@ export class RazorpayService {
     }
 
     // 2️⃣ Create Order
+    const isCOD = paymentMethod === 'cash_on_delivery';
     const order = await this.prisma.order.create({
       data: {
         customerProfileId: customerProfile.id,
         orderNumber: `ORD-${Date.now()}`,
-        status: 'pending',
+        status: isCOD ? 'confirmed' : 'pending',
         paymentStatus: 'pending',
         paymentMethod: paymentMethod || 'cash_on_delivery',
         totalAmount: amount,
@@ -97,10 +98,38 @@ export class RazorpayService {
 
     // 4️⃣ Handle payment method
     if (paymentMethod === 'cash_on_delivery') {
-      // For COD, no Razorpay order needed
+      // For COD, create tracking details
+      await this.prisma.trackingDetail.create({
+        data: {
+          orderId: order.id,
+          carrier: 'Internal',
+          trackingNumber: order.orderNumber,
+          trackingUrl: null,
+          lastUpdatedAt: new Date(),
+        },
+      });
+
+      // Fetch the complete order with tracking and items
+      const completeOrder = await this.prisma.order.findUnique({
+        where: { id: order.id },
+        include: {
+          items: {
+            include: {
+              product: {
+                include: {
+                  images: true,
+                },
+              },
+            },
+          },
+          shippingAddress: true,
+          tracking: true,
+        },
+      });
+
       return {
         message: 'Order created successfully with Cash on Delivery',
-        order,
+        order: completeOrder,
         paymentMethod: 'cash_on_delivery',
       };
     }
