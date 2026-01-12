@@ -7,6 +7,7 @@ import { PaginationResponseDto } from 'src/pagination/pagination-response.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
 import { SearchFilterDto } from 'src/pagination/dto/search-filter.dto';
 import { UpdateStockDto } from './dto/update-stock.dto';
+import { ToggleFeaturedDto } from './dto/toggle-featured.dto';
 
 @Injectable()
 export class ProductsService {
@@ -93,6 +94,7 @@ export class ProductsService {
       maxPrice,
       categoryId,
       subCategoryId,
+      isFeatured,
     } = query;
     const skip = (page - 1) * limit;
 
@@ -118,6 +120,7 @@ export class ProductsService {
               },
             }
           : {},
+        isFeatured !== undefined ? { isFeatured } : {},
       ].filter((condition) => Object.keys(condition).length > 0),
     };
 
@@ -335,6 +338,110 @@ export class ProductsService {
         name: true,
         stockCount: true,
         updatedAt: true,
+      },
+    });
+  }
+
+  async getFeaturedProducts(query: SearchFilterDto, userId?: string) {
+    let customerProfileId: string | undefined;
+
+    if (userId) {
+      const customerProfile = await this.prisma.customerProfile.findUnique({
+        where: { userId },
+      });
+      customerProfileId = customerProfile?.id;
+    }
+
+    const {
+      limit = 10,
+      page = 1,
+      categoryId,
+      subCategoryId,
+    } = query;
+    const skip = (page - 1) * limit;
+
+    const where: any = {
+      isFeatured: true,
+      AND: [
+        subCategoryId ? { subCategoryId } : {},
+        categoryId
+          ? {
+              subCategory: {
+                is: {
+                  categoryId,
+                },
+              },
+            }
+          : {},
+      ].filter((condition) => Object.keys(condition).length > 0),
+    };
+
+    const [products, total] = await this.prisma.$transaction([
+      this.prisma.product.findMany({
+        where,
+        include: {
+          images: true,
+          subCategory: {
+            include: {
+              category: true,
+            },
+          },
+          variations: true,
+        },
+        orderBy: { createdAt: 'desc' },
+        skip,
+        take: limit,
+      }),
+      this.prisma.product.count({ where }),
+    ]);
+
+    // Add is_wishlisted for each product
+    let productsWithWishlist;
+    if (customerProfileId) {
+      const wishlist = await this.prisma.wishlist.findMany({
+        where: {
+          customerProfileId,
+          productId: { in: products.map((p) => p.id) },
+        },
+        select: { productId: true },
+      });
+
+      const wishlistedIds = new Set(wishlist.map((w) => w.productId));
+
+      productsWithWishlist = products.map((p) => ({
+        ...p,
+        is_wishlisted: wishlistedIds.has(p.id),
+      }));
+    } else {
+      productsWithWishlist = products.map((p) => ({
+        ...p,
+        is_wishlisted: false,
+      }));
+    }
+
+    return new PaginationResponseDto(productsWithWishlist, total, page, limit);
+  }
+
+  async toggleFeatured(id: string, dto: ToggleFeaturedDto) {
+    const product = await this.prisma.product.findUnique({
+      where: { id },
+    });
+
+    if (!product) {
+      throw new NotFoundException(`Product with ID ${id} not found`);
+    }
+
+    return this.prisma.product.update({
+      where: { id },
+      data: { isFeatured: dto.isFeatured },
+      include: {
+        images: true,
+        subCategory: {
+          include: {
+            category: true,
+          },
+        },
+        variations: true,
       },
     });
   }
