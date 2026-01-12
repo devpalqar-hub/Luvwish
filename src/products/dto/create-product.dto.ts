@@ -33,13 +33,13 @@ export class CreateProductDto {
   @IsString()
   subCategoryId: string;
 
-  @IsNumber()
+  @IsString()
   discountedPrice: number;
 
-  @IsNumber()
+  @IsString()
   actualPrice: number;
 
-  @IsNumber()
+  @IsString()
   stockCount: number;
 
   @IsOptional()
