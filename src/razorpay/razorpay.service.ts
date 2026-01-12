@@ -10,7 +10,7 @@ export class RazorpayService {
   constructor(@Inject('RAZORPAY_CLIENT') private readonly razorpayClient: Razorpay, private prisma: PrismaService) { }
 
   async createOrder(dto: CreatePaymentIntentDto, customerProfileId: string) {
-    const { productId, quantity, cartId, currency, ShippingAddressId, paymentMethod } = dto;
+    const { productId, quantity, useCart, currency, ShippingAddressId, paymentMethod } = dto;
     const customerProfile = await this.prisma.customerProfile.findUnique({
       where: { userId: customerProfileId },
     });
@@ -42,7 +42,7 @@ export class RazorpayService {
         actualPrice: pdt.actualPrice,
       });
     }
-    else if (cartId) {
+    else if (useCart) {
       const cartItems = await this.prisma.cartItem.findMany({
         where: { customerProfileId: customerProfile.id },
         include: { product: true },
@@ -64,7 +64,7 @@ export class RazorpayService {
       });
     }
     else {
-      throw new Error('Either productId or cartId must be provided');
+      throw new Error('Either productId or useCart must be provided');
     }
 
     // 2️⃣ Create Order
@@ -89,8 +89,8 @@ export class RazorpayService {
       },
     });
 
-    // 3️⃣ Clear cart if cartId was given
-    if (cartId) {
+    // 3️⃣ Clear cart if useCart was true
+    if (useCart) {
       await this.prisma.cartItem.deleteMany({
         where: { customerProfileId: customerProfile.id },
       });
