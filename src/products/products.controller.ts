@@ -22,6 +22,7 @@ import { Roles } from 'src/common/decorators/roles.decorator';
 import { UpdateProductDto } from './dto/update-product.dto';
 import { SearchFilterDto } from 'src/pagination/dto/search-filter.dto';
 import { UpdateStockDto } from './dto/update-stock.dto';
+import { ToggleFeaturedDto } from './dto/toggle-featured.dto';
 import { OptionalJwtAuthGuard } from 'src/common/guards/ optional-jwt-auth.guard';
 
 @Controller('products')
@@ -49,6 +50,13 @@ export class ProductsController {
     // If user is logged in (set by your JWT middleware), use their id
     const userId = req.user?.id || req.user?.sub; // handle either shape
     return this.productsService.findAll(query, userId);
+  }
+
+  @UseGuards(OptionalJwtAuthGuard)
+  @Get('featured')
+  getFeaturedProducts(@Query() query: SearchFilterDto, @Request() req) {
+    const userId = req.user?.id || req.user?.sub;
+    return this.productsService.getFeaturedProducts(query, userId);
   }
 
   // 🔹 Get single product
@@ -95,6 +103,16 @@ export class ProductsController {
   @Patch('update-stock')
   async updateStock(@Body() dto: UpdateStockDto) {
     return this.productsService.updateStock(dto);
+  }
+
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('ADMIN', 'SUPER_ADMIN')
+  @Patch(':id/featured')
+  async toggleFeatured(
+    @Param('id') id: string,
+    @Body() dto: ToggleFeaturedDto,
+  ) {
+    return this.productsService.toggleFeatured(id, dto);
   }
 
   // 🔹 Upload product images

@@ -1,4 +1,4 @@
-import { IsOptional, IsString, IsUUID } from 'class-validator';
+import { IsOptional, IsString, IsUUID, IsBoolean } from 'class-validator';
 import { PaginationDto } from './pagination.dto';
 
 export class SearchFilterDto extends PaginationDto {
@@ -23,4 +23,8 @@ export class SearchFilterDto extends PaginationDto {
 
   @IsOptional()
   maxPrice?: number;
+
+  @IsOptional()
+  @IsBoolean()
+  isFeatured?: boolean;
 }
