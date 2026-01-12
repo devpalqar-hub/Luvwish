@@ -1,4 +1,4 @@
-import { IsOptional, IsUUID, IsEnum, IsNumber, Min, IsString } from 'class-validator';
+import { IsOptional, IsUUID, IsEnum, IsNumber, Min, IsString, IsBoolean } from 'class-validator';
 import { PaymentMethod } from '@prisma/client';
 
 export enum SupportedCurrency {
@@ -13,8 +13,8 @@ export class CreatePaymentIntentDto {
   productId?: string;
 
   @IsOptional()
-  @IsUUID()
-  cartId?: string;
+  @IsBoolean()
+  useCart?: boolean;
 
   @IsOptional()
   @IsNumber()
