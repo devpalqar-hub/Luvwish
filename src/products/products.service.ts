@@ -13,7 +13,7 @@ export class ProductsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly s3Service: S3Service,
-  ) { }
+  ) {}
 
   // 🔹 Create product with file upload and product data
   async createWithUpload(
@@ -21,6 +21,10 @@ export class ProductsService {
     imageFiles?: Express.Multer.File[],
   ) {
     const { images, ...productData } = createProductDto;
+
+    productData.actualPrice = Number(productData.actualPrice);
+    productData.discountedPrice = Number(productData.discountedPrice);
+    productData.stockCount = Number(productData.stockCount);
 
     // Upload images to S3 if files are provided
     let uploadedImages = [];
@@ -45,13 +49,13 @@ export class ProductsService {
         ...productData,
         images: allImages.length
           ? {
-            create: allImages.map((img) => ({
-              url: img.url,
-              altText: img.altText,
-              isMain: img.isMain ?? false,
-              sortOrder: img.sortOrder ?? 0,
-            })),
-          }
+              create: allImages.map((img) => ({
+                url: img.url,
+                altText: img.altText,
+                isMain: img.isMain ?? false,
+                sortOrder: img.sortOrder ?? 0,
+              })),
+            }
           : undefined,
       },
       include: {
@@ -81,30 +85,40 @@ export class ProductsService {
       customerProfileId = customerProfile?.id; // ✅ Assign inside
     }
 
-    const { search, limit = 10, page = 1, minPrice, maxPrice, categoryId, subCategoryId } = query;
+    const {
+      search,
+      limit = 10,
+      page = 1,
+      minPrice,
+      maxPrice,
+      categoryId,
+      subCategoryId,
+    } = query;
     const skip = (page - 1) * limit;
 
     const where: any = {
       AND: [
         search
           ? {
-            OR: [
-              { name: { contains: search } },
-              { description: { contains: search } },
-            ],
-          }
+              OR: [
+                { name: { contains: search } },
+                { description: { contains: search } },
+              ],
+            }
           : {},
         minPrice ? { discountedPrice: { gte: minPrice } } : {},
         maxPrice ? { discountedPrice: { lte: maxPrice } } : {},
         subCategoryId ? { subCategoryId } : {},
-        categoryId ? { 
-          subCategory: { 
-            is: {
-              categoryId 
+        categoryId
+          ? {
+              subCategory: {
+                is: {
+                  categoryId,
+                },
+              },
             }
-          } 
-        } : {},
-      ].filter(condition => Object.keys(condition).length > 0),
+          : {},
+      ].filter((condition) => Object.keys(condition).length > 0),
     };
 
     const [products, total] = await this.prisma.$transaction([
@@ -132,20 +146,20 @@ export class ProductsService {
       const wishlist = await this.prisma.wishlist.findMany({
         where: {
           customerProfileId,
-          productId: { in: products.map(p => p.id) },
+          productId: { in: products.map((p) => p.id) },
         },
         select: { productId: true },
       });
 
-      const wishlistedIds = new Set(wishlist.map(w => w.productId));
+      const wishlistedIds = new Set(wishlist.map((w) => w.productId));
 
-      productsWithWishlist = products.map(p => ({
+      productsWithWishlist = products.map((p) => ({
         ...p,
         is_wishlisted: wishlistedIds.has(p.id),
       }));
     } else {
       // if not logged in, default false
-      productsWithWishlist = products.map(p => ({
+      productsWithWishlist = products.map((p) => ({
         ...p,
         is_wishlisted: false,
       }));
@@ -153,9 +167,6 @@ export class ProductsService {
 
     return new PaginationResponseDto(productsWithWishlist, total, page, limit);
   }
-
-
-
 
   // 🔹 Get product by ID
   async findOne(id: string) {
@@ -209,16 +220,16 @@ export class ProductsService {
         ...productData,
         ...(allImages.length > 0
           ? {
-            images: {
-              deleteMany: {}, // remove old images
-              create: allImages.map((img) => ({
-                url: img.url,
-                altText: img.altText,
-                isMain: img.isMain ?? false,
-                sortOrder: img.sortOrder ?? 0,
-              })),
-            },
-          }
+              images: {
+                deleteMany: {}, // remove old images
+                create: allImages.map((img) => ({
+                  url: img.url,
+                  altText: img.altText,
+                  isMain: img.isMain ?? false,
+                  sortOrder: img.sortOrder ?? 0,
+                })),
+              },
+            }
           : {}),
       },
       include: {
@@ -285,17 +296,20 @@ export class ProductsService {
     let productsWithWishlist = relatedProducts;
     if (customerProfileId) {
       const wishlist = await this.prisma.wishlist.findMany({
-        where: { customerProfileId, productId: { in: relatedProducts.map(p => p.id) } },
+        where: {
+          customerProfileId,
+          productId: { in: relatedProducts.map((p) => p.id) },
+        },
         select: { productId: true },
       });
-      const wishlistedIds = new Set(wishlist.map(w => w.productId));
+      const wishlistedIds = new Set(wishlist.map((w) => w.productId));
 
-      productsWithWishlist = relatedProducts.map(p => ({
+      productsWithWishlist = relatedProducts.map((p) => ({
         ...p,
         is_wishlisted: wishlistedIds.has(p.id),
       }));
     } else {
-      productsWithWishlist = relatedProducts.map(p => ({
+      productsWithWishlist = relatedProducts.map((p) => ({
         ...p,
         is_wishlisted: false,
       }));
@@ -303,7 +317,6 @@ export class ProductsService {
 
     return productsWithWishlist;
   }
-
 
   async updateStock(dto: UpdateStockDto) {
     const product = await this.prisma.product.findUnique({
@@ -325,5 +338,4 @@ export class ProductsService {
       },
     });
   }
-
 }
