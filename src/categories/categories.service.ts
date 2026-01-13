@@ -1,5 +1,6 @@
 import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { S3Service } from '../s3/s3.service';
 import { CreateCategoryDto } from './dto/create-category.dto';
 import { UpdateCategoryDto } from './dto/update-category.dto';
 import { CategoryFilterDto } from './dto/category-filter.dto';
@@ -7,9 +8,12 @@ import { PaginationResponseDto } from 'src/pagination/pagination-response.dto';
 
 @Injectable()
 export class CategoriesService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly s3Service: S3Service,
+  ) {}
 
-  async create(createCategoryDto: CreateCategoryDto) {
+  async create(createCategoryDto: CreateCategoryDto, imageFile?: Express.Multer.File) {
     const existingCategory = await this.prisma.category.findFirst({
       where: {
         OR: [
@@ -23,8 +27,18 @@ export class CategoriesService {
       throw new ConflictException('Category with this name or slug already exists');
     }
 
+    // Upload image to S3 if provided
+    let imageUrl = createCategoryDto.image;
+    if (imageFile) {
+      const uploadResult = await this.s3Service.uploadFile(imageFile, 'categories');
+      imageUrl = uploadResult.url;
+    }
+
     return this.prisma.category.create({
-      data: createCategoryDto,
+      data: {
+        ...createCategoryDto,
+        image: imageUrl,
+      },
       include: { subCategories: true },
     });
   }
@@ -76,7 +90,7 @@ export class CategoriesService {
     return category;
   }
 
-  async update(id: string, updateCategoryDto: UpdateCategoryDto) {
+  async update(id: string, updateCategoryDto: UpdateCategoryDto, imageFile?: Express.Multer.File) {
     await this.findOne(id);
 
     if (updateCategoryDto.name || updateCategoryDto.slug) {
@@ -99,9 +113,19 @@ export class CategoriesService {
       }
     }
 
+    // Upload image to S3 if provided
+    let imageUrl = updateCategoryDto.image;
+    if (imageFile) {
+      const uploadResult = await this.s3Service.uploadFile(imageFile, 'categories');
+      imageUrl = uploadResult.url;
+    }
+
     return this.prisma.category.update({
       where: { id },
-      data: updateCategoryDto,
+      data: {
+        ...updateCategoryDto,
+        ...(imageUrl !== undefined && { image: imageUrl }),
+      },
       include: { subCategories: true },
     });
   }

@@ -316,6 +316,81 @@ export class OrdersService {
     return new PaginationResponseDto(data, total, page, limit);
   }
 
+  async cancelOrder(orderId: string, profile_id: string) {
+    // Find customer profile
+    const profile = await this.prisma.customerProfile.findUnique({
+      where: { userId: profile_id },
+    });
+    if (!profile) {
+      throw new NotFoundException('CustomerProfile Not Found');
+    }
+
+    // Find the order belonging to this customer
+    const order = await this.prisma.order.findFirst({
+      where: { id: orderId, customerProfileId: profile.id },
+    });
+
+    if (!order) {
+      throw new NotFoundException(`Order with ID ${orderId} not found`);
+    }
+
+    // Check if order can be cancelled
+    if (['delivered', 'cancelled', 'refunded'].includes(order.status)) {
+      throw new BadRequestException(
+        `Cannot cancel order with status: ${order.status}`,
+      );
+    }
+
+    // Update order status to cancelled
+    const cancelledOrder = await this.prisma.order.update({
+      where: { id: orderId },
+      data: {
+        status: 'cancelled',
+      },
+      include: {
+        items: {
+          include: {
+            product: {
+              include: {
+                images: true,
+              },
+            },
+          },
+        },
+        shippingAddress: true,
+        tracking: true,
+      },
+    });
+
+    // Update tracking status if exists
+    const tracking = await this.prisma.trackingDetail.findUnique({
+      where: { orderId },
+    });
+
+    if (tracking) {
+      const statusHistory = (tracking.statusHistory as any[]) || [];
+      statusHistory.push({
+        status: 'returned',
+        timestamp: new Date().toISOString(),
+        notes: 'Order cancelled by customer',
+      });
+
+      await this.prisma.trackingDetail.update({
+        where: { orderId },
+        data: {
+          status: 'returned',
+          statusHistory,
+          lastUpdatedAt: new Date(),
+        },
+      });
+    }
+
+    return {
+      message: 'Order cancelled successfully',
+      order: cancelledOrder,
+    };
+  }
+
   async getOrderAggregates(filters?: OrderAggregatesFilterDto) {
     // Build base where clause with filters
     const baseWhere: any = {};
