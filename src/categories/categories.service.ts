@@ -34,9 +34,11 @@ export class CategoriesService {
       imageUrl = uploadResult.url;
     }
 
+    const { image, ...categoryData } = createCategoryDto;
+    
     return this.prisma.category.create({
       data: {
-        ...createCategoryDto,
+        ...categoryData,
         ...(imageUrl && { image: imageUrl }),
       },
       include: { subCategories: true },
@@ -120,10 +122,12 @@ export class CategoriesService {
       imageUrl = uploadResult.url;
     }
 
+    const { image, ...categoryData } = updateCategoryDto;
+    
     return this.prisma.category.update({
       where: { id },
       data: {
-        ...updateCategoryDto,
+        ...categoryData,
         ...(imageUrl && { image: imageUrl }),
       },
       include: { subCategories: true },
