@@ -98,13 +98,23 @@ export class RazorpayService {
 
     // 4️⃣ Handle payment method
     if (paymentMethod === 'cash_on_delivery') {
-      // For COD, create tracking details
+      // For COD, create tracking details with initial status
+      const initialHistory = [
+        {
+          status: 'order_placed',
+          timestamp: new Date().toISOString(),
+          notes: 'Order placed successfully with Cash on Delivery',
+        },
+      ];
+
       await this.prisma.trackingDetail.create({
         data: {
           orderId: order.id,
           carrier: 'Internal',
           trackingNumber: order.orderNumber,
           trackingUrl: null,
+          status: 'order_placed',
+          statusHistory: initialHistory,
           lastUpdatedAt: new Date(),
         },
       });
@@ -198,6 +208,33 @@ export class RazorpayService {
         status: 'confirmed',
       },
     });
+
+    // Step 4: Create tracking details for online payment
+    const existingTracking = await this.prisma.trackingDetail.findUnique({
+      where: { orderId: existingOrder.id },
+    });
+
+    if (!existingTracking) {
+      const initialHistory = [
+        {
+          status: 'order_placed',
+          timestamp: new Date().toISOString(),
+          notes: 'Order placed and payment verified successfully',
+        },
+      ];
+
+      await this.prisma.trackingDetail.create({
+        data: {
+          orderId: order.id,
+          carrier: 'Internal',
+          trackingNumber: order.orderNumber,
+          trackingUrl: null,
+          status: 'order_placed',
+          statusHistory: initialHistory,
+          lastUpdatedAt: new Date(),
+        },
+      });
+    }
 
     return { success: true, order };
   }

@@ -51,6 +51,18 @@ enum Roles {
   CUSTOMER // registered buyer
 }
 
+enum TrackingStatus {
+  order_placed
+  processing
+  ready_to_ship
+  shipped
+  in_transit
+  out_for_delivery
+  delivered
+  failed_delivery
+  returned
+}
+
 model User {
   id                String    @id @default(uuid()) @map("id")
   email             String    @unique @map("email")
@@ -369,11 +381,13 @@ model Wishlist {
 }
 
 model TrackingDetail {
-  id             String   @id @default(uuid())
-  orderId        String   @unique
+  id             String         @id @default(uuid())
+  orderId        String         @unique
   carrier        String
   trackingNumber String
   trackingUrl    String?
+  status         TrackingStatus @default(order_placed)
+  statusHistory  Json?          // Array of status changes with timestamps
   lastUpdatedAt  DateTime
 
   order Order @relation(fields: [orderId], references: [id])
