@@ -106,6 +106,7 @@ export class ProductsService {
       categoryId,
       subCategoryId,
       isFeatured,
+      isStock,
     } = query;
     const skip = (page - 1) * limit;
 
@@ -132,6 +133,7 @@ export class ProductsService {
             }
           : {},
         isFeatured !== undefined ? { isFeatured } : {},
+        isStock !== undefined ? { isStock } : {},
       ].filter((condition) => Object.keys(condition).length > 0),
     };
 
@@ -377,12 +379,7 @@ export class ProductsService {
       customerProfileId = customerProfile?.id;
     }
 
-    const {
-      limit = 10,
-      page = 1,
-      categoryId,
-      subCategoryId,
-    } = query;
+    const { limit = 10, page = 1, categoryId, subCategoryId } = query;
     const skip = (page - 1) * limit;
 
     const where: any = {

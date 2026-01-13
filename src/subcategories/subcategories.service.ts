@@ -2,6 +2,8 @@ import { Injectable, NotFoundException, ConflictException } from '@nestjs/common
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateSubCategoryDto } from './dto/create-subcategory.dto';
 import { UpdateSubCategoryDto } from './dto/update-subcategory.dto';
+import { SubCategoryFilterDto } from './dto/subcategory-filter.dto';
+import { PaginationResponseDto } from 'src/pagination/pagination-response.dto';
 
 @Injectable()
 export class SubCategoriesService {
@@ -32,13 +34,39 @@ export class SubCategoriesService {
     });
   }
 
-  async findAll() {
-    return this.prisma.subCategory.findMany({
-      include: {
-        category: true,
-      },
-      orderBy: { createdAt: 'desc' },
-    });
+  async findAll(filters?: SubCategoryFilterDto) {
+    const page = Number(filters?.page) || 1;
+    const limit = Number(filters?.limit) || 10;
+    const skip = (page - 1) * limit;
+    const sortBy = filters?.sortBy || 'createdAt';
+    const sortOrder = filters?.sortOrder || 'desc';
+
+    // Build where clause
+    const where: any = {};
+    if (filters?.search) {
+      where.OR = [
+        { name: { contains: filters.search, mode: 'insensitive' } },
+        { description: { contains: filters.search, mode: 'insensitive' } },
+      ];
+    }
+    if (filters?.categoryId) {
+      where.categoryId = filters.categoryId;
+    }
+
+    const [data, total] = await this.prisma.$transaction([
+      this.prisma.subCategory.findMany({
+        where,
+        include: {
+          category: true,
+        },
+        orderBy: { [sortBy]: sortOrder },
+        skip,
+        take: limit,
+      }),
+      this.prisma.subCategory.count({ where }),
+    ]);
+
+    return new PaginationResponseDto(data, total, page, limit);
   }
 
   async findByCategoryId(categoryId: string) {

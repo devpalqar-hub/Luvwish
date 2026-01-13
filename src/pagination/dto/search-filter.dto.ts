@@ -27,4 +27,8 @@ export class SearchFilterDto extends PaginationDto {
   @IsOptional()
   @IsBoolean()
   isFeatured?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
+  isStock?: boolean;
 }

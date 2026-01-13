@@ -94,6 +94,29 @@ export class OrdersController {
     }));
   }
 
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('ADMIN', 'SUPER_ADMIN', 'ORDER_MANAGER')
+  @Get('admin/aggregates')
+  async getOrderAggregates(
+    @Query('categoryId') categoryId?: string,
+    @Query('subCategoryId') subCategoryId?: string,
+    @Query('paymentMethod') paymentMethod?: string,
+    @Query('paymentStatus') paymentStatus?: string,
+    @Query('startDate') startDate?: string,
+    @Query('endDate') endDate?: string,
+    @Query('customerProfileId') customerProfileId?: string,
+  ) {
+    return this.ordersService.getOrderAggregates({
+      categoryId,
+      subCategoryId,
+      paymentMethod: paymentMethod as any,
+      paymentStatus: paymentStatus as any,
+      startDate,
+      endDate,
+      customerProfileId,
+    });
+  }
+
 }
 
 
