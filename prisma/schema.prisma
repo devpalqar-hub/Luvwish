@@ -101,6 +101,8 @@ model CustomerProfile {
   cart         CartItem[]
   BankDetails  BankDetails[]
   Wishlist     Wishlist[]
+
+  @@map("CustomerProfile")
 }
 
 model AdminProfile {
@@ -112,6 +114,8 @@ model AdminProfile {
   user           User    @relation(fields: [userId], references: [id])
 
   notes String? // any internal notes about the admin
+
+  @@map("AdminProfile")
 }
 
 model UserOtp {
@@ -125,6 +129,7 @@ model UserOtp {
   user   User   @relation(fields: [userId], references: [id])
 
   @@index([userId])
+  @@map("UserOtp")
 }
 
 model Category {
@@ -132,7 +137,7 @@ model Category {
   name        String   @unique
   slug        String   @unique
   description String?  @db.Text
-  image       String?  // Category image URL
+  image       String? // Category image URL
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
@@ -169,13 +174,13 @@ model Product {
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
-  subCategory  SubCategory?        @relation(fields: [subCategoryId], references: [id], onDelete: SetNull)
-  images       ProductImage[]
-  variations   ProductVariation[]
-  cartItems    CartItem[]
-  orderItems   OrderItem[]
-  reviews      Review[]
-  Wishlist     Wishlist[]
+  subCategory SubCategory?       @relation(fields: [subCategoryId], references: [id], onDelete: SetNull)
+  images      ProductImage[]
+  variations  ProductVariation[]
+  cartItems   CartItem[]
+  orderItems  OrderItem[]
+  reviews     Review[]
+  Wishlist    Wishlist[]
 
   @@map("products")
 }
@@ -316,6 +321,8 @@ model BankDetails {
   accountHolderName String
   ifscCode          String
   CustomerProfile   CustomerProfile? @relation(fields: [customerProfileId], references: [id], onDelete: Cascade)
+
+  @@map("BankDetails")
 }
 
 model Review {
@@ -333,6 +340,8 @@ model Review {
   orderItem       OrderItem       @relation(fields: [orderItemId], references: [id])
 
   images ReviewImage[]
+
+  @@map("Review")
 }
 
 model ReviewImage {
@@ -340,6 +349,8 @@ model ReviewImage {
   url      String
   reviewId String
   review   Review @relation(fields: [reviewId], references: [id], onDelete: Cascade)
+
+  @@map("ReviewImage")
 }
 
 model Coupon {
@@ -355,6 +366,8 @@ model Coupon {
   createdAt           DateTime         @default(now())
   updatedAt           DateTime         @updatedAt
   usages              CouponUsage[]
+
+  @@map("Coupon")
 }
 
 model CouponUsage {
@@ -365,6 +378,8 @@ model CouponUsage {
 
   coupon          Coupon           @relation(fields: [couponId], references: [id])
   CustomerProfile CustomerProfile? @relation(fields: [customerProfileId], references: [id])
+
+  @@map("CouponUsage")
 }
 
 model Wishlist {
@@ -388,8 +403,10 @@ model TrackingDetail {
   trackingNumber String
   trackingUrl    String?
   status         TrackingStatus @default(order_placed)
-  statusHistory  Json?          // Array of status changes with timestamps
+  statusHistory  Json? // Array of status changes with timestamps
   lastUpdatedAt  DateTime
 
   order Order @relation(fields: [orderId], references: [id])
+
+  @@map("TrackingDetail")
 }
