@@ -1,4 +1,4 @@
-import { IsString, IsOptional } from 'class-validator';
+import { IsString, IsOptional, Allow } from 'class-validator';
 
 export class CreateCategoryDto {
   @IsString()
@@ -10,4 +10,7 @@ export class CreateCategoryDto {
   @IsOptional()
   @IsString()
   description?: string;
+
+  @Allow()
+  image?: any; // Handled separately as file upload
 }
