@@ -10,6 +10,7 @@ import { OrderStatus } from '@prisma/client';
 import { PaginationResponseDto } from 'src/pagination/pagination-response.dto';
 import { PaginationDto } from 'src/pagination/dto/pagination.dto';
 import { UpdateOrderStatusDto } from './dto/update-order-status.dto';
+import { OrderAggregatesFilterDto } from './dto/order-aggregates-filter.dto';
 
 @Injectable()
 export class OrdersService {
@@ -313,6 +314,96 @@ export class OrdersService {
     ]);
 
     return new PaginationResponseDto(data, total, page, limit);
+  }
+
+  async getOrderAggregates(filters?: OrderAggregatesFilterDto) {
+    // Build base where clause with filters
+    const baseWhere: any = {};
+
+    // Date range filter
+    if (filters?.startDate && filters?.endDate) {
+      baseWhere.createdAt = {
+        gte: new Date(filters.startDate),
+        lte: new Date(filters.endDate),
+      };
+    }
+
+    // Payment method filter
+    if (filters?.paymentMethod) {
+      baseWhere.paymentMethod = filters.paymentMethod;
+    }
+
+    // Payment status filter
+    if (filters?.paymentStatus) {
+      baseWhere.paymentStatus = filters.paymentStatus;
+    }
+
+    // Customer profile filter
+    if (filters?.customerProfileId) {
+      baseWhere.customerProfileId = filters.customerProfileId;
+    }
+
+    // Category or subcategory filter (filter by products in order items)
+    if (filters?.categoryId || filters?.subCategoryId) {
+      baseWhere.items = {
+        some: {
+          product: {
+            ...(filters.subCategoryId
+              ? { subCategoryId: filters.subCategoryId }
+              : {}),
+            ...(filters.categoryId
+              ? {
+                  subCategory: {
+                    is: {
+                      categoryId: filters.categoryId,
+                    },
+                  },
+                }
+              : {}),
+          },
+        },
+      };
+    }
+
+    const [totalOrders, processedOrders, shippedOrders, completedOrders] =
+      await this.prisma.$transaction([
+        // Total orders (all statuses)
+        this.prisma.order.count({ where: baseWhere }),
+
+        // Processed orders (confirmed + processing)
+        this.prisma.order.count({
+          where: {
+            ...baseWhere,
+            status: {
+              in: ['confirmed', 'processing'],
+            },
+          },
+        }),
+
+        // Shipped orders
+        this.prisma.order.count({
+          where: {
+            ...baseWhere,
+            status: 'shipped',
+          },
+        }),
+
+        // Completed orders (delivered)
+        this.prisma.order.count({
+          where: {
+            ...baseWhere,
+            status: 'delivered',
+          },
+        }),
+      ]);
+
+    return {
+      totalOrders,
+      processedOrders,
+      shippedOrders,
+      completedOrders,
+      filters: filters || null,
+    };
   }
 
 }

@@ -7,10 +7,12 @@ import {
   Param,
   Delete,
   UseGuards,
+  Query,
 } from '@nestjs/common';
 import { SubCategoriesService } from './subcategories.service';
 import { CreateSubCategoryDto } from './dto/create-subcategory.dto';
 import { UpdateSubCategoryDto } from './dto/update-subcategory.dto';
+import { SubCategoryFilterDto } from './dto/subcategory-filter.dto';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { Roles } from '../common/decorators/roles.decorator';
@@ -27,8 +29,8 @@ export class SubCategoriesController {
   }
 
   @Get()
-  findAll() {
-    return this.subCategoriesService.findAll();
+  findAll(@Query() filters: SubCategoryFilterDto) {
+    return this.subCategoriesService.findAll(filters);
   }
 
   @Get('category/:categoryId')
