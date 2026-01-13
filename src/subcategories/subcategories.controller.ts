@@ -8,7 +8,10 @@ import {
   Delete,
   UseGuards,
   Query,
+  UseInterceptors,
+  UploadedFile,
 } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
 import { SubCategoriesService } from './subcategories.service';
 import { CreateSubCategoryDto } from './dto/create-subcategory.dto';
 import { UpdateSubCategoryDto } from './dto/update-subcategory.dto';
@@ -24,8 +27,12 @@ export class SubCategoriesController {
   @Post()
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('ADMIN', 'SUPER_ADMIN', 'PRODUCT_MANAGER')
-  create(@Body() createSubCategoryDto: CreateSubCategoryDto) {
-    return this.subCategoriesService.create(createSubCategoryDto);
+  @UseInterceptors(FileInterceptor('image'))
+  create(
+    @Body() createSubCategoryDto: CreateSubCategoryDto,
+    @UploadedFile() image?: Express.Multer.File,
+  ) {
+    return this.subCategoriesService.create(createSubCategoryDto, image);
   }
 
   @Get()
@@ -46,8 +53,17 @@ export class SubCategoriesController {
   @Patch(':id')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('ADMIN', 'SUPER_ADMIN', 'PRODUCT_MANAGER')
-  update(@Param('id') id: string, @Body() updateSubCategoryDto: UpdateSubCategoryDto) {
-    return this.subCategoriesService.update(id, updateSubCategoryDto);
+  @UseInterceptors(FileInterceptor('image'))
+  update(
+    @Param('id') id: string,
+    @Body() updateSubCategoryDto: UpdateSubCategoryDto,
+    @UploadedFile() imageFile?: Express.Multer.File,
+  ) {
+    return this.subCategoriesService.update(
+      id,
+      updateSubCategoryDto,
+      imageFile,
+    );
   }
 
   @Delete(':id')
