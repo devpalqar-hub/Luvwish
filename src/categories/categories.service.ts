@@ -34,9 +34,11 @@ export class CategoriesService {
       imageUrl = uploadResult.url;
     }
 
+    const { image, ...categoryData } = createCategoryDto;
+    
     return this.prisma.category.create({
       data: {
-        ...createCategoryDto,
+        ...categoryData,
         ...(imageUrl && { image: imageUrl }),
       },
       include: { subCategories: true },
@@ -54,8 +56,8 @@ export class CategoriesService {
     const where: any = {};
     if (filters?.search) {
       where.OR = [
-        { name: { contains: filters.search, mode: 'insensitive' } },
-        { description: { contains: filters.search, mode: 'insensitive' } },
+        { name: { contains: filters.search } },
+        { description: { contains: filters.search } },
       ];
     }
 
@@ -120,10 +122,12 @@ export class CategoriesService {
       imageUrl = uploadResult.url;
     }
 
+    const { image, ...categoryData } = updateCategoryDto;
+    
     return this.prisma.category.update({
       where: { id },
       data: {
-        ...updateCategoryDto,
+        ...categoryData,
         ...(imageUrl && { image: imageUrl }),
       },
       include: { subCategories: true },
