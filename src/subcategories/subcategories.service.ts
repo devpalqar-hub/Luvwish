@@ -45,8 +45,8 @@ export class SubCategoriesService {
     const where: any = {};
     if (filters?.search) {
       where.OR = [
-        { name: { contains: filters.search, mode: 'insensitive' } },
-        { description: { contains: filters.search, mode: 'insensitive' } },
+        { name: { contains: filters.search } },
+        { description: { contains: filters.search } },
       ];
     }
     if (filters?.categoryId) {
