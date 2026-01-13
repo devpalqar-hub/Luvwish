@@ -21,7 +21,7 @@ export class ProductsService {
     createProductDto: CreateProductDto,
     imageFiles?: Express.Multer.File[],
   ) {
-    const { images, ...productData } = createProductDto;
+    const { images, variations, ...productData } = createProductDto;
 
     productData.actualPrice = Number(productData.actualPrice);
     productData.discountedPrice = Number(productData.discountedPrice);
@@ -55,6 +55,17 @@ export class ProductsService {
                 altText: img.altText,
                 isMain: img.isMain ?? false,
                 sortOrder: img.sortOrder ?? 0,
+              })),
+            }
+          : undefined,
+        variations: variations?.length
+          ? {
+              create: variations.map((variation) => ({
+                variationName: variation.variationName,
+                sku: variation.sku,
+                price: variation.price,
+                stockCount: variation.stockCount,
+                isAvailable: variation.isAvailable ?? true,
               })),
             }
           : undefined,
@@ -197,7 +208,7 @@ export class ProductsService {
     updateProductDto: UpdateProductDto,
     imageFiles?: Express.Multer.File[],
   ) {
-    const { images, ...productData } = updateProductDto;
+    const { images, variations, ...productData } = updateProductDto;
 
     // Upload new images to S3 if files are provided
     let uploadedImages = [];
@@ -230,6 +241,20 @@ export class ProductsService {
                   altText: img.altText,
                   isMain: img.isMain ?? false,
                   sortOrder: img.sortOrder ?? 0,
+                })),
+              },
+            }
+          : {}),
+        ...(variations && variations.length > 0
+          ? {
+              variations: {
+                deleteMany: {}, // remove old variations
+                create: variations.map((variation) => ({
+                  variationName: variation.variationName,
+                  sku: variation.sku,
+                  price: variation.price,
+                  stockCount: variation.stockCount,
+                  isAvailable: variation.isAvailable ?? true,
                 })),
               },
             }
