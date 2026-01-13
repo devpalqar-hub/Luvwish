@@ -26,6 +26,24 @@ export class CreateProductImageDto {
   sortOrder?: number;
 }
 
+export class CreateProductVariationDto {
+  @IsString()
+  variationName: string;
+
+  @IsString()
+  sku: string;
+
+  @IsNumber()
+  price: number;
+
+  @IsNumber()
+  stockCount: number;
+
+  @IsOptional()
+  @IsBoolean()
+  isAvailable?: boolean;
+}
+
 export class CreateProductDto {
   @IsString()
   name: string;
@@ -59,4 +77,10 @@ export class CreateProductDto {
   @ValidateNested({ each: true })
   @Type(() => CreateProductImageDto)
   images?: CreateProductImageDto[];
+
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => CreateProductVariationDto)
+  variations?: CreateProductVariationDto[];
 }
