@@ -28,7 +28,7 @@ export class CategoriesService {
     }
 
     // Upload image to S3 if provided
-    let imageUrl = createCategoryDto.image;
+    let imageUrl: string | undefined;
     if (imageFile) {
       const uploadResult = await this.s3Service.uploadFile(imageFile, 'categories');
       imageUrl = uploadResult.url;
@@ -37,7 +37,7 @@ export class CategoriesService {
     return this.prisma.category.create({
       data: {
         ...createCategoryDto,
-        image: imageUrl,
+        ...(imageUrl && { image: imageUrl }),
       },
       include: { subCategories: true },
     });
@@ -114,7 +114,7 @@ export class CategoriesService {
     }
 
     // Upload image to S3 if provided
-    let imageUrl = updateCategoryDto.image;
+    let imageUrl: string | undefined;
     if (imageFile) {
       const uploadResult = await this.s3Service.uploadFile(imageFile, 'categories');
       imageUrl = uploadResult.url;
@@ -124,7 +124,7 @@ export class CategoriesService {
       where: { id },
       data: {
         ...updateCategoryDto,
-        ...(imageUrl !== undefined && { image: imageUrl }),
+        ...(imageUrl && { image: imageUrl }),
       },
       include: { subCategories: true },
     });
