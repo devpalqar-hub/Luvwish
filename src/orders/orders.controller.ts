@@ -51,6 +51,14 @@ export class OrdersController {
     return this.ordersService.findOneOrder(id, profile_id);
   }
 
+  //user - cancel order
+  @UseGuards(JwtAuthGuard)
+  @Patch(':id/cancel')
+  cancelOrder(@Param('id') id: string, @Request() req) {
+    const profile_id = req.user.id;
+    return this.ordersService.cancelOrder(id, profile_id);
+  }
+
   //admin
   @Patch(':id')
   update(@Param('id') id: string, @Body() updateOrderDto: UpdateOrderDto) {
