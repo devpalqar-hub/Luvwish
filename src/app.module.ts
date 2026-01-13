@@ -18,6 +18,7 @@ import { RazorpayService } from './razorpay/razorpay.service';
 import { RazorpayController } from './razorpay/razorpay.controller';
 import { OrdersModule } from './orders/orders.module';
 import { TrackingDetailModule } from './tracking/tracking-detail.module';
+import { TrackingModule } from './tracking/tracking.module';
 import { ReviewModule } from './reviews/review.module';
 import { ProductVariationsModule } from './product-variations/product-variations.module';
 import { CategoriesModule } from './categories/categories.module';
@@ -44,6 +45,7 @@ import { S3Module } from './s3/s3.module';
     ProductVariationsModule,
     OrdersModule,
     TrackingDetailModule,
+    TrackingModule,
     CategoriesModule,
     SubCategoriesModule,
     ReviewModule,
