@@ -1,5 +1,10 @@
-import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  ConflictException,
+} from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { S3Service } from '../s3/s3.service';
 import { CreateSubCategoryDto } from './dto/create-subcategory.dto';
 import { UpdateSubCategoryDto } from './dto/update-subcategory.dto';
 import { SubCategoryFilterDto } from './dto/subcategory-filter.dto';
@@ -7,16 +12,24 @@ import { PaginationResponseDto } from 'src/pagination/pagination-response.dto';
 
 @Injectable()
 export class SubCategoriesService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly s3Service: S3Service,
+  ) {}
 
-  async create(createSubCategoryDto: CreateSubCategoryDto) {
+  async create(
+    createSubCategoryDto: CreateSubCategoryDto,
+    imageFile?: Express.Multer.File,
+  ) {
     // Verify category exists
     const category = await this.prisma.category.findUnique({
       where: { id: createSubCategoryDto.categoryId },
     });
 
     if (!category) {
-      throw new NotFoundException(`Category with ID ${createSubCategoryDto.categoryId} not found`);
+      throw new NotFoundException(
+        `Category with ID ${createSubCategoryDto.categoryId} not found`,
+      );
     }
 
     // Check for duplicate slug
@@ -28,8 +41,23 @@ export class SubCategoriesService {
       throw new ConflictException('SubCategory with this slug already exists');
     }
 
+    // Upload image to S3 if provided
+    let imageUrl: string | undefined;
+    if (imageFile) {
+      const uploadResult = await this.s3Service.uploadFile(
+        imageFile,
+        'subcategories',
+      );
+      imageUrl = uploadResult.url;
+    }
+
+    const { image, ...subCategoryData } = createSubCategoryDto;
+
     return this.prisma.subCategory.create({
-      data: createSubCategoryDto,
+      data: {
+        ...subCategoryData,
+        ...(imageUrl && { image: imageUrl }),
+      },
       include: { category: true },
     });
   }
@@ -92,7 +120,11 @@ export class SubCategoriesService {
     return subCategory;
   }
 
-  async update(id: string, updateSubCategoryDto: UpdateSubCategoryDto) {
+  async update(
+    id: string,
+    updateSubCategoryDto: UpdateSubCategoryDto,
+    imageFile?: Express.Multer.File,
+  ) {
     await this.findOne(id);
 
     if (updateSubCategoryDto.categoryId) {
@@ -101,28 +133,44 @@ export class SubCategoriesService {
       });
 
       if (!category) {
-        throw new NotFoundException(`Category with ID ${updateSubCategoryDto.categoryId} not found`);
+        throw new NotFoundException(
+          `Category with ID ${updateSubCategoryDto.categoryId} not found`,
+        );
       }
     }
 
     if (updateSubCategoryDto.slug) {
       const existingSubCategory = await this.prisma.subCategory.findFirst({
         where: {
-          AND: [
-            { id: { not: id } },
-            { slug: updateSubCategoryDto.slug },
-          ],
+          AND: [{ id: { not: id } }, { slug: updateSubCategoryDto.slug }],
         },
       });
 
       if (existingSubCategory) {
-        throw new ConflictException('SubCategory with this slug already exists');
+        throw new ConflictException(
+          'SubCategory with this slug already exists',
+        );
       }
     }
 
+    // Upload image to S3 if provided
+    let imageUrl: string | undefined;
+    if (imageFile) {
+      const uploadResult = await this.s3Service.uploadFile(
+        imageFile,
+        'subcategories',
+      );
+      imageUrl = uploadResult.url;
+    }
+
+    const { image, ...subCategoryData } = updateSubCategoryDto;
+
     return this.prisma.subCategory.update({
       where: { id },
-      data: updateSubCategoryDto,
+      data: {
+        ...subCategoryData,
+        ...(imageUrl && { image: imageUrl }),
+      },
       include: { category: true },
     });
   }
