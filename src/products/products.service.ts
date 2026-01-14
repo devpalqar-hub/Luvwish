@@ -31,6 +31,18 @@ export class ProductsService {
   ) {
     const { images, variations, ...productData } = createProductDto;
 
+    // Verify subCategoryId exists
+    if (productData.subCategoryId) {
+      const subCategory = await this.prisma.subCategory.findUnique({
+        where: { id: productData.subCategoryId },
+      });
+      if (!subCategory) {
+        throw new NotFoundException(
+          `SubCategory with ID ${productData.subCategoryId} not found`,
+        );
+      }
+    }
+
     productData.actualPrice = Number(productData.actualPrice);
     productData.discountedPrice = Number(productData.discountedPrice);
     productData.stockCount = Number(productData.stockCount);
