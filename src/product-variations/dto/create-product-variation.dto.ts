@@ -7,8 +7,9 @@ export class CreateProductVariationDto {
   @IsString()
   variationName: string;
 
+  @IsOptional()
   @IsString()
-  sku: string;
+  sku?: string;
 
   @IsNumber()
   price: number;

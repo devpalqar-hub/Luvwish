@@ -17,3 +17,35 @@ export function generateOrderNumber(prefix = 'ORD'): string {
   // Final order number
   return `${prefix}-${timestamp}-${randomStr}`;
 }
+
+export function generateSKU(
+  productName: string,
+  variationName: string,
+): string {
+  // Create product code from first 3 letters of product name
+  const productCode = productName
+    .replace(/[^a-zA-Z0-9]/g, '')
+    .substring(0, 3)
+    .toUpperCase()
+    .padEnd(3, 'X');
+
+  // Create variation code from first 3 letters of variation name
+  const variationCode = variationName
+    .replace(/[^a-zA-Z0-9]/g, '')
+    .substring(0, 3)
+    .toUpperCase()
+    .padEnd(3, 'X');
+
+  // Generate timestamp (YYMMDD format)
+  const now = new Date();
+  const timestamp =
+    String(now.getFullYear()).substring(2) +
+    String(now.getMonth() + 1).padStart(2, '0') +
+    String(now.getDate()).padStart(2, '0');
+
+  // Random 4-character string (hex)
+  const randomStr = randomBytes(2).toString('hex').toUpperCase();
+
+  // Final SKU format: PROD-VAR-YYMMDD-XXXX
+  return `${productCode}-${variationCode}-${timestamp}-${randomStr}`;
+}
