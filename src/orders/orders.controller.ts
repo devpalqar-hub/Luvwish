@@ -36,7 +36,6 @@ export class OrdersController {
   @Get()
   findAll(
     @Query() pagination: PaginationDto,
-    @Query('status') status: string,
     @Request() req,
   ) {
     const profile_id = req.user.id;
