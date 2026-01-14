@@ -2,6 +2,7 @@ import { Injectable, NotFoundException, ConflictException } from '@nestjs/common
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateProductVariationDto } from './dto/create-product-variation.dto';
 import { UpdateProductVariationDto } from './dto/update-product-variation.dto';
+import { generateSKU } from '../common/utility/utils';
 
 @Injectable()
 export class ProductVariationsService {
@@ -19,18 +20,44 @@ export class ProductVariationsService {
       throw new NotFoundException(`Product with ID ${productId} not found`);
     }
 
-    // Check for duplicate SKU
-    const existingVariation = await this.prisma.productVariation.findUnique({
-      where: { sku: createProductVariationDto.sku },
-    });
+    // Auto-generate SKU if not provided
+    let sku = variationData.sku;
+    if (!sku) {
+      sku = generateSKU(product.name, createProductVariationDto.variationName);
+      
+      // Ensure generated SKU is unique
+      let existingVariation = await this.prisma.productVariation.findUnique({
+        where: { sku },
+      });
+      
+      // If collision, regenerate with retry logic
+      let retryCount = 0;
+      while (existingVariation && retryCount < 5) {
+        sku = generateSKU(product.name, createProductVariationDto.variationName);
+        existingVariation = await this.prisma.productVariation.findUnique({
+          where: { sku },
+        });
+        retryCount++;
+      }
+      
+      if (existingVariation) {
+        throw new ConflictException('Unable to generate unique SKU. Please try again.');
+      }
+    } else {
+      // Check for duplicate SKU if provided
+      const existingVariation = await this.prisma.productVariation.findUnique({
+        where: { sku },
+      });
 
-    if (existingVariation) {
-      throw new ConflictException('Product variation with this SKU already exists');
+      if (existingVariation) {
+        throw new ConflictException('Product variation with this SKU already exists');
+      }
     }
 
     return this.prisma.productVariation.create({
       data: {
         ...variationData,
+        sku,
         productId,
       },
       include: {
