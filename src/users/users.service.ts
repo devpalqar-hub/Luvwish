@@ -7,9 +7,13 @@ import {
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import * as bcrypt from 'bcrypt';
-import { Roles } from '@prisma/client';
 import { UpdateCustomerProfileDto } from './dto/update-customer-profile.dto';
 import { ChangePasswordDto } from './dto/change-password.dto';
+import { AdminCustomerFilterDto } from './dto/admin-customer-filter.dto';
+import {
+  AdminCustomerListResponseDto,
+  AdminCustomerItemDto,
+} from './dto/admin-customer-response.dto';
 
 @Injectable()
 export class UsersService {
@@ -26,7 +30,7 @@ export class UsersService {
       data: {
         email,
         password: hashedPassword,
-        role: Roles.CUSTOMER, // enforce CUSTOMER
+        role: 'CUSTOMER', // enforce CUSTOMER
         CustomerProfile: {
           create: {}
         }
@@ -61,7 +65,7 @@ export class UsersService {
       data: {
         email,
         password: hashedPassword,
-        role: Roles.ADMIN, // enforce ADMIN
+        role: 'ADMIN', // enforce ADMIN
         AdminProfile: {
           create: {}
         }
@@ -257,4 +261,108 @@ export class UsersService {
     });
     return { message: 'Password changed successfully' };
   }
+
+  // 🔹 Admin: Get all customers with order statistics
+  async getAdminCustomers(
+    query: AdminCustomerFilterDto,
+  ): Promise<AdminCustomerListResponseDto> {
+    const { search, fromDate, toDate, page = '1', limit = '10' } = query;
+    const pageNum = parseInt(page, 10);
+    const limitNum = parseInt(limit, 10);
+    const skip = (pageNum - 1) * limitNum;
+
+    // Build where clause
+    const where: any = {
+      role: 'CUSTOMER',
+    };
+
+    // Date range filter for user creation
+    if (fromDate || toDate) {
+      where.createdAt = {};
+      if (fromDate) {
+        where.createdAt.gte = new Date(fromDate);
+      }
+      if (toDate) {
+        where.createdAt.lte = new Date(toDate);
+      }
+    }
+
+    // Search by customer name or email
+    if (search) {
+      where.OR = [
+        {
+          email: {
+            contains: search,
+            mode: 'insensitive',
+          },
+        },
+        {
+          CustomerProfile: {
+            name: {
+              contains: search,
+              mode: 'insensitive',
+            },
+          },
+        },
+      ];
+    }
+
+    // Get total count
+    const total = await this.prisma.user.count({ where });
+
+    // Fetch users with customer profiles
+    const users = await this.prisma.user.findMany({
+      where,
+      include: {
+        CustomerProfile: {
+          include: {
+            orders: {
+              select: {
+                totalAmount: true,
+              },
+            },
+          },
+        },
+      },
+      orderBy: {
+        createdAt: 'desc',
+      },
+      skip,
+      take: limitNum,
+    });
+
+    // Transform data
+    const data: AdminCustomerItemDto[] = users.map((user) => {
+      const customerProfile = user.CustomerProfile;
+      const orders = customerProfile?.orders || [];
+      const numberOfOrders = orders.length;
+      const totalAmountSpent = orders.reduce(
+        (sum, order) => sum + Number(order.totalAmount),
+        0,
+      );
+
+      // Determine customer status (active if they have orders, otherwise inactive)
+      const status = numberOfOrders > 0 ? 'active' : 'inactive';
+
+      return {
+        id: user.id,
+        customerName: customerProfile?.name || null,
+        email: user.email,
+        phoneNumber: customerProfile?.phone || null,
+        numberOfOrders,
+        totalAmountSpent,
+        joinedDate: user.createdAt,
+        status,
+      };
+    });
+
+    return {
+      data,
+      total,
+      page: pageNum,
+      limit: limitNum,
+      totalPages: Math.ceil(total / limitNum),
+    };
+  }
 }
+

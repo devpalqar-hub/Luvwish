@@ -13,29 +13,46 @@ export class ReviewService {
             where: { userId: user },
         });
 
-        // 1️⃣ Validate order item ownership
-        const orderItem = await this.prisma.orderItem.findFirst({
+        if (!customerProfile) {
+            throw new NotFoundException('Customer profile not found');
+        }
+
+        // 1️⃣ Validate order ownership and that it contains the product
+        const order = await this.prisma.order.findFirst({
             where: {
-                id: dto.orderItemId, // ✅ ensure review is tied to this specific purchase
-                productId: dto.productId,
-                order: {
-                    customerProfileId: customerProfile.id,
-                    status: 'delivered', // ✅ or your chosen completed status
+                id: dto.orderId,
+                customerProfileId: customerProfile.id,
+                status: 'delivered', // ✅ only delivered orders can be reviewed
+                items: {
+                    some: {
+                        productId: dto.productId,
+                    },
+                },
+            },
+            include: {
+                items: {
+                    where: {
+                        productId: dto.productId,
+                    },
                 },
             },
         });
 
-        if (!orderItem) {
-            throw new ForbiddenException('You can only review products you purchased and received.');
+        if (!order || order.items.length === 0) {
+            throw new ForbiddenException('You can only review products from your delivered orders.');
         }
 
-        // 2️⃣ Check if review already exists for this order item
+        const orderItem = order.items[0];
+
+        // 2️⃣ Check if review already exists for this product and order
         const existingReview = await this.prisma.review.findFirst({
-            where: { orderItemId: dto.orderItemId },
+            where: { 
+                orderItemId: orderItem.id,
+            },
         });
 
         if (existingReview) {
-            throw new ForbiddenException('You already reviewed this purchase.');
+            throw new ForbiddenException('You have already reviewed this product for this order.');
         }
 
         // 3️⃣ Create the review
@@ -45,12 +62,20 @@ export class ReviewService {
                 comment: dto.comment,
                 productId: dto.productId,
                 customerProfileId: customerProfile.id,
-                orderItemId: dto.orderItemId, // ✅ link review to specific order item
+                orderItemId: orderItem.id, // ✅ link review to specific order item
                 images: {
                     create: dto.images?.map((url) => ({ url })) || [],
                 },
             },
-            include: { images: true },
+            include: { 
+                images: true,
+                customerProfile: {
+                    select: {
+                        name: true,
+                        profilePicture: true,
+                    },
+                },
+            },
         });
     }
 
@@ -58,7 +83,15 @@ export class ReviewService {
     async findByProduct(productId: string) {
         return this.prisma.review.findMany({
             where: { productId },
-            include: { images: true, customerProfile: true },
+            include: { 
+                images: true, 
+                customerProfile: {
+                    select: {
+                        name: true,
+                        profilePicture: true,
+                    },
+                },
+            },
             orderBy: { createdAt: 'desc' },
         });
     }
@@ -124,6 +157,71 @@ export class ReviewService {
         return {
             averageRating: result._avg.rating,
             totalReviews: result._count.rating,
+        };
+    }
+
+    // 🔹 Get products user can review from their delivered orders
+    async getReviewableProducts(userId: string) {
+        const customerProfile = await this.prisma.customerProfile.findUnique({
+            where: { userId },
+        });
+
+        if (!customerProfile) {
+            throw new NotFoundException('Customer profile not found');
+        }
+
+        // Get all delivered orders for this customer
+        const deliveredOrders = await this.prisma.order.findMany({
+            where: {
+                customerProfileId: customerProfile.id,
+                status: 'delivered',
+            },
+            include: {
+                items: {
+                    include: {
+                        product: {
+                            include: {
+                                images: {
+                                    orderBy: {
+                                        sortOrder: 'asc',
+                                    },
+                                    take: 1,
+                                },
+                            },
+                        },
+                        Review: true,
+                    },
+                },
+            },
+            orderBy: {
+                createdAt: 'desc',
+            },
+        });
+
+        // Build list of reviewable products
+        const reviewableProducts = [];
+
+        for (const order of deliveredOrders) {
+            for (const item of order.items) {
+                // Only include if not yet reviewed
+                if (!item.Review) {
+                    reviewableProducts.push({
+                        orderId: order.id,
+                        orderNumber: order.orderNumber,
+                        orderDate: order.createdAt,
+                        productId: item.product.id,
+                        productName: item.product.name,
+                        productImage: item.product.images[0]?.url || null,
+                        quantity: item.quantity,
+                        price: Number(item.discountedPrice),
+                    });
+                }
+            }
+        }
+
+        return {
+            reviewableProducts,
+            total: reviewableProducts.length,
         };
     }
 }
