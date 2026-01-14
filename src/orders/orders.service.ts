@@ -146,6 +146,7 @@ export class OrdersService {
             product: {
               include: {
                 images: true, // ✅ include product images
+                reviews: true
               },
             },
           },
