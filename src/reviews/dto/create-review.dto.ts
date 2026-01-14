@@ -15,7 +15,7 @@ export class CreateReviewDto {
     productId: string;
 
     @IsUUID()
-    orderItemId?: string;
+    orderId: string;
 
     @IsOptional()
     @IsArray()

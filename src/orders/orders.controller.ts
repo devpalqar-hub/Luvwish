@@ -34,9 +34,13 @@ export class OrdersController {
   //user
   @UseGuards(JwtAuthGuard)
   @Get()
-  findAll(@Query() pagination: PaginationDto, @Request() req) {
+  findAll(
+    @Query() pagination: PaginationDto, 
+    @Query('status') status: string,
+    @Request() req
+  ) {
     const profile_id = req.user.id;
-    return this.ordersService.findAll(pagination, profile_id);
+    return this.ordersService.findAll(pagination, profile_id, status);
   }
 
   @Get('user/:userId')
@@ -52,11 +56,20 @@ export class OrdersController {
   }
 
   //user - cancel order
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('CUSTOMER')
   @Patch(':id/cancel')
   cancelOrder(@Param('id') id: string, @Request() req) {
-    const profile_id = req.user.id;
-    return this.ordersService.cancelOrder(id, profile_id);
+    const userId = req.user.id || req.user.sub;
+    return this.ordersService.cancelOrder(id, userId, false);
+  }
+
+  //admin - cancel any order
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('ADMIN', 'SUPER_ADMIN', 'ORDER_MANAGER')
+  @Patch('admin/:id/cancel')
+  adminCancelOrder(@Param('id') id: string) {
+    return this.ordersService.cancelOrder(id, null, true);
   }
 
   //admin

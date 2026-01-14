@@ -24,6 +24,7 @@ import { SearchFilterDto } from 'src/pagination/dto/search-filter.dto';
 import { UpdateStockDto } from './dto/update-stock.dto';
 import { ToggleFeaturedDto } from './dto/toggle-featured.dto';
 import { OptionalJwtAuthGuard } from 'src/common/guards/ optional-jwt-auth.guard';
+import { AdminProductFilterDto } from './dto/admin-product-filter.dto';
 
 @Controller('products')
 export class ProductsController {
@@ -57,6 +58,14 @@ export class ProductsController {
   getFeaturedProducts(@Query() query: SearchFilterDto, @Request() req) {
     const userId = req.user?.id || req.user?.sub;
     return this.productsService.getFeaturedProducts(query, userId);
+  }
+
+  // 🔹 Admin: Get all products with filters (variations listed separately)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('ADMIN', 'SUPER_ADMIN')
+  @Get('admin/products')
+  getAdminProducts(@Query() query: AdminProductFilterDto) {
+    return this.productsService.getAdminProducts(query);
   }
 
   // 🔹 Get single product
