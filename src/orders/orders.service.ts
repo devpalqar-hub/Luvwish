@@ -142,6 +142,7 @@ export class OrdersService {
           select: {
             id: true,
             quantity: true,
+            Review: true,
             product: {
               include: {
                 images: true, // ✅ include product images
