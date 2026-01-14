@@ -14,7 +14,7 @@ import { OrderAggregatesFilterDto } from './dto/order-aggregates-filter.dto';
 
 @Injectable()
 export class OrdersService {
-  constructor(private prisma: PrismaService) { }
+  constructor(private prisma: PrismaService) {}
 
   async create(createOrderDto: CreateOrderDto) {
     const { items, ...orderData } = createOrderDto;
@@ -37,7 +37,11 @@ export class OrdersService {
     });
   }
 
-  async findAll(pagination: PaginationDto, profile_id: string, status?: string) {
+  async findAll(
+    pagination: PaginationDto,
+    profile_id: string,
+    status?: string,
+  ) {
     const profile = await this.prisma.customerProfile.findUnique({
       where: { userId: profile_id },
     });
@@ -101,9 +105,6 @@ export class OrdersService {
     return new PaginationResponseDto(data, total, page, limit);
   }
 
-
-
-
   async findOne(id: string) {
     const order = await this.prisma.order.findUnique({
       where: { id },
@@ -116,18 +117,10 @@ export class OrdersService {
     return order;
   }
 
-  async findOneOrder(orderId: string, profile_id: string) {
-    // find customer profile
-    const profile = await this.prisma.customerProfile.findUnique({
-      where: { userId: profile_id },
-    });
-    if (!profile) {
-      throw new NotFoundException('CustomerProfile Not Found');
-    }
-
+  async findOneOrder(orderId: string) {
     // find the order belonging to this customer
     const order = await this.prisma.order.findFirst({
-      where: { id: orderId, customerProfileId: profile.id },
+      where: { id: orderId },
       select: {
         id: true,
         orderNumber: true,
@@ -175,16 +168,16 @@ export class OrdersService {
         ...orderData,
         ...(items
           ? {
-            items: {
-              deleteMany: {}, // clear old items
-              create: items.map((item) => ({
-                productId: item.productId,
-                quantity: item.quantity,
-                actualPrice: item.actualPrice,
-                discountedPrice: item.discountedPrice,
-              })),
-            },
-          }
+              items: {
+                deleteMany: {}, // clear old items
+                create: items.map((item) => ({
+                  productId: item.productId,
+                  quantity: item.quantity,
+                  actualPrice: item.actualPrice,
+                  discountedPrice: item.discountedPrice,
+                })),
+              },
+            }
           : {}),
       },
       include: {
@@ -245,13 +238,14 @@ export class OrdersService {
     };
   }
 
-
-  async adminFindAll(pagination: PaginationDto & {
-    search?: string;
-    status?: string;
-    startDate?: string;
-    endDate?: string;
-  }) {
+  async adminFindAll(
+    pagination: PaginationDto & {
+      search?: string;
+      status?: string;
+      startDate?: string;
+      endDate?: string;
+    },
+  ) {
     const page = Number(pagination.page) || 1;
     const limit = Number(pagination.limit) || 10;
     const skip = (page - 1) * limit;
@@ -261,7 +255,7 @@ export class OrdersService {
 
     if (pagination.search) {
       whereClause.orderNumber = {
-        contains: pagination.search.toLowerCase()
+        contains: pagination.search.toLowerCase(),
       };
     }
 
@@ -321,7 +315,11 @@ export class OrdersService {
     return new PaginationResponseDto(data, total, page, limit);
   }
 
-  async cancelOrder(orderId: string, userId: string | null, isAdmin: boolean = false) {
+  async cancelOrder(
+    orderId: string,
+    userId: string | null,
+    isAdmin: boolean = false,
+  ) {
     let order;
 
     if (isAdmin) {
@@ -339,7 +337,7 @@ export class OrdersService {
       const profile = await this.prisma.customerProfile.findUnique({
         where: { userId },
       });
-      
+
       if (!profile) {
         throw new NotFoundException('Customer profile not found');
       }
@@ -392,7 +390,9 @@ export class OrdersService {
       statusHistory.push({
         status: 'returned',
         timestamp: new Date().toISOString(),
-        notes: isAdmin ? 'Order cancelled by admin' : 'Order cancelled by customer',
+        notes: isAdmin
+          ? 'Order cancelled by admin'
+          : 'Order cancelled by customer',
       });
 
       await this.prisma.trackingDetail.update({
@@ -500,5 +500,4 @@ export class OrdersService {
       filters: filters || null,
     };
   }
-
 }

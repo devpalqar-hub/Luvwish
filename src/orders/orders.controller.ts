@@ -50,9 +50,8 @@ export class OrdersController {
 
   @UseGuards(JwtAuthGuard)
   @Get(':id')
-  findOneOrder(@Param('id') id: string, @Request() req) {
-    const profile_id = req.user.id;
-    return this.ordersService.findOneOrder(id, profile_id);
+  findOneOrder(@Param('id') id: string) {
+    return this.ordersService.findOneOrder(id);
   }
 
   //user - cancel order
