@@ -15,8 +15,16 @@ export class ReviewController {
     @UseGuards(JwtAuthGuard)
     @Post()
     create(@Body() dto: CreateReviewDto, @Request() req) {
-        const user = req.user.id
+        const user = req.user.id || req.user.sub;
         return this.reviewService.create(dto, user);
+    }
+
+    // 🔹 Get products user can review from their delivered orders
+    @UseGuards(JwtAuthGuard)
+    @Get('my-reviewable-products')
+    getReviewableProducts(@Request() req) {
+        const user = req.user.id || req.user.sub;
+        return this.reviewService.getReviewableProducts(user);
     }
 
     @Get('product/:productId')
