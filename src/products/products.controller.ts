@@ -34,15 +34,39 @@ export class ProductsController {
   ) {}
 
   // 🔹 Create product with images
+  @Post()
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('ADMIN', 'SUPER_ADMIN')
-  @Post()
-  @UseInterceptors(FilesInterceptor('images', 10)) // Max 10 images
+  @UseInterceptors(FilesInterceptor('images', 10))
   async create(
-    @Body() createProductDto: CreateProductDto,
+    @Body() body: any,
     @UploadedFiles() images?: Express.Multer.File[],
   ) {
-    return this.productsService.createWithUpload(createProductDto, images);
+    // 🔹 Booleans
+    if (body.isStock !== undefined) {
+      body.isStock = body.isStock === 'true' || body.isStock === true;
+    }
+
+    if (body.isFeatured !== undefined) {
+      body.isFeatured = body.isFeatured === 'true' || body.isFeatured === true;
+    }
+
+    // 🔹 Numbers
+    body.actualPrice = Number(body.actualPrice);
+    body.discountedPrice = Number(body.discountedPrice);
+    body.stockCount = Number(body.stockCount);
+
+    // 🔹 Parse variations JSON
+    if (typeof body.variations === 'string') {
+      body.variations = JSON.parse(body.variations);
+    }
+
+    // 🔹 Parse images JSON (if you ever send URLs)
+    if (typeof body.images === 'string') {
+      body.images = JSON.parse(body.images);
+    }
+
+    return this.productsService.createWithUpload(body, images);
   }
 
   @UseGuards(OptionalJwtAuthGuard)
