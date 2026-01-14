@@ -11,6 +11,7 @@ import {
   Query,
   UseInterceptors,
   UploadedFiles,
+  BadRequestException,
 } from '@nestjs/common';
 import { FilesInterceptor } from '@nestjs/platform-express';
 import { ProductsService } from './products.service';
@@ -42,28 +43,35 @@ export class ProductsController {
     @Body() body: any,
     @UploadedFiles() images?: Express.Multer.File[],
   ) {
+    // 🔹 REQUIRED fields check
+    if (!body.name) {
+      throw new BadRequestException('name is required');
+    }
+
     // 🔹 Booleans
-    if (body.isStock !== undefined) {
-      body.isStock = body.isStock === 'true' || body.isStock === true;
-    }
+    body.isStock =
+      body.isStock === 'true' || body.isStock === true || body.isStock === 1;
 
-    if (body.isFeatured !== undefined) {
-      body.isFeatured = body.isFeatured === 'true' || body.isFeatured === true;
-    }
+    body.isFeatured =
+      body.isFeatured === 'true' ||
+      body.isFeatured === true ||
+      body.isFeatured === 1;
 
-    // 🔹 Numbers
-    body.actualPrice = Number(body.actualPrice);
-    body.discountedPrice = Number(body.discountedPrice);
-    body.stockCount = Number(body.stockCount);
+    // 🔹 Numbers (safe conversion)
+    body.actualPrice =
+      body.actualPrice !== undefined ? Number(body.actualPrice) : undefined;
 
-    // 🔹 Parse variations JSON
+    body.discountedPrice =
+      body.discountedPrice !== undefined
+        ? Number(body.discountedPrice)
+        : undefined;
+
+    body.stockCount =
+      body.stockCount !== undefined ? Number(body.stockCount) : undefined;
+
+    // 🔹 Variations
     if (typeof body.variations === 'string') {
       body.variations = JSON.parse(body.variations);
-    }
-
-    // 🔹 Parse images JSON (if you ever send URLs)
-    if (typeof body.images === 'string') {
-      body.images = JSON.parse(body.images);
     }
 
     return this.productsService.createWithUpload(body, images);
