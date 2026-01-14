@@ -1,4 +1,8 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  ConflictException,
+} from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { S3Service } from '../s3/s3.service';
 import { CreateProductDto } from './dto/create-product.dto';
@@ -64,6 +68,30 @@ export class ProductsService {
 
     // Merge uploaded images with provided image URLs (if any)
     const allImages = [...uploadedImages, ...(images || [])];
+
+    // Check for duplicate SKUs in the variations array
+    if (variations && variations.length > 0) {
+      const skus = variations.map((v) => v.sku);
+      const uniqueSkus = new Set(skus);
+      if (uniqueSkus.size !== skus.length) {
+        throw new ConflictException('Duplicate SKUs found in variations');
+      }
+
+      // Check if any SKU already exists in the database
+      const existingVariation = await this.prisma.productVariation.findFirst({
+        where: {
+          sku: {
+            in: skus,
+          },
+        },
+      });
+
+      if (existingVariation) {
+        throw new ConflictException(
+          `Product variation with SKU ${existingVariation.sku} already exists`,
+        );
+      }
+    }
 
     return this.prisma.product.create({
       data: {
