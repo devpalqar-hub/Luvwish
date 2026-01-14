@@ -48,7 +48,6 @@ export class OrdersController {
     return this.ordersService.findByUser(profile_id);
   }
 
-  @UseGuards(JwtAuthGuard)
   @Get(':id')
   findOneOrder(@Param('id') id: string, @Request() req) {
     const profile_id = req.user.id;
