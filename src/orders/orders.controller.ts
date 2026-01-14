@@ -34,12 +34,12 @@ export class OrdersController {
   //user
   @UseGuards(JwtAuthGuard)
   @Get()
-  findAll(
-    @Query() pagination: PaginationDto,
-    @Request() req,
-  ) {
-    const profile_id = req.user.id;
-    return this.ordersService.findAll(pagination, profile_id, status);
+  findAll(@Query() query: PaginationDto, @Request() req) {
+    return this.ordersService.findAll(
+      query,
+      req.user.id,
+      query.status, // ✅ FIX: use query.status
+    );
   }
 
   @Get('user/:userId')
