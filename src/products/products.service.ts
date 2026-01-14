@@ -20,6 +20,7 @@ import {
   AdminProductListResponseDto,
   AdminProductItemDto,
 } from './dto/admin-product-response.dto';
+import { generateSKU } from '../common/utility/utils';
 
 @Injectable()
 export class ProductsService {
@@ -69,9 +70,44 @@ export class ProductsService {
     // Merge uploaded images with provided image URLs (if any)
     const allImages = [...uploadedImages, ...(images || [])];
 
-    // Check for duplicate SKUs in the variations array
+    // Auto-generate SKUs for variations if not provided
+    let processedVariations = variations;
     if (variations && variations.length > 0) {
-      const skus = variations.map((v) => v.sku);
+      processedVariations = await Promise.all(
+        variations.map(async (variation) => {
+          let sku = variation.sku;
+
+          // Generate SKU if not provided
+          if (!sku) {
+            sku = generateSKU(productData.name, variation.variationName);
+
+            // Ensure uniqueness with retry logic
+            let existingVariation = await this.prisma.productVariation.findUnique({
+              where: { sku },
+            });
+
+            let retryCount = 0;
+            while (existingVariation && retryCount < 5) {
+              sku = generateSKU(productData.name, variation.variationName);
+              existingVariation = await this.prisma.productVariation.findUnique({
+                where: { sku },
+              });
+              retryCount++;
+            }
+
+            if (existingVariation) {
+              throw new ConflictException(
+                `Unable to generate unique SKU for variation ${variation.variationName}`,
+              );
+            }
+          }
+
+          return { ...variation, sku };
+        }),
+      );
+
+      // Check for duplicate SKUs in the processed variations array
+      const skus = processedVariations.map((v) => v.sku);
       const uniqueSkus = new Set(skus);
       if (uniqueSkus.size !== skus.length) {
         throw new ConflictException('Duplicate SKUs found in variations');
@@ -106,9 +142,9 @@ export class ProductsService {
               })),
             }
           : undefined,
-        variations: variations?.length
+        variations: processedVariations?.length
           ? {
-              create: variations.map((variation) => ({
+              create: processedVariations.map((variation) => ({
                 variationName: variation.variationName,
                 sku: variation.sku,
                 price: variation.price,
@@ -293,6 +329,18 @@ export class ProductsService {
   ) {
     const { images, variations, ...productData } = updateProductDto;
 
+    // Get product name for SKU generation
+    const product = await this.prisma.product.findUnique({
+      where: { id },
+      select: { name: true },
+    });
+
+    if (!product) {
+      throw new NotFoundException(`Product with ID ${id} not found`);
+    }
+
+    const productName = productData.name || product.name;
+
     // Upload new images to S3 if files are provided
     let uploadedImages = [];
     if (imageFiles && imageFiles.length > 0) {
@@ -311,6 +359,43 @@ export class ProductsService {
     // Merge uploaded images with provided image URLs
     const allImages = [...uploadedImages, ...(images || [])];
 
+    // Auto-generate SKUs for variations if not provided
+    let processedVariations = variations;
+    if (variations && variations.length > 0) {
+      processedVariations = await Promise.all(
+        variations.map(async (variation) => {
+          let sku = variation.sku;
+
+          // Generate SKU if not provided
+          if (!sku) {
+            sku = generateSKU(productName, variation.variationName);
+
+            // Ensure uniqueness with retry logic
+            let existingVariation = await this.prisma.productVariation.findUnique({
+              where: { sku },
+            });
+
+            let retryCount = 0;
+            while (existingVariation && retryCount < 5) {
+              sku = generateSKU(productName, variation.variationName);
+              existingVariation = await this.prisma.productVariation.findUnique({
+                where: { sku },
+              });
+              retryCount++;
+            }
+
+            if (existingVariation) {
+              throw new ConflictException(
+                `Unable to generate unique SKU for variation ${variation.variationName}`,
+              );
+            }
+          }
+
+          return { ...variation, sku };
+        }),
+      );
+    }
+
     return this.prisma.product.update({
       where: { id },
       data: {
@@ -328,11 +413,11 @@ export class ProductsService {
               },
             }
           : {}),
-        ...(variations && variations.length > 0
+        ...(processedVariations && processedVariations.length > 0
           ? {
               variations: {
                 deleteMany: {}, // remove old variations
-                create: variations.map((variation) => ({
+                create: processedVariations.map((variation) => ({
                   variationName: variation.variationName,
                   sku: variation.sku,
                   price: variation.price,
