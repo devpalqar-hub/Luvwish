@@ -266,7 +266,7 @@ export class UsersService {
   async getAdminCustomers(
     query: AdminCustomerFilterDto,
   ): Promise<AdminCustomerListResponseDto> {
-    const { search, fromDate, toDate, page = '1', limit = '10' } = query;
+    const { search, fromDate, toDate, status, page = '1', limit = '10' } = query;
     const pageNum = parseInt(page, 10);
     const limitNum = parseInt(limit, 10);
     const skip = (pageNum - 1) * limitNum;
@@ -287,31 +287,28 @@ export class UsersService {
       }
     }
 
-    // Search by customer name or email
+    // Search by customer name or email (MySQL compatible)
     if (search) {
+      const searchLower = search.toLowerCase();
       where.OR = [
         {
           email: {
-            contains: search,
-            mode: 'insensitive',
+            contains: searchLower,
           },
         },
         {
           CustomerProfile: {
             name: {
               contains: search,
-              mode: 'insensitive',
             },
           },
         },
       ];
     }
 
-    // Get total count
-    const total = await this.prisma.user.count({ where });
-
-    // Fetch users with customer profiles
-    const users = await this.prisma.user.findMany({
+    // Filter by status - we need to filter after fetching since status is computed
+    // First, get all users matching other criteria
+    const allUsers = await this.prisma.user.findMany({
       where,
       include: {
         CustomerProfile: {
@@ -327,12 +324,10 @@ export class UsersService {
       orderBy: {
         createdAt: 'desc',
       },
-      skip,
-      take: limitNum,
     });
 
-    // Transform data
-    const data: AdminCustomerItemDto[] = users.map((user) => {
+    // Transform and filter by status
+    let transformedData: AdminCustomerItemDto[] = allUsers.map((user) => {
       const customerProfile = user.CustomerProfile;
       const orders = customerProfile?.orders || [];
       const numberOfOrders = orders.length;
@@ -342,7 +337,7 @@ export class UsersService {
       );
 
       // Determine customer status (active if they have orders, otherwise inactive)
-      const status = numberOfOrders > 0 ? 'active' : 'inactive';
+      const customerStatus = numberOfOrders > 0 ? 'active' : 'inactive';
 
       return {
         id: user.id,
@@ -352,9 +347,20 @@ export class UsersService {
         numberOfOrders,
         totalAmountSpent,
         joinedDate: user.createdAt,
-        status,
+        status: customerStatus,
       };
     });
+
+    // Apply status filter if provided
+    if (status) {
+      transformedData = transformedData.filter((item) => item.status === status);
+    }
+
+    // Get total count after status filter
+    const total = transformedData.length;
+
+    // Apply pagination
+    const data = transformedData.slice(skip, skip + limitNum);
 
     return {
       data,
