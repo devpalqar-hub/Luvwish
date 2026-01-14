@@ -23,7 +23,7 @@ import { UpdateOrderStatusDto } from './dto/update-order-status.dto';
 import { get } from 'http';
 @Controller('orders')
 export class OrdersController {
-  constructor(private readonly ordersService: OrdersService) { }
+  constructor(private readonly ordersService: OrdersService) {}
 
   //user
   @Post()
@@ -35,9 +35,9 @@ export class OrdersController {
   @UseGuards(JwtAuthGuard)
   @Get()
   findAll(
-    @Query() pagination: PaginationDto, 
+    @Query() pagination: PaginationDto,
     @Query('status') status: string,
-    @Request() req
+    @Request() req,
   ) {
     const profile_id = req.user.id;
     return this.ordersService.findAll(pagination, profile_id, status);
@@ -48,6 +48,7 @@ export class OrdersController {
     return this.ordersService.findByUser(profile_id);
   }
 
+  @UseGuards(JwtAuthGuard)
   @Get(':id')
   findOneOrder(@Param('id') id: string, @Request() req) {
     const profile_id = req.user.id;
@@ -93,7 +94,6 @@ export class OrdersController {
     return this.ordersService.updateOrderStatus(id, dto);
   }
 
-
   @Get('admin/get-all')
   async findAllbyAdmin(
     @Query('page') page?: number,
@@ -106,12 +106,14 @@ export class OrdersController {
     const paginationDto = new PaginationDto();
     if (page !== undefined) paginationDto.page = Number(page);
     if (limit !== undefined) paginationDto.limit = Number(limit);
-    return this.ordersService.adminFindAll(Object.assign(paginationDto, {
-      search,
-      status,
-      startDate,
-      endDate,
-    }));
+    return this.ordersService.adminFindAll(
+      Object.assign(paginationDto, {
+        search,
+        status,
+        startDate,
+        endDate,
+      }),
+    );
   }
 
   @UseGuards(JwtAuthGuard, RolesGuard)
@@ -136,9 +138,7 @@ export class OrdersController {
       customerProfileId,
     });
   }
-
 }
 
-
-// order post 
+// order post
 // ordres get
