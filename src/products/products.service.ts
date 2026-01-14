@@ -8,6 +8,14 @@ import { UpdateProductDto } from './dto/update-product.dto';
 import { SearchFilterDto } from 'src/pagination/dto/search-filter.dto';
 import { UpdateStockDto } from './dto/update-stock.dto';
 import { ToggleFeaturedDto } from './dto/toggle-featured.dto';
+import {
+  AdminProductFilterDto,
+  StockStatus,
+} from './dto/admin-product-filter.dto';
+import {
+  AdminProductListResponseDto,
+  AdminProductItemDto,
+} from './dto/admin-product-response.dto';
 
 @Injectable()
 export class ProductsService {
@@ -196,12 +204,45 @@ export class ProductsService {
           },
         },
         variations: true,
+        reviews: {
+          include: {
+            images: true,
+            customerProfile: {
+              select: {
+                name: true,
+                profilePicture: true,
+              },
+            },
+          },
+          orderBy: {
+            createdAt: 'desc',
+          },
+        },
       },
     });
 
     if (!product)
       throw new NotFoundException(`Product with ID ${id} not found`);
-    return product;
+    
+    // Calculate review statistics
+    const reviewStats = {
+      totalReviews: product.reviews.length,
+      averageRating: product.reviews.length > 0 
+        ? product.reviews.reduce((sum, review) => sum + review.rating, 0) / product.reviews.length 
+        : 0,
+      ratingDistribution: {
+        5: product.reviews.filter(r => r.rating === 5).length,
+        4: product.reviews.filter(r => r.rating === 4).length,
+        3: product.reviews.filter(r => r.rating === 3).length,
+        2: product.reviews.filter(r => r.rating === 2).length,
+        1: product.reviews.filter(r => r.rating === 1).length,
+      },
+    };
+
+    return {
+      ...product,
+      reviewStats,
+    };
   }
 
   // 🔹 Update product with file upload
@@ -467,4 +508,134 @@ export class ProductsService {
       },
     });
   }
+
+  // 🔹 Admin: Get all products with filters (includes variations as separate items)
+  async getAdminProducts(
+    query: AdminProductFilterDto,
+  ): Promise<AdminProductListResponseDto> {
+    const { search, subCategoryId, stockStatus, page = '1', limit = '10' } = query;
+    const pageNum = parseInt(page, 10);
+    const limitNum = parseInt(limit, 10);
+    const skip = (pageNum - 1) * limitNum;
+
+    // Build where clause for products
+    const where: any = {};
+
+    if (search) {
+      where.name = {
+        contains: search,
+        mode: 'insensitive',
+      };
+    }
+
+    if (subCategoryId) {
+      where.subCategoryId = subCategoryId;
+    }
+
+    // Fetch products with variations
+    const products = await this.prisma.product.findMany({
+      where,
+      include: {
+        images: {
+          orderBy: {
+            sortOrder: 'asc',
+          },
+        },
+        subCategory: true,
+        variations: true,
+      },
+      orderBy: {
+        createdAt: 'desc',
+      },
+    });
+
+    // Transform products and variations into a flat list
+    const productItems: AdminProductItemDto[] = [];
+
+    for (const product of products) {
+      const firstImage = product.images.find((img) => img.isMain)?.url || 
+                         product.images[0]?.url || 
+                         null;
+      const images = product.images.map((img) => img.url);
+
+      // If product has variations, list each variation as a separate item
+      if (product.variations && product.variations.length > 0) {
+        for (const variation of product.variations) {
+          const stockCount = variation.stockCount;
+          const varStockStatus = this.getStockStatus(stockCount, variation.isAvailable);
+
+          // Apply stock status filter
+          if (stockStatus && varStockStatus !== stockStatus) {
+            continue;
+          }
+
+          productItems.push({
+            id: product.id,
+            productName: `${product.name} - ${variation.variationName}`,
+            firstImage,
+            images,
+            subCategory: product.subCategory?.name || null,
+            stockPrice: Number(product.actualPrice),
+            discountedPrice: Number(variation.price),
+            sku: variation.sku,
+            isVariationProduct: true,
+            variationId: variation.id,
+            stockStatus: varStockStatus,
+            stockCount,
+          });
+        }
+      } else {
+        // No variations, list the product itself
+        const stockCount = product.stockCount;
+        const prodStockStatus = this.getStockStatus(stockCount, product.isStock);
+
+        // Apply stock status filter
+        if (stockStatus && prodStockStatus !== stockStatus) {
+          continue;
+        }
+
+        productItems.push({
+          id: product.id,
+          productName: product.name,
+          firstImage,
+          images,
+          subCategory: product.subCategory?.name || null,
+          stockPrice: Number(product.actualPrice),
+          discountedPrice: Number(product.discountedPrice),
+          sku: null,
+          isVariationProduct: false,
+          variationId: null,
+          stockStatus: prodStockStatus,
+          stockCount,
+        });
+      }
+    }
+
+    // Apply pagination to the flattened list
+    const total = productItems.length;
+    const paginatedItems = productItems.slice(skip, skip + limitNum);
+
+    return {
+      data: paginatedItems,
+      total,
+      page: pageNum,
+      limit: limitNum,
+      totalPages: Math.ceil(total / limitNum),
+    };
+  }
+
+  // Helper method to determine stock status
+  private getStockStatus(
+    stockCount: number,
+    isAvailable: boolean,
+  ): 'in_stock' | 'out_of_stock' | 'low_stock' {
+    if (!isAvailable || stockCount === 0) {
+      return 'out_of_stock';
+    }
+    if (stockCount < 5) {
+      return 'low_stock';
+    }
+    return 'in_stock';
+  }
 }
+

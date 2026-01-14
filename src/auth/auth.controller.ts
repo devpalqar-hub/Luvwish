@@ -26,6 +26,10 @@ import { ChangePasswordDto } from 'src/users/dto/change-password.dto';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
+import { RegisterWithOtpDto } from './dto/register-with-otp.dto';
+import { VerifyRegistrationOtpDto } from './dto/verify-registration-otp.dto';
+import { LoginWithOtpDto } from './dto/login-with-otp.dto';
+import { VerifyLoginOtpDto } from './dto/verify-login-otp.dto';
 
 @Controller('auth')
 export class AuthController {
@@ -115,5 +119,29 @@ export class AuthController {
   @Post('reset-password')
   async resetPassword(@Body() dto: ResetPasswordDto) {
     return this.authService.resetPassword(dto);
+  }
+
+  // 🔹 Register customer with OTP
+  @Post('register-with-otp')
+  async registerWithOtp(@Body() dto: RegisterWithOtpDto) {
+    return this.authService.registerWithOtp(dto);
+  }
+
+  // 🔹 Verify registration OTP
+  @Post('verify-registration-otp')
+  async verifyRegistrationOtp(@Body() dto: VerifyRegistrationOtpDto) {
+    return this.authService.verifyRegistrationOtp(dto);
+  }
+
+  // 🔹 Login with OTP (send OTP to email)
+  @Post('login-with-otp')
+  async loginWithOtp(@Body() dto: LoginWithOtpDto) {
+    return this.authService.loginWithOtp(dto);
+  }
+
+  // 🔹 Verify login OTP
+  @Post('verify-login-otp')
+  async verifyLoginOtp(@Body() dto: VerifyLoginOtpDto) {
+    return this.authService.verifyLoginOtp(dto);
   }
 }

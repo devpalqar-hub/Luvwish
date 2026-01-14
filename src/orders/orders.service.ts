@@ -37,7 +37,7 @@ export class OrdersService {
     });
   }
 
-  async findAll(pagination: PaginationDto, profile_id: string) {
+  async findAll(pagination: PaginationDto, profile_id: string, status?: string) {
     const profile = await this.prisma.customerProfile.findUnique({
       where: { userId: profile_id },
     });
@@ -49,7 +49,12 @@ export class OrdersService {
     const limit = Number(pagination.limit) || 10;
     const skip = (page - 1) * limit;
 
-    const whereClause = { customerProfileId: profile.id };
+    const whereClause: any = { customerProfileId: profile.id };
+
+    // Add status filter if provided
+    if (status) {
+      whereClause.status = status;
+    }
 
     const [data, total] = await this.prisma.$transaction([
       this.prisma.order.findMany({
@@ -316,19 +321,34 @@ export class OrdersService {
     return new PaginationResponseDto(data, total, page, limit);
   }
 
-  async cancelOrder(orderId: string, profile_id: string) {
-    // Find customer profile
-    const profile = await this.prisma.customerProfile.findUnique({
-      where: { userId: profile_id },
-    });
-    if (!profile) {
-      throw new NotFoundException('CustomerProfile Not Found');
-    }
+  async cancelOrder(orderId: string, userId: string | null, isAdmin: boolean = false) {
+    let order;
 
-    // Find the order belonging to this customer
-    const order = await this.prisma.order.findFirst({
-      where: { id: orderId, customerProfileId: profile.id },
-    });
+    if (isAdmin) {
+      // Admin can cancel any order
+      order = await this.prisma.order.findUnique({
+        where: { id: orderId },
+      });
+    } else {
+      // User can only cancel their own orders
+      if (!userId) {
+        throw new BadRequestException('User ID is required');
+      }
+
+      // Find customer profile
+      const profile = await this.prisma.customerProfile.findUnique({
+        where: { userId },
+      });
+      
+      if (!profile) {
+        throw new NotFoundException('Customer profile not found');
+      }
+
+      // Find the order belonging to this customer
+      order = await this.prisma.order.findFirst({
+        where: { id: orderId, customerProfileId: profile.id },
+      });
+    }
 
     if (!order) {
       throw new NotFoundException(`Order with ID ${orderId} not found`);
@@ -372,7 +392,7 @@ export class OrdersService {
       statusHistory.push({
         status: 'returned',
         timestamp: new Date().toISOString(),
-        notes: 'Order cancelled by customer',
+        notes: isAdmin ? 'Order cancelled by admin' : 'Order cancelled by customer',
       });
 
       await this.prisma.trackingDetail.update({

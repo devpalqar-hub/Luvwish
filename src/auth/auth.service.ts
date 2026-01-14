@@ -18,6 +18,10 @@ import { ResetPasswordDto } from './dto/reset-password.dto';
 import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { ChangePasswordDto } from './dto/change-password.dto';
 import { MailerService } from '@nestjs-modules/mailer';
+import { RegisterWithOtpDto } from './dto/register-with-otp.dto';
+import { VerifyRegistrationOtpDto } from './dto/verify-registration-otp.dto';
+import { LoginWithOtpDto } from './dto/login-with-otp.dto';
+import { VerifyLoginOtpDto } from './dto/verify-login-otp.dto';
 
 @Injectable()
 export class AuthService {
@@ -228,5 +232,225 @@ export class AuthService {
     });
 
     return { message: 'Password reset successful' };
+  }
+
+  // 🔹 Helper method to send OTP email (with error handling)
+  private async sendOtpEmail(email: string, otp: string): Promise<void> {
+    try {
+      await this.emailService.sendMail({
+        from: `"Luvwish" <${process.env.MAIL_USER}>`,
+        to: email,
+        subject: 'Your OTP for Verification',
+        text: `Your OTP is: ${otp}. It will expire in 15 minutes.`,
+        html: `
+          <div style="font-family: Arial, sans-serif; padding: 20px;">
+            <h2>Welcome to Luvwish!</h2>
+            <p>Your OTP for verification is:</p>
+            <h1 style="color: #4CAF50; font-size: 32px;">${otp}</h1>
+            <p>This OTP will expire in 15 minutes.</p>
+            <p>If you didn't request this, please ignore this email.</p>
+          </div>
+        `,
+      });
+    } catch (error) {
+      // Log error but don't crash the API
+      console.error('Failed to send OTP email:', error.message);
+    }
+  }
+
+  // 🔹 Register customer with OTP
+  async registerWithOtp(dto: RegisterWithOtpDto) {
+    const { email, name, phone } = dto;
+
+    // Check if user already exists
+    const existingUser = await this.prisma.user.findUnique({
+      where: { email },
+    });
+
+    if (existingUser) {
+      throw new ConflictException('Email already registered');
+    }
+
+    // Use default OTP or generate random one
+    const otp = '759409'; // Default OTP as requested
+    const expiry = new Date();
+    expiry.setMinutes(expiry.getMinutes() + 15);
+
+    // Store registration data temporarily in a separate table or cache
+    // For now, we'll create the user but mark as unverified
+    const user = await this.prisma.user.create({
+      data: {
+        email,
+        role: Roles.CUSTOMER,
+        CustomerProfile: {
+          create: {
+            name,
+            phone,
+          },
+        },
+      },
+      include: {
+        CustomerProfile: true,
+      },
+    });
+
+    // Create OTP record
+    await this.prisma.userOtp.create({
+      data: {
+        userId: user.id,
+        otp,
+        expiresAt: expiry,
+        used: false,
+      },
+    });
+
+    // Send OTP email (won't crash if fails)
+    await this.sendOtpEmail(email, otp);
+
+    return {
+      message: 'Registration initiated. Please verify OTP sent to your email.',
+      email,
+      // For development: return OTP
+      ...(process.env.NODE_ENV !== 'production' && { otp }),
+    };
+  }
+
+  // 🔹 Verify registration OTP
+  async verifyRegistrationOtp(dto: VerifyRegistrationOtpDto) {
+    const { email, otp } = dto;
+
+    const user = await this.prisma.user.findUnique({
+      where: { email },
+      include: { CustomerProfile: true },
+    });
+
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    const userOtp = await this.prisma.userOtp.findUnique({
+      where: { userId: user.id },
+    });
+
+    if (!userOtp || userOtp.used) {
+      throw new BadRequestException('Invalid or already used OTP');
+    }
+
+    if (userOtp.otp !== otp) {
+      throw new BadRequestException('Invalid OTP');
+    }
+
+    if (new Date() > userOtp.expiresAt) {
+      throw new BadRequestException('OTP has expired');
+    }
+
+    // Mark OTP as used
+    await this.prisma.userOtp.update({
+      where: { userId: user.id },
+      data: { used: true },
+    });
+
+    // Create cart and wishlist for the customer
+    await this.prisma.cartItem.create({
+      data: {
+        customerProfileId: user.CustomerProfile.id,
+      },
+    });
+
+    await this.prisma.wishlist.create({
+      data: {
+        customerProfileId: user.CustomerProfile.id,
+      },
+    });
+
+    // Generate JWT token
+    return this.generateToken(user);
+  }
+
+  // 🔹 Login with OTP (send OTP to email)
+  async loginWithOtp(dto: LoginWithOtpDto) {
+    const { email } = dto;
+
+    const user = await this.prisma.user.findUnique({
+      where: { email },
+    });
+
+    if (!user) {
+      throw new NotFoundException('User not found with this email');
+    }
+
+    if (user.role !== Roles.CUSTOMER) {
+      throw new ForbiddenException('OTP login is only available for customers');
+    }
+
+    // Use default OTP
+    const otp = '759409';
+    const expiry = new Date();
+    expiry.setMinutes(expiry.getMinutes() + 15);
+
+    // Create or update OTP
+    await this.prisma.userOtp.upsert({
+      where: { userId: user.id },
+      update: {
+        otp,
+        expiresAt: expiry,
+        used: false,
+      },
+      create: {
+        userId: user.id,
+        otp,
+        expiresAt: expiry,
+        used: false,
+      },
+    });
+
+    // Send OTP email (won't crash if fails)
+    await this.sendOtpEmail(email, otp);
+
+    return {
+      message: 'OTP sent to your email for login verification',
+      email,
+      // For development: return OTP
+      ...(process.env.NODE_ENV !== 'production' && { otp }),
+    };
+  }
+
+  // 🔹 Verify login OTP
+  async verifyLoginOtp(dto: VerifyLoginOtpDto) {
+    const { email, otp } = dto;
+
+    const user = await this.prisma.user.findUnique({
+      where: { email },
+      include: { CustomerProfile: true },
+    });
+
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    const userOtp = await this.prisma.userOtp.findUnique({
+      where: { userId: user.id },
+    });
+
+    if (!userOtp || userOtp.used) {
+      throw new BadRequestException('Invalid or already used OTP');
+    }
+
+    if (userOtp.otp !== otp) {
+      throw new BadRequestException('Invalid OTP');
+    }
+
+    if (new Date() > userOtp.expiresAt) {
+      throw new BadRequestException('OTP has expired');
+    }
+
+    // Mark OTP as used
+    await this.prisma.userOtp.update({
+      where: { userId: user.id },
+      data: { used: true },
+    });
+
+    // Generate JWT token
+    return this.generateToken(user);
   }
 }
