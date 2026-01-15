@@ -22,6 +22,9 @@ import { RegisterWithOtpDto } from './dto/register-with-otp.dto';
 import { VerifyRegistrationOtpDto } from './dto/verify-registration-otp.dto';
 import { LoginWithOtpDto } from './dto/login-with-otp.dto';
 import { VerifyLoginOtpDto } from './dto/verify-login-otp.dto';
+import { SendOtpDto } from './dto/send-otp.dto';
+import { VerifyOtpDto } from './dto/verify-otp.dto';
+import { CompleteRegistrationDto } from './dto/complete-registration.dto';
 
 @Injectable()
 export class AuthService {
@@ -452,5 +455,198 @@ export class AuthService {
 
     // Generate JWT token
     return this.generateToken(user);
+  }
+
+  // 🔹 NEW OTP FLOW - Send OTP to email
+  async sendOtp(dto: SendOtpDto) {
+    const { email } = dto;
+
+    // Use default OTP
+    const otp = '759409';
+    const expiry = new Date();
+    expiry.setMinutes(expiry.getMinutes() + 15);
+
+    // Check if user exists
+    const existingUser = await this.prisma.user.findUnique({
+      where: { email },
+    });
+
+    if (existingUser) {
+      // User exists - update or create OTP for login
+      await this.prisma.userOtp.upsert({
+        where: { userId: existingUser.id },
+        update: {
+          otp,
+          expiresAt: expiry,
+          used: false,
+        },
+        create: {
+          userId: existingUser.id,
+          otp,
+          expiresAt: expiry,
+          used: false,
+        },
+      });
+    } else {
+      // New user - create a temporary user record with OTP
+      const tempUser = await this.prisma.user.create({
+        data: {
+          email,
+          role: 'CUSTOMER',
+        },
+      });
+
+      await this.prisma.userOtp.create({
+        data: {
+          userId: tempUser.id,
+          otp,
+          expiresAt: expiry,
+          used: false,
+        },
+      });
+    }
+
+    // Send OTP email (won't crash if fails)
+    await this.sendOtpEmail(email, otp);
+
+    return {
+      message: 'OTP sent to your email',
+      email,
+      // For development: return OTP
+      ...(process.env.NODE_ENV !== 'production' && { otp }),
+    };
+  }
+
+  // 🔹 NEW OTP FLOW - Verify OTP and return user status
+  async verifyOtp(dto: VerifyOtpDto) {
+    const { email, otp } = dto;
+
+    const user = await this.prisma.user.findUnique({
+      where: { email },
+      include: { CustomerProfile: true },
+    });
+
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    const userOtp = await this.prisma.userOtp.findUnique({
+      where: { userId: user.id },
+    });
+
+    if (!userOtp || userOtp.used) {
+      throw new BadRequestException('Invalid or already used OTP');
+    }
+
+    if (userOtp.otp !== otp) {
+      throw new BadRequestException('Invalid OTP');
+    }
+
+    if (new Date() > userOtp.expiresAt) {
+      throw new BadRequestException('OTP has expired');
+    }
+
+    // Mark OTP as used
+    await this.prisma.userOtp.update({
+      where: { userId: user.id },
+      data: { used: true },
+    });
+
+    // Check if user has completed registration (has customer profile)
+    const isNewUser = !user.CustomerProfile;
+
+    if (isNewUser) {
+      // Generate a temporary token for completing registration
+      const tempPayload = {
+        email: user.email,
+        sub: user.id,
+        role: user.role,
+        temp: true, // Mark as temporary token
+      };
+
+      return {
+        isNew: true,
+        access_token: this.jwtService.sign(tempPayload, { expiresIn: '30m' }), // 30 min to complete registration
+        message: 'Please complete your registration',
+      };
+    } else {
+      // Existing user - return full login response
+      return {
+        isNew: false,
+        access_token: this.jwtService.sign({
+          email: user.email,
+          sub: user.id,
+          role: user.role,
+        }),
+        user: {
+          id: user.id,
+          name: user.CustomerProfile.name,
+          email: user.email,
+          phone: user.CustomerProfile.phone,
+          role: user.role,
+        },
+      };
+    }
+  }
+
+  // 🔹 NEW OTP FLOW - Complete registration with name and phone
+  async completeRegistration(userId: string, dto: CompleteRegistrationDto) {
+    const { name, phone } = dto;
+
+    // Get user
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      include: { CustomerProfile: true },
+    });
+
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    // Check if already has profile
+    if (user.CustomerProfile) {
+      throw new BadRequestException('Registration already completed');
+    }
+
+    // Create customer profile
+    const customerProfile = await this.prisma.customerProfile.create({
+      data: {
+        userId: user.id,
+        name,
+        phone,
+      },
+    });
+
+    // Create cart and wishlist for the customer
+    await this.prisma.cartItem.create({
+      data: {
+        customerProfileId: customerProfile.id,
+      },
+    });
+
+    await this.prisma.wishlist.create({
+      data: {
+        customerProfileId: customerProfile.id,
+      },
+    });
+
+    // Generate final token
+    const payload = {
+      email: user.email,
+      sub: user.id,
+      role: user.role,
+    };
+
+    return {
+      access_token: this.jwtService.sign(payload),
+      user: {
+        id: user.id,
+        name: customerProfile.name,
+        email: user.email,
+        phone: customerProfile.phone,
+        role: user.role,
+      },
+      message: 'Registration completed successfully',
+    };
   }
 }
