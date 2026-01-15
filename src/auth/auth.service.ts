@@ -570,20 +570,24 @@ export class AuthService {
         message: 'Please complete your registration',
       };
     } else {
-      // Existing user - return full login response
+      // Existing user - return full login response with complete user data
+      const payload = {
+        email: user.email,
+        sub: user.id,
+        role: user.role,
+      };
+
       return {
         isNew: false,
-        access_token: this.jwtService.sign({
-          email: user.email,
-          sub: user.id,
-          role: user.role,
-        }),
+        access_token: this.jwtService.sign(payload),
         user: {
           id: user.id,
-          name: user.CustomerProfile.name,
           email: user.email,
+          name: user.CustomerProfile.name,
           phone: user.CustomerProfile.phone,
           role: user.role,
+          createdAt: user.createdAt,
+          updatedAt: user.updatedAt,
         },
       };
     }
