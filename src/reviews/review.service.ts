@@ -148,15 +148,33 @@ export class ReviewService {
   }
 
   async remove(id: string, userId: string) {
-    const customerProfile = await this.prisma.customerProfile.findUnique({
-      where: { userId: userId },
+    const review = await this.prisma.review.findUnique({
+      where: { id },
     });
-    const review = await this.prisma.review.findUnique({ where: { id } });
-    if (!review) throw new NotFoundException('Review not found');
-    if (review.customerProfileId !== customerProfile.id)
-      throw new ForbiddenException('You cannot delete this review');
 
-    return this.prisma.review.delete({ where: { id } });
+    if (!review) {
+      throw new NotFoundException('Review not found');
+    }
+
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { role: true },
+    });
+
+    // If NOT admin, enforce ownership check
+    if (user.role !== 'ADMIN' && user.role !== 'SUPER_ADMIN') {
+      const customerProfile = await this.prisma.customerProfile.findUnique({
+        where: { userId },
+      });
+
+      if (!customerProfile || review.customerProfileId !== customerProfile.id) {
+        throw new ForbiddenException('You cannot delete this review');
+      }
+    }
+
+    return this.prisma.review.delete({
+      where: { id },
+    });
   }
 
   // async markHelpful(id: string) {
