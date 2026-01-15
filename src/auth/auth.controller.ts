@@ -30,6 +30,9 @@ import { RegisterWithOtpDto } from './dto/register-with-otp.dto';
 import { VerifyRegistrationOtpDto } from './dto/verify-registration-otp.dto';
 import { LoginWithOtpDto } from './dto/login-with-otp.dto';
 import { VerifyLoginOtpDto } from './dto/verify-login-otp.dto';
+import { SendOtpDto } from './dto/send-otp.dto';
+import { VerifyOtpDto } from './dto/verify-otp.dto';
+import { CompleteRegistrationDto } from './dto/complete-registration.dto';
 
 @Controller('auth')
 export class AuthController {
@@ -143,5 +146,25 @@ export class AuthController {
   @Post('verify-login-otp')
   async verifyLoginOtp(@Body() dto: VerifyLoginOtpDto) {
     return this.authService.verifyLoginOtp(dto);
+  }
+
+  // 🔹 NEW OTP FLOW - Send OTP to email (for both login and registration)
+  @Post('otp/send')
+  async sendOtp(@Body() dto: SendOtpDto) {
+    return this.authService.sendOtp(dto);
+  }
+
+  // 🔹 NEW OTP FLOW - Verify OTP and check if user is new or existing
+  @Post('otp/verify')
+  async verifyOtpNew(@Body() dto: VerifyOtpDto) {
+    return this.authService.verifyOtp(dto);
+  }
+
+  // 🔹 NEW OTP FLOW - Complete registration for new users
+  @UseGuards(JwtAuthGuard)
+  @Post('otp/complete')
+  async completeRegistration(@Request() req, @Body() dto: CompleteRegistrationDto) {
+    const userId = req.user.id || req.user.sub;
+    return this.authService.completeRegistration(userId, dto);
   }
 }
