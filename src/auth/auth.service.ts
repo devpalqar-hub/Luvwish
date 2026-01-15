@@ -577,18 +577,21 @@ export class AuthService {
         role: user.role,
       };
 
+      const token = this.jwtService.sign(payload);
+
       return {
         isNew: false,
-        access_token: this.jwtService.sign(payload),
+        access_token: token,
         user: {
           id: user.id,
           email: user.email,
-          name: user.CustomerProfile.name,
-          phone: user.CustomerProfile.phone,
+          name: user.CustomerProfile?.name || '',
+          phone: user.CustomerProfile?.phone || '',
           role: user.role,
           createdAt: user.createdAt,
           updatedAt: user.updatedAt,
         },
+        message: 'Login successful',
       };
     }
   }
