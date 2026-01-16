@@ -60,12 +60,12 @@ export class UpdateProductDto {
     isStock?: string;
 
     @IsOptional()
-    @IsBoolean()
-    @Transform(({ value }) => {
-        if (typeof value === 'boolean') return value;
-        return value === 'true';
-    })
-    isFeatured?: boolean;
+    @IsString()
+    // @Transform(({ value }) => {
+    //     if (typeof value === 'boolean') return value;
+    //     return value === 'true';
+    // })
+    isFeatured?: string;
 
 
     /** 🔹 Variations edit */

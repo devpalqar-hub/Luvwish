@@ -349,7 +349,7 @@ export class ProductsService {
           ...(dto.stockCount !== undefined && { stockCount: Number(dto.stockCount) }),
           ...(dto.description !== undefined && { description: dto.description }),
           ...(dto.isStock !== undefined && { isStock: Boolean(dto.isStock) }),
-          ...(dto.isFeatured !== undefined && { isFeatured: dto.isFeatured }),
+          ...(dto.isFeatured !== undefined && { isFeatured: Boolean(dto.isFeatured) }),
         },
       });
 
