@@ -42,7 +42,7 @@ import { AnalyticsModule } from './analytics/analytics.module';
     ProductsModule,
     CartModule,
     CouponModule,
-    NotificationsModule,
+    // NotificationsModule,
     WishlistModule,
     AddressModule,
     ProductVariationsModule,
@@ -78,4 +78,4 @@ import { AnalyticsModule } from './analytics/analytics.module';
   providers: [RazorpayService],
   controllers: [RazorpayController],
 })
-export class AppModule {}
+export class AppModule { }
