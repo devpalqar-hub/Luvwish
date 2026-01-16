@@ -324,7 +324,6 @@ export class ProductsService {
     };
   }
 
-
   async updateProductWithImages(
     productId: string,
     dto: UpdateProductDto,
@@ -338,9 +337,9 @@ export class ProductsService {
       throw new NotFoundException('Product not found');
     }
 
-    return this.prisma.$transaction(async (tx) => {
+    await this.prisma.$transaction(async (tx) => {
       /** 1️⃣ Update product */
-      const updatedProduct = await tx.product.update({
+      await tx.product.update({
         where: { id: productId },
         data: {
           ...(dto.name !== undefined && { name: dto.name }),
@@ -362,9 +361,7 @@ export class ProductsService {
           });
 
           if (!variation || variation.productId !== productId) {
-            throw new BadRequestException(
-              `Invalid variation ${v.id}`,
-            );
+            throw new BadRequestException(`Invalid variation ${v.id}`);
           }
 
           await tx.productVariation.update({
@@ -381,13 +378,10 @@ export class ProductsService {
         }
       }
 
-      /** 3️⃣ Add new images (if files exist) */
+      /** 3️⃣ Add new images */
       if (files?.length) {
         const folder = 'uploads/product/';
-        const uploaded = await this.s3Service.uploadMultipleFiles(
-          files,
-          folder,
-        );
+        const uploaded = await this.s3Service.uploadMultipleFiles(files, folder);
 
         const lastImage = await tx.productImage.findFirst({
           where: { productId },
@@ -418,13 +412,34 @@ export class ProductsService {
           };
         });
 
-        await tx.productImage.createMany({
-          data: imageData,
-        });
+        await tx.productImage.createMany({ data: imageData });
       }
-
-      return updatedProduct;
     });
+
+    /** 4️⃣ FINAL FULL RESPONSE */
+    const fullProduct = await this.prisma.product.findUnique({
+      where: { id: productId },
+      include: {
+        subCategory: {
+          select: {
+            id: true,
+            name: true,
+            slug: true,
+          },
+        },
+        variations: {
+          orderBy: { createdAt: 'asc' },
+        },
+        images: {
+          orderBy: { sortOrder: 'asc' },
+        },
+      },
+    });
+
+    return {
+      success: true,
+      data: fullProduct,
+    };
   }
 
 
