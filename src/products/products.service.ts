@@ -149,7 +149,8 @@ export class ProductsService {
             create: processedVariations.map((variation) => ({
               variationName: variation.variationName,
               sku: variation.sku,
-              price: variation.price,
+              actualPrice: variation.actualPrice,
+              discountedPrice: variation.discountedPrice,
               stockCount: variation.stockCount,
               isAvailable: variation.isAvailable ?? true,
             })),
@@ -371,7 +372,8 @@ export class ProductsService {
             data: {
               ...(v.variationName !== undefined && { variationName: v.variationName }),
               ...(v.sku !== undefined && { sku: v.sku }),
-              ...(v.price !== undefined && { price: v.price }),
+              ...(v.actualPrice !== undefined && { price: v.actualPrice }),
+              ...(v.discountedPrice !== undefined && { price: v.discountedPrice }),
               ...(v.stockCount !== undefined && { stockCount: v.stockCount }),
               ...(v.isAvailable !== undefined && { isAvailable: v.isAvailable }),
             },
@@ -806,7 +808,7 @@ export class ProductsService {
             images,
             subCategory: product.subCategory?.name || null,
             stockPrice: Number(product.actualPrice),
-            discountedPrice: Number(variation.price),
+            discountedPrice: Number(variation.discountedPrice),
             sku: variation.sku,
             isVariationProduct: true,
             variationId: variation.id,

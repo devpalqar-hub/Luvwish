@@ -22,7 +22,12 @@ export class UpdateProductVariationDto {
     @IsOptional()
     @IsNumber()
     @Transform(({ value }) => Number(value))
-    price?: number;
+    discountedPrice?: number;
+
+    @IsOptional()
+    @IsNumber()
+    @Transform(({ value }) => Number(value))
+    actualPrice?: number;
 
     @IsOptional()
     @IsNumber()
