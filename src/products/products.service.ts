@@ -372,8 +372,8 @@ export class ProductsService {
             data: {
               ...(v.variationName !== undefined && { variationName: v.variationName }),
               ...(v.sku !== undefined && { sku: v.sku }),
-              ...(v.actualPrice !== undefined && { price: v.actualPrice }),
-              ...(v.discountedPrice !== undefined && { price: v.discountedPrice }),
+              ...(v.actualPrice !== undefined && { actualPrice: v.actualPrice }),
+              ...(v.discountedPrice !== undefined && { discountedPrice: v.discountedPrice }),
               ...(v.stockCount !== undefined && { stockCount: v.stockCount }),
               ...(v.isAvailable !== undefined && { isAvailable: v.isAvailable }),
             },
