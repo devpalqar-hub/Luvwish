@@ -174,7 +174,7 @@ export class ProductsController {
 
 
   @Patch(':id')
-  @UseInterceptors(FilesInterceptor('files', 10))
+  @UseInterceptors(FilesInterceptor('image', 10))
   async updateProduct(
     @Param('id') id: string,
     @UploadedFiles() files: Express.Multer.File[],
