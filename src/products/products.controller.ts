@@ -173,13 +173,35 @@ export class ProductsController {
 
 
 
-  // edited by devanand
   @Patch(':id')
+  @UseInterceptors(FilesInterceptor('files', 10))
   async updateProduct(
     @Param('id') id: string,
-    @Body() dto: UpdateProductDto,
+    @UploadedFiles() files: Express.Multer.File[],
+    @Body() body: any,
   ) {
-    return this.productsService.updateProduct(id, dto);
+    /** 🔴 Manually parse JSON fields BEFORE validation */
+    if (body.variations && typeof body.variations === 'string') {
+      try {
+        body.variations = JSON.parse(body.variations);
+      } catch {
+        throw new BadRequestException('Invalid JSON format for variations');
+      }
+    }
+
+    if (body.newImages && typeof body.newImages === 'string') {
+      try {
+        body.newImages = JSON.parse(body.newImages);
+      } catch {
+        throw new BadRequestException('Invalid JSON format for newImages');
+      }
+    }
+
+    return this.productsService.updateProductWithImages(
+      id,
+      body as UpdateProductDto,
+      files,
+    );
   }
 
 

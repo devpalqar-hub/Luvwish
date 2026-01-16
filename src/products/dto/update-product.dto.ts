@@ -7,6 +7,17 @@ import { IsString, IsOptional, IsBoolean, IsNumber, ValidateNested, IsArray } fr
 import { Transform, Type } from 'class-transformer';
 import { UpdateProductVariationDto } from './update-product-variation.dto';
 
+class NewProductImageDto {
+    @IsOptional()
+    @IsString()
+    altText?: string;
+
+    @IsOptional()
+    @IsBoolean()
+    @Transform(({ value }) => value === true || value === 'true')
+    isMain?: boolean;
+}
+
 
 export class UpdateProductDto {
     @IsOptional()
@@ -49,7 +60,17 @@ export class UpdateProductDto {
     /** 🔹 Variations edit */
     @IsOptional()
     @IsArray()
+    @Transform(({ value }) =>
+        typeof value === 'string' ? JSON.parse(value) : value,
+    )
     @ValidateNested({ each: true })
     @Type(() => UpdateProductVariationDto)
     variations?: UpdateProductVariationDto[];
+
+    /** image metadata (files come separately) */
+    @IsOptional()
+    @IsArray()
+    @ValidateNested({ each: true })
+    @Type(() => NewProductImageDto)
+    newImages?: NewProductImageDto[];
 }
