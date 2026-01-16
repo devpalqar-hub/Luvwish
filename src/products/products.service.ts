@@ -324,9 +324,13 @@ export class ProductsService {
   }
 
 
-  async updateProduct(id: string, dto: UpdateProductDto) {
+  async updateProductWithImages(
+    productId: string,
+    dto: UpdateProductDto,
+    files?: Express.Multer.File[],
+  ) {
     const product = await this.prisma.product.findUnique({
-      where: { id },
+      where: { id: productId },
     });
 
     if (!product) {
@@ -334,9 +338,9 @@ export class ProductsService {
     }
 
     return this.prisma.$transaction(async (tx) => {
-      /** 1️⃣ Update product fields */
+      /** 1️⃣ Update product */
       const updatedProduct = await tx.product.update({
-        where: { id },
+        where: { id: productId },
         data: {
           ...(dto.name !== undefined && { name: dto.name }),
           ...(dto.subCategoryId !== undefined && { subCategoryId: dto.subCategoryId }),
@@ -356,39 +360,71 @@ export class ProductsService {
             where: { id: v.id },
           });
 
-          if (!variation) {
-            throw new BadRequestException(`Variation ${v.id} not found`);
-          }
-
-          if (variation.productId !== id) {
+          if (!variation || variation.productId !== productId) {
             throw new BadRequestException(
-              `Variation ${v.id} does not belong to this product`,
+              `Invalid variation ${v.id}`,
             );
           }
 
           await tx.productVariation.update({
             where: { id: v.id },
             data: {
-              ...(v.variationName !== undefined && {
-                variationName: v.variationName,
-              }),
+              ...(v.variationName !== undefined && { variationName: v.variationName }),
               ...(v.sku !== undefined && { sku: v.sku }),
               ...(v.price !== undefined && { price: v.price }),
-              ...(v.stockCount !== undefined && {
-                stockCount: v.stockCount,
-              }),
-              ...(v.isAvailable !== undefined && {
-                isAvailable: v.isAvailable,
-              }),
-              // ❌ createdAt, updatedAt NEVER mapped
+              ...(v.stockCount !== undefined && { stockCount: v.stockCount }),
+              ...(v.isAvailable !== undefined && { isAvailable: v.isAvailable }),
             },
           });
         }
       }
 
+      /** 3️⃣ Add new images (if files exist) */
+      if (files?.length) {
+        const folder = 'uploads/product/';
+        const uploaded = await this.s3Service.uploadMultipleFiles(
+          files,
+          folder,
+        );
+
+        const lastImage = await tx.productImage.findFirst({
+          where: { productId },
+          orderBy: { sortOrder: 'desc' },
+          select: { sortOrder: true },
+        });
+
+        let nextSortOrder = lastImage?.sortOrder ?? 0;
+
+        const hasMain = dto.newImages?.some((i) => i.isMain);
+
+        if (hasMain) {
+          await tx.productImage.updateMany({
+            where: { productId, isMain: true },
+            data: { isMain: false },
+          });
+        }
+
+        const imageData = uploaded.map((file, index) => {
+          nextSortOrder += 1;
+
+          return {
+            productId,
+            url: file.url,
+            altText: dto.newImages?.[index]?.altText ?? null,
+            isMain: dto.newImages?.[index]?.isMain ?? false,
+            sortOrder: nextSortOrder,
+          };
+        });
+
+        await tx.productImage.createMany({
+          data: imageData,
+        });
+      }
+
       return updatedProduct;
     });
   }
+
 
   // // 🔹 Update product with file upload
   // async updateWithUpload(
