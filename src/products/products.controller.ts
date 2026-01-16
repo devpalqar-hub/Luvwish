@@ -26,18 +26,22 @@ import { UpdateStockDto } from './dto/update-stock.dto';
 import { ToggleFeaturedDto } from './dto/toggle-featured.dto';
 import { OptionalJwtAuthGuard } from 'src/common/guards/ optional-jwt-auth.guard';
 import { AdminProductFilterDto } from './dto/admin-product-filter.dto';
+import { UpdateProductVariationDto } from './dto/update-product-variation.dto';
+
+const maxSize = 10 * 1024 * 1024; // 50MB per media
+const maxSizeGallery = 50 * 1024 * 1024; // 50 MB
 
 @Controller('products')
 export class ProductsController {
   constructor(
     private readonly productsService: ProductsService,
     private readonly s3Service: S3Service,
-  ) {}
+  ) { }
 
   // 🔹 Create product with images
   @Post()
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('ADMIN', 'SUPER_ADMIN')
+  // @UseGuards(JwtAuthGuard, RolesGuard)
+  // @Roles('ADMIN', 'SUPER_ADMIN')
   @UseInterceptors(FilesInterceptor('images', 10))
   async create(
     @Body() body: any,
@@ -106,18 +110,20 @@ export class ProductsController {
     return this.productsService.findOne(id);
   }
 
-  // 🔹 Update product (with images)
-  @Patch(':id')
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('ADMIN')
-  @UseInterceptors(FilesInterceptor('images', 10)) // Max 10 images
-  async update(
-    @Param('id') id: string,
-    @Body() updateProductDto: UpdateProductDto,
-    @UploadedFiles() images?: Express.Multer.File[],
-  ) {
-    return this.productsService.updateWithUpload(id, updateProductDto, images);
-  }
+
+
+  // // 🔹 Update product (with images)
+  // @Patch(':id')
+  // @UseGuards(JwtAuthGuard, RolesGuard)
+  // @Roles('ADMIN')
+  // @UseInterceptors(FilesInterceptor('images', 10)) // Max 10 images
+  // async update(
+  //   @Param('id') id: string,
+  //   @Body() updateProductDto: UpdateProductDto,
+  //   @UploadedFiles() images?: Express.Multer.File[],
+  // ) {
+  //   return this.productsService.updateWithUpload(id, updateProductDto, images);
+  // }
 
   // 🔹 Delete product
   // 🔹 Update product (with images)
@@ -163,5 +169,108 @@ export class ProductsController {
   @UseInterceptors(FilesInterceptor('images', 10)) // Max 10 images
   async uploadProductImages(@UploadedFiles() images: Express.Multer.File[]) {
     return this.s3Service.uploadMultipleFiles(images, 'products');
+  }
+
+
+
+  // edited by devanand
+  @Patch(':id')
+  async updateProduct(
+    @Param('id') id: string,
+    @Body() dto: UpdateProductDto,
+  ) {
+    return this.productsService.updateProduct(id, dto);
+  }
+
+
+  // @UseGuards(JwtAuthGuard, RolesGuard)
+  // @Roles(Role.MESS_ADMIN)
+  @Post(':productId/gallery/images')
+  @UseInterceptors(FilesInterceptor('files', 10))
+  async addProductImages(
+    @Param('productId') productId: string,
+    @UploadedFiles() files: Express.Multer.File[],
+  ) {
+    if (!files || files.length === 0) {
+      throw new BadRequestException('At least one image is required');
+    }
+
+    const totalGallerySize = files.reduce(
+      (sum, file) => sum + file.size,
+      0,
+    );
+
+    if (totalGallerySize > maxSizeGallery) {
+      throw new BadRequestException(
+        'Total product image size must not exceed 50MB',
+      );
+    }
+
+    const folder = 'uploads/product/';
+    const uploadedResponses = await this.s3Service.uploadMultipleFiles(
+      files,
+      folder,
+    );
+
+    const imagePayload = uploadedResponses.map((res) => ({
+      url: res.url, // ✅ string
+    }));
+
+    return this.productsService.addProductImages(productId, imagePayload);
+  }
+
+  // =========================
+  // GET MESS IMAGES
+  // =========================
+  // @UseGuards(JwtAuthGuard, RolesGuard)
+  // @Roles(Role.MESS_ADMIN)
+
+  // @ApiOperation({ summary: 'Get mess gallery images' })
+  // @ApiResponse({
+  //     status: 200,
+  //     description: 'Mess images fetched successfully',
+  // })
+  @Get(':productId/gallery/images')
+  async getProductImages(@Param('productId') productId: string) {
+    return this.productsService.getProductImages(productId);
+  }
+
+  // =========================
+  // DELETE MESS IMAGE
+  // =========================
+  // @UseGuards(JwtAuthGuard, RolesGuard)
+  // @Roles(Role.MESS_ADMIN)
+  @Delete(':productId/gallery/images/:imageId')
+  async deleteProductImage(
+    @Param('productId') productId: string,
+    @Param('imageId') imageId: string,
+  ) {
+    return this.productsService.deleteproductImage(productId, imageId);
+  }
+
+  @Get(":productId/variations")
+  async getAllVariation(@Param('productId') productId?: string) {
+    return this.productsService.getAllVariation(productId);
+  }
+
+  // GET BY ID
+  @Get(':productId/variations/:id')
+  async getVariationById(@Param('id') id: string) {
+    return this.productsService.getVariationById(id);
+  }
+
+  // UPDATE
+  @Patch(':productId/variations/:id')
+  async updateVariation(
+    @Param('id') id: string,
+    @Body() dto: UpdateProductVariationDto,
+  ) {
+    return this.productsService.updateVariation(id, dto);
+  }
+
+  // REMOVE
+  @Delete(':productId/variations/:id')
+  async removeVariation(@Param('id') id: string) {
+    return this.productsService.removeVariation(id);
   }
 }

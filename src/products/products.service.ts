@@ -2,6 +2,7 @@ import {
   Injectable,
   NotFoundException,
   ConflictException,
+  BadRequestException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { S3Service } from '../s3/s3.service';
@@ -21,13 +22,14 @@ import {
   AdminProductItemDto,
 } from './dto/admin-product-response.dto';
 import { generateSKU } from '../common/utility/utils';
+import { UpdateProductVariationDto } from './dto/update-product-variation.dto';
 
 @Injectable()
 export class ProductsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly s3Service: S3Service,
-  ) {}
+  ) { }
 
   // 🔹 Create product with file upload and product data
   async createWithUpload(
@@ -134,24 +136,24 @@ export class ProductsService {
         ...productData,
         images: allImages.length
           ? {
-              create: allImages.map((img) => ({
-                url: img.url,
-                altText: img.altText,
-                isMain: img.isMain ?? false,
-                sortOrder: img.sortOrder ?? 0,
-              })),
-            }
+            create: allImages.map((img) => ({
+              url: img.url,
+              altText: img.altText,
+              isMain: img.isMain ?? false,
+              sortOrder: img.sortOrder ?? 0,
+            })),
+          }
           : undefined,
         variations: processedVariations?.length
           ? {
-              create: processedVariations.map((variation) => ({
-                variationName: variation.variationName,
-                sku: variation.sku,
-                price: variation.price,
-                stockCount: variation.stockCount,
-                isAvailable: variation.isAvailable ?? true,
-              })),
-            }
+            create: processedVariations.map((variation) => ({
+              variationName: variation.variationName,
+              sku: variation.sku,
+              price: variation.price,
+              stockCount: variation.stockCount,
+              isAvailable: variation.isAvailable ?? true,
+            })),
+          }
           : undefined,
       },
       include: {
@@ -198,23 +200,23 @@ export class ProductsService {
       AND: [
         search
           ? {
-              OR: [
-                { name: { contains: search } },
-                { description: { contains: search } },
-              ],
-            }
+            OR: [
+              { name: { contains: search } },
+              { description: { contains: search } },
+            ],
+          }
           : {},
         minPrice ? { discountedPrice: { gte: minPrice } } : {},
         maxPrice ? { discountedPrice: { lte: maxPrice } } : {},
         subCategoryId ? { subCategoryId } : {},
         categoryId
           ? {
-              subCategory: {
-                is: {
-                  categoryId,
-                },
+            subCategory: {
+              is: {
+                categoryId,
               },
-            }
+            },
+          }
           : {},
         isFeatured !== undefined ? { isFeatured } : {},
         isStock !== undefined ? { isStock } : {},
@@ -299,12 +301,12 @@ export class ProductsService {
 
     if (!product)
       throw new NotFoundException(`Product with ID ${id} not found`);
-    
+
     // Calculate review statistics
     const reviewStats = {
       totalReviews: product.reviews.length,
-      averageRating: product.reviews.length > 0 
-        ? product.reviews.reduce((sum, review) => sum + review.rating, 0) / product.reviews.length 
+      averageRating: product.reviews.length > 0
+        ? product.reviews.reduce((sum, review) => sum + review.rating, 0) / product.reviews.length
         : 0,
       ratingDistribution: {
         5: product.reviews.filter(r => r.rating === 5).length,
@@ -321,129 +323,196 @@ export class ProductsService {
     };
   }
 
-  // 🔹 Update product with file upload
-  async updateWithUpload(
-    id: string,
-    updateProductDto: UpdateProductDto,
-    imageFiles?: Express.Multer.File[],
-  ) {
-    const { images, variations, ...productData } = updateProductDto;
 
-    // Get product name for SKU generation
+  async updateProduct(id: string, dto: UpdateProductDto) {
     const product = await this.prisma.product.findUnique({
       where: { id },
-      select: { name: true },
     });
 
     if (!product) {
-      throw new NotFoundException(`Product with ID ${id} not found`);
+      throw new NotFoundException('Product not found');
     }
 
-    const productName = productData.name || product.name;
+    return this.prisma.$transaction(async (tx) => {
+      /** 1️⃣ Update product fields */
+      const updatedProduct = await tx.product.update({
+        where: { id },
+        data: {
+          ...(dto.name !== undefined && { name: dto.name }),
+          ...(dto.subCategoryId !== undefined && { subCategoryId: dto.subCategoryId }),
+          ...(dto.discountedPrice !== undefined && { discountedPrice: dto.discountedPrice }),
+          ...(dto.actualPrice !== undefined && { actualPrice: dto.actualPrice }),
+          ...(dto.stockCount !== undefined && { stockCount: dto.stockCount }),
+          ...(dto.description !== undefined && { description: dto.description }),
+          ...(dto.isStock !== undefined && { isStock: dto.isStock }),
+          ...(dto.isFeatured !== undefined && { isFeatured: dto.isFeatured }),
+        },
+      });
 
-    // Upload new images to S3 if files are provided
-    let uploadedImages = [];
-    if (imageFiles && imageFiles.length > 0) {
-      const uploadResults = await this.s3Service.uploadMultipleFiles(
-        imageFiles,
-        'products',
-      );
-      uploadedImages = uploadResults.map((result, index) => ({
-        url: result.url,
-        altText: `Product image ${index + 1}`,
-        isMain: index === 0,
-        sortOrder: index,
-      }));
-    }
+      /** 2️⃣ Update variations */
+      if (dto.variations?.length) {
+        for (const v of dto.variations) {
+          const variation = await tx.productVariation.findUnique({
+            where: { id: v.id },
+          });
 
-    // Merge uploaded images with provided image URLs
-    const allImages = [...uploadedImages, ...(images || [])];
-
-    // Auto-generate SKUs for variations if not provided
-    let processedVariations = variations;
-    if (variations && variations.length > 0) {
-      processedVariations = await Promise.all(
-        variations.map(async (variation) => {
-          let sku = variation.sku;
-
-          // Generate SKU if not provided
-          if (!sku) {
-            sku = generateSKU(productName, variation.variationName);
-
-            // Ensure uniqueness with retry logic
-            let existingVariation = await this.prisma.productVariation.findUnique({
-              where: { sku },
-            });
-
-            let retryCount = 0;
-            while (existingVariation && retryCount < 5) {
-              sku = generateSKU(productName, variation.variationName);
-              existingVariation = await this.prisma.productVariation.findUnique({
-                where: { sku },
-              });
-              retryCount++;
-            }
-
-            if (existingVariation) {
-              throw new ConflictException(
-                `Unable to generate unique SKU for variation ${variation.variationName}`,
-              );
-            }
+          if (!variation) {
+            throw new BadRequestException(`Variation ${v.id} not found`);
           }
 
-          return { ...variation, sku };
-        }),
-      );
-    }
+          if (variation.productId !== id) {
+            throw new BadRequestException(
+              `Variation ${v.id} does not belong to this product`,
+            );
+          }
 
-    return this.prisma.product.update({
-      where: { id },
-      data: {
-        ...productData,
-        ...(allImages.length > 0
-          ? {
-              images: {
-                deleteMany: {}, // remove old images
-                create: allImages.map((img) => ({
-                  url: img.url,
-                  altText: img.altText,
-                  isMain: img.isMain ?? false,
-                  sortOrder: img.sortOrder ?? 0,
-                })),
-              },
-            }
-          : {}),
-        ...(processedVariations && processedVariations.length > 0
-          ? {
-              variations: {
-                deleteMany: {}, // remove old variations
-                create: processedVariations.map((variation) => ({
-                  variationName: variation.variationName,
-                  sku: variation.sku,
-                  price: variation.price,
-                  stockCount: variation.stockCount,
-                  isAvailable: variation.isAvailable ?? true,
-                })),
-              },
-            }
-          : {}),
-      },
-      include: {
-        images: true,
-        subCategory: {
-          include: {
-            category: true,
-          },
-        },
-        variations: true,
-      },
+          await tx.productVariation.update({
+            where: { id: v.id },
+            data: {
+              ...(v.variationName !== undefined && {
+                variationName: v.variationName,
+              }),
+              ...(v.sku !== undefined && { sku: v.sku }),
+              ...(v.price !== undefined && { price: v.price }),
+              ...(v.stockCount !== undefined && {
+                stockCount: v.stockCount,
+              }),
+              ...(v.isAvailable !== undefined && {
+                isAvailable: v.isAvailable,
+              }),
+              // ❌ createdAt, updatedAt NEVER mapped
+            },
+          });
+        }
+      }
+
+      return updatedProduct;
     });
   }
 
-  // 🔹 Update product with image URLs only (backward compatibility)
-  async update(id: string, updateProductDto: UpdateProductDto) {
-    return this.updateWithUpload(id, updateProductDto);
-  }
+  // // 🔹 Update product with file upload
+  // async updateWithUpload(
+  //   id: string,
+  //   updateProductDto: UpdateProductDto,
+  //   imageFiles?: Express.Multer.File[],
+  // ) {
+  //   const { images, variations, ...productData } = updateProductDto;
+
+  //   // Get product name for SKU generation
+  //   const product = await this.prisma.product.findUnique({
+  //     where: { id },
+  //     select: { name: true },
+  //   });
+
+  //   if (!product) {
+  //     throw new NotFoundException(`Product with ID ${id} not found`);
+  //   }
+
+  //   const productName = productData.name || product.name;
+
+  //   // Upload new images to S3 if files are provided
+  //   let uploadedImages = [];
+  //   if (imageFiles && imageFiles.length > 0) {
+  //     const uploadResults = await this.s3Service.uploadMultipleFiles(
+  //       imageFiles,
+  //       'products',
+  //     );
+  //     uploadedImages = uploadResults.map((result, index) => ({
+  //       url: result.url,
+  //       altText: `Product image ${index + 1}`,
+  //       isMain: index === 0,
+  //       sortOrder: index,
+  //     }));
+  //   }
+
+  //   // Merge uploaded images with provided image URLs
+  //   const allImages = [...uploadedImages, ...(images || [])];
+
+  //   // Auto-generate SKUs for variations if not provided
+  //   let processedVariations = variations;
+  //   if (variations && variations.length > 0) {
+  //     processedVariations = await Promise.all(
+  //       variations.map(async (variation) => {
+  //         let sku = variation.sku;
+
+  //         // Generate SKU if not provided
+  //         if (!sku) {
+  //           sku = generateSKU(productName, variation.variationName);
+
+  //           // Ensure uniqueness with retry logic
+  //           let existingVariation = await this.prisma.productVariation.findUnique({
+  //             where: { sku },
+  //           });
+
+  //           let retryCount = 0;
+  //           while (existingVariation && retryCount < 5) {
+  //             sku = generateSKU(productName, variation.variationName);
+  //             existingVariation = await this.prisma.productVariation.findUnique({
+  //               where: { sku },
+  //             });
+  //             retryCount++;
+  //           }
+
+  //           if (existingVariation) {
+  //             throw new ConflictException(
+  //               `Unable to generate unique SKU for variation ${variation.variationName}`,
+  //             );
+  //           }
+  //         }
+
+  //         return { ...variation, sku };
+  //       }),
+  //     );
+  //   }
+
+  //   return this.prisma.product.update({
+  //     where: { id },
+  //     data: {
+  //       ...productData,
+  //       ...(allImages.length > 0
+  //         ? {
+  //           images: {
+  //             deleteMany: {}, // remove old images
+  //             create: allImages.map((img) => ({
+  //               url: img.url,
+  //               altText: img.altText,
+  //               isMain: img.isMain ?? false,
+  //               sortOrder: img.sortOrder ?? 0,
+  //             })),
+  //           },
+  //         }
+  //         : {}),
+  //       ...(processedVariations && processedVariations.length > 0
+  //         ? {
+  //           variations: {
+  //             deleteMany: {}, // remove old variations
+  //             create: processedVariations.map((variation) => ({
+  //               variationName: variation.variationName,
+  //               sku: variation.sku,
+  //               price: variation.price,
+  //               stockCount: variation.stockCount,
+  //               isAvailable: variation.isAvailable ?? true,
+  //             })),
+  //           },
+  //         }
+  //         : {}),
+  //     },
+  //     include: {
+  //       images: true,
+  //       subCategory: {
+  //         include: {
+  //           category: true,
+  //         },
+  //       },
+  //       variations: true,
+  //     },
+  //   });
+  // }
+
+  // // 🔹 Update product with image URLs only (backward compatibility)
+  // async update(id: string, updateProductDto: UpdateProductDto) {
+  //   return this.updateWithUpload(id, updateProductDto);
+  // }
 
   // 🔹 Delete product
   async remove(id: string) {
@@ -554,12 +623,12 @@ export class ProductsService {
         subCategoryId ? { subCategoryId } : {},
         categoryId
           ? {
-              subCategory: {
-                is: {
-                  categoryId,
-                },
+            subCategory: {
+              is: {
+                categoryId,
               },
-            }
+            },
+          }
           : {},
       ].filter((condition) => Object.keys(condition).length > 0),
     };
@@ -678,9 +747,9 @@ export class ProductsService {
     const productItems: AdminProductItemDto[] = [];
 
     for (const product of products) {
-      const firstImage = product.images.find((img) => img.isMain)?.url || 
-                         product.images[0]?.url || 
-                         null;
+      const firstImage = product.images.find((img) => img.isMain)?.url ||
+        product.images[0]?.url ||
+        null;
       const images = product.images.map((img) => img.url);
 
       // If product has variations, list each variation as a separate item
@@ -761,6 +830,146 @@ export class ProductsService {
       return 'low_stock';
     }
     return 'in_stock';
+  }
+
+
+  async addProductImages(
+    productId: string,
+    images: {
+      url: string;
+    }[] = [],
+    altText?: string,
+  ) {
+    if (!images || images.length === 0) {
+      throw new BadRequestException('At least one image is required');
+    }
+
+    const product = await this.prisma.product.findUnique({
+      where: { id: productId },
+    });
+
+    if (!product) {
+      throw new NotFoundException('product not found');
+    }
+
+    const galleryData = images.map((image) => ({
+      productId: product.id,
+      url: image.url,
+    }));
+
+    await this.prisma.productImage.createMany({
+      data: galleryData,
+    });
+
+    // ✅ Fetch images and attach (response structure unchanged)
+    const messImages = await this.prisma.productImage.findMany({
+      where: { productId: product.id },
+      select: {
+        id: true,
+        url: true,
+      },
+    });
+
+    return {
+      message: 'Mess images uploaded successfully',
+      data: messImages,
+    };
+  }
+
+
+  async getProductImages(productId: string) {
+    const product = await this.prisma.product.findUnique({
+      where: { id: productId }
+    });
+
+    if (!product) {
+      throw new NotFoundException('Doula profile not found');
+    }
+
+    const images = await this.prisma.productImage.findMany({
+      where: {
+        productId: product.id,
+      },
+    });
+
+    return {
+      status: 'success',
+      message: 'Product images fetched successfully',
+      data: images,
+    };
+  }
+
+  async deleteproductImage(productId: string, imageId: string) {
+    const mess = await this.prisma.product.findUnique({
+      where: { id: productId },
+    });
+
+    if (!mess) {
+      throw new NotFoundException('Doula profile not found');
+    }
+
+    const image = await this.prisma.productImage.findUnique({
+      where: { id: imageId },
+    });
+
+    if (!image || image.productId !== mess.id) {
+      throw new NotFoundException('Image not found');
+    }
+    await this.s3Service.deleteFile(image.url);
+
+    await this.prisma.productImage.delete({
+      where: { id: imageId },
+    });
+
+    return {
+      message: 'Product image deleted successfully',
+    };
+  }
+
+  // GET ALL (optionally by productId)
+  async getAllVariation(productId?: string) {
+    return this.prisma.productVariation.findMany({
+      where: productId ? { productId } : undefined,
+      orderBy: { createdAt: 'desc' },
+    });
+  }
+
+  // GET BY ID
+  async getVariationById(id: string) {
+    const variation = await this.prisma.productVariation.findUnique({
+      where: { id },
+    });
+
+    if (!variation) {
+      throw new NotFoundException('Product variation not found');
+    }
+
+    return variation;
+  }
+
+  // UPDATE
+  async updateVariation(id: string, dto: UpdateProductVariationDto) {
+    await this.getVariationById(id); // ensures existence
+
+    return this.prisma.productVariation.update({
+      where: { id },
+      data: {
+        ...dto,
+      },
+    });
+  }
+
+  // REMOVE
+  async removeVariation(id: string) {
+    await this.getVariationById(id); // ensures existence
+
+    await this.prisma.productVariation.delete({
+      where: { id },
+    });
+
+    return {
+      message: 'Product variation deleted successfully',
+    };
   }
 }
 
