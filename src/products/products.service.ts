@@ -346,7 +346,7 @@ export class ProductsService {
           ...(dto.subCategoryId !== undefined && { subCategoryId: dto.subCategoryId }),
           ...(dto.discountedPrice !== undefined && { discountedPrice: dto.discountedPrice }),
           ...(dto.actualPrice !== undefined && { actualPrice: dto.actualPrice }),
-          ...(dto.stockCount !== undefined && { stockCount: dto.stockCount }),
+          ...(dto.stockCount !== undefined && { stockCount: Number(dto.stockCount) }),
           ...(dto.description !== undefined && { description: dto.description }),
           ...(dto.isStock !== undefined && { isStock: dto.isStock }),
           ...(dto.isFeatured !== undefined && { isFeatured: dto.isFeatured }),
