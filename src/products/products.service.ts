@@ -831,14 +831,13 @@ export class ProductsService {
     }
     return 'in_stock';
   }
-
-
   async addProductImages(
     productId: string,
     images: {
       url: string;
+      altText?: string;
+      isMain?: boolean;
     }[] = [],
-    altText?: string,
   ) {
     if (!images || images.length === 0) {
       throw new BadRequestException('At least one image is required');
@@ -849,32 +848,68 @@ export class ProductsService {
     });
 
     if (!product) {
-      throw new NotFoundException('product not found');
+      throw new NotFoundException('Product not found');
     }
 
-    const galleryData = images.map((image) => ({
-      productId: product.id,
-      url: image.url,
-    }));
+    /** 1️⃣ Find current max sortOrder */
+    const lastImage = await this.prisma.productImage.findFirst({
+      where: { productId },
+      orderBy: { sortOrder: 'desc' },
+      select: { sortOrder: true },
+    });
 
+    let nextSortOrder = lastImage?.sortOrder ?? 0;
+
+    /** 2️⃣ If any image isMain = true → unset others */
+    const hasMainImage = images.some((img) => img.isMain === true);
+
+    if (hasMainImage) {
+      await this.prisma.productImage.updateMany({
+        where: {
+          productId,
+          isMain: true,
+        },
+        data: { isMain: false },
+      });
+    }
+
+    /** 3️⃣ Prepare image data */
+    const galleryData = images.map((image) => {
+      nextSortOrder += 1;
+
+      return {
+        productId,
+        url: image.url,
+        altText: image.altText ?? null,
+        isMain: image.isMain ?? false,
+        sortOrder: nextSortOrder,
+      };
+    });
+
+    /** 4️⃣ Insert images */
     await this.prisma.productImage.createMany({
       data: galleryData,
     });
 
-    // ✅ Fetch images and attach (response structure unchanged)
-    const messImages = await this.prisma.productImage.findMany({
-      where: { productId: product.id },
+    /** 5️⃣ Return updated gallery */
+    const productImages = await this.prisma.productImage.findMany({
+      where: { productId },
+      orderBy: { sortOrder: 'asc' },
       select: {
         id: true,
         url: true,
+        altText: true,
+        isMain: true,
+        sortOrder: true,
       },
     });
 
     return {
-      message: 'Mess images uploaded successfully',
-      data: messImages,
+      message: 'Product images uploaded successfully',
+      data: productImages,
     };
   }
+
 
 
   async getProductImages(productId: string) {
@@ -934,42 +969,5 @@ export class ProductsService {
     });
   }
 
-  // GET BY ID
-  async getVariationById(id: string) {
-    const variation = await this.prisma.productVariation.findUnique({
-      where: { id },
-    });
-
-    if (!variation) {
-      throw new NotFoundException('Product variation not found');
-    }
-
-    return variation;
-  }
-
-  // UPDATE
-  async updateVariation(id: string, dto: UpdateProductVariationDto) {
-    await this.getVariationById(id); // ensures existence
-
-    return this.prisma.productVariation.update({
-      where: { id },
-      data: {
-        ...dto,
-      },
-    });
-  }
-
-  // REMOVE
-  async removeVariation(id: string) {
-    await this.getVariationById(id); // ensures existence
-
-    await this.prisma.productVariation.delete({
-      where: { id },
-    });
-
-    return {
-      message: 'Product variation deleted successfully',
-    };
-  }
 }
 

@@ -190,6 +190,8 @@ export class ProductsController {
   async addProductImages(
     @Param('productId') productId: string,
     @UploadedFiles() files: Express.Multer.File[],
+    @Body('altText') altText?: string,
+    @Body('isMain') isMain?: string,
   ) {
     if (!files || files.length === 0) {
       throw new BadRequestException('At least one image is required');
@@ -212,12 +214,15 @@ export class ProductsController {
       folder,
     );
 
-    const imagePayload = uploadedResponses.map((res) => ({
-      url: res.url, // ✅ string
+    const imagePayload = uploadedResponses.map((res, index) => ({
+      url: res.url,
+      altText: altText ?? null,
+      isMain: index === 0 && isMain === 'true', // first image as main if requested
     }));
 
     return this.productsService.addProductImages(productId, imagePayload);
   }
+
 
   // =========================
   // GET MESS IMAGES
@@ -251,26 +256,5 @@ export class ProductsController {
   @Get(":productId/variations")
   async getAllVariation(@Param('productId') productId?: string) {
     return this.productsService.getAllVariation(productId);
-  }
-
-  // GET BY ID
-  @Get(':productId/variations/:id')
-  async getVariationById(@Param('id') id: string) {
-    return this.productsService.getVariationById(id);
-  }
-
-  // UPDATE
-  @Patch(':productId/variations/:id')
-  async updateVariation(
-    @Param('id') id: string,
-    @Body() dto: UpdateProductVariationDto,
-  ) {
-    return this.productsService.updateVariation(id, dto);
-  }
-
-  // REMOVE
-  @Delete(':productId/variations/:id')
-  async removeVariation(@Param('id') id: string) {
-    return this.productsService.removeVariation(id);
   }
 }
