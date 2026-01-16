@@ -3,7 +3,7 @@
 
 // export class UpdateProductDto extends PartialType(CreateProductDto) { }
 
-import { IsString, IsOptional, IsBoolean, IsNumber, ValidateNested, IsArray } from 'class-validator';
+import { IsString, IsOptional, IsBoolean, IsNumber, ValidateNested, IsArray, IsInt } from 'class-validator';
 import { Transform, Type } from 'class-transformer';
 import { UpdateProductVariationDto } from './update-product-variation.dto';
 
@@ -39,8 +39,13 @@ export class UpdateProductDto {
     actualPrice?: number;
 
     @IsOptional()
-    @IsString()
-    stockCount?: string;
+    @IsInt()
+    @Transform(({ value }) => {
+        if (typeof value === 'number') return value;
+        return Number(value);
+    })
+    stockCount?: number;
+
 
     @IsOptional()
     @IsString()
@@ -48,13 +53,20 @@ export class UpdateProductDto {
 
     @IsOptional()
     @IsBoolean()
-    @Transform(({ value }) => value === true || value === 'true')
+    @Transform(({ value }) => {
+        if (typeof value === 'boolean') return value;
+        return value === 'true';
+    })
     isStock?: boolean;
 
     @IsOptional()
     @IsBoolean()
-    @Transform(({ value }) => value === true || value === 'true')
+    @Transform(({ value }) => {
+        if (typeof value === 'boolean') return value;
+        return value === 'true';
+    })
     isFeatured?: boolean;
+
 
     /** 🔹 Variations edit */
     @IsOptional()
