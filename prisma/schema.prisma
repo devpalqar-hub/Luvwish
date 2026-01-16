@@ -200,15 +200,16 @@ model ProductImage {
 }
 
 model ProductVariation {
-  id            String   @id @default(uuid())
-  productId     String
-  variationName String
-  sku           String   @unique
-  price         Decimal  @db.Decimal(10, 2)
-  stockCount    Int      @default(0)
-  isAvailable   Boolean  @default(true)
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  id              String   @id @default(uuid())
+  productId       String
+  variationName   String
+  sku             String   @unique
+  discountedPrice Decimal  @default(0.00) @db.Decimal(10, 2)
+  actualPrice     Decimal  @default(0.00) @db.Decimal(10, 2)
+  stockCount      Int      @default(0)
+  isAvailable     Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
 
   product    Product     @relation(fields: [productId], references: [id], onDelete: Cascade)
   cartItems  CartItem[]

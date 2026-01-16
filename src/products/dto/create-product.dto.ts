@@ -34,8 +34,11 @@ export class CreateProductVariationDto {
   @IsString()
   sku?: string;
 
-  @IsNumber()
-  price: number;
+  @IsString()
+  discountedPrice: number;
+
+  @IsString()
+  actualPrice: number;
 
   @IsNumber()
   stockCount: number;
