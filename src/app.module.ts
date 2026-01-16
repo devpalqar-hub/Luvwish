@@ -40,7 +40,7 @@ import { DashboardModule } from './dashboard/dashboard.module';
     ProductsModule,
     CartModule,
     CouponModule,
-    NotificationsModule,
+    // NotificationsModule,
     WishlistModule,
     AddressModule,
     ProductVariationsModule,
@@ -74,4 +74,4 @@ import { DashboardModule } from './dashboard/dashboard.module';
   providers: [RazorpayService],
   controllers: [RazorpayController],
 })
-export class AppModule {}
+export class AppModule { }
