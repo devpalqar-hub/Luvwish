@@ -39,9 +39,8 @@ export class UpdateProductDto {
     actualPrice?: number;
 
     @IsOptional()
-    @IsNumber()
-    @Transform(({ value }) => Number(value))
-    stockCount?: number;
+    @IsString()
+    stockCount?: string;
 
     @IsOptional()
     @IsString()
