@@ -94,6 +94,20 @@ export class OrdersService {
                   images: true, // ✅ include product images
                 },
               },
+              Review: {
+                select: {
+                  id: true,
+                  rating: true,
+                  comment: true,
+                  createdAt: true,
+                  images: {
+                    select: {
+                      id: true,
+                      url: true,
+                    },
+                  },
+                },
+              },
             },
           },
         },
