@@ -17,7 +17,7 @@ export class RazorpayService {
     if (!customerProfile) throw new Error('Customer profile not found');
 
     const shippingAddrs = await this.prisma.address.findUnique({
-      where: { id: ShippingAddressId, customerProfileId: customerProfile.id },
+      where: { id: ShippingAddressId },
     });
     if (!shippingAddrs) throw new Error('Shipping address is required');
 
