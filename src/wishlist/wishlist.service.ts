@@ -12,26 +12,81 @@ export class WishlistService {
   constructor(private prisma: PrismaService) { }
 
   async addToWishlist(dto: CreateWishlistDto, userId: string) {
-    const { productId } = dto;
+    const { productId, productVariationId } = dto;
 
-    const product = await this.prisma.product.findFirst({
-      where: { id: productId, isStock: true },
-    });
-    if (!product) {
-      throw new NotFoundException('Product not found or inactive');
-    }
-
+    // 1️⃣ Customer profile
     const customerProfile = await this.prisma.customerProfile.findUnique({
-      where: { userId }, // userId maps to the CustomerProfile
+      where: { userId },
     });
+
     if (!customerProfile) {
       throw new NotFoundException('Customer profile not found');
+    }
+
+    // --------------------------------------------------
+    // CASE A: ADD PRODUCT VARIATION TO WISHLIST
+    // --------------------------------------------------
+    if (productVariationId) {
+      const variation = await this.prisma.productVariation.findFirst({
+        where: {
+          id: productVariationId,
+          isAvailable: true,
+          product: {
+            isStock: true,
+          },
+        },
+        include: { product: true },
+      });
+
+      if (!variation) {
+        throw new NotFoundException('Product variation not found or inactive');
+      }
+
+      try {
+        return await this.prisma.wishlist.create({
+          data: {
+            customerProfileId: customerProfile.id,
+            productVariationId,
+          },
+          include: {
+            productVariation: {
+              include: { product: true },
+            },
+          },
+        });
+      } catch (err) {
+        if (err.code === 'P2002') {
+          throw new ConflictException(
+            'Product variation already exists in wishlist',
+          );
+        }
+        throw err;
+      }
+    }
+
+    // --------------------------------------------------
+    // CASE B: ADD PRODUCT (NO VARIATIONS)
+    // --------------------------------------------------
+    const product = await this.prisma.product.findFirst({
+      where: {
+        id: productId,
+        isStock: true,
+        variations: {
+          none: {}, // 🚨 prevents base product wishlist if variations exist
+        },
+      },
+    });
+
+    if (!product) {
+      throw new NotFoundException(
+        'Product not found, inactive, or has variations',
+      );
     }
 
     try {
       return await this.prisma.wishlist.create({
         data: {
-          customerProfileId: customerProfile.id, // ✅ Correct FK
+          customerProfileId: customerProfile.id,
           productId,
         },
         include: { product: true },
@@ -43,6 +98,7 @@ export class WishlistService {
       throw err;
     }
   }
+
 
   async getWishlist(userId: string, pagination: PaginationDto) {
     const customerProfile = await this.prisma.customerProfile.findUnique({
