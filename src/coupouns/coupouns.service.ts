@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { CreateCouponDto } from './dto/create-coupon.dto';
 import { UpdateCouponDto } from './dto/update-coupon.dto';
@@ -224,4 +224,26 @@ export class CouponService {
       status: HttpStatus.OK,
     };
   }
+
+
+  async getCouponByName(couponName: string) {
+    if (!couponName) {
+      throw new BadRequestException('Coupon name is required');
+    }
+
+    const coupon = await this.prisma.coupon.findFirst({
+      where: {
+        couponName: {
+          equals: couponName.trim(),
+        },
+      },
+    });
+
+    if (!coupon) {
+      throw new NotFoundException('Invalid coupon code');
+    }
+
+    return coupon;
+  }
+
 }

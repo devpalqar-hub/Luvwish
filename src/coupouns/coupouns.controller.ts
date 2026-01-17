@@ -79,4 +79,12 @@ export class CouponController {
     const user_id = req.user.id;
     return this.couponService.applyCoupon(user_id, coupoun_id);
   }
+
+  @Get('name/:name')
+  async getCoupon(@Param('name') name: string) {
+    return this.couponService.getCouponByName(name);
+  }
+
 }
+
+
