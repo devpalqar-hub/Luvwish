@@ -1,15 +1,26 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateBannerDto } from './dto/create-banner.dto';
 import { UpdateBannerDto } from './dto/update-banner.dto';
 
 @Injectable()
 export class BannersService {
-  constructor(private prisma: PrismaService) {}
+  constructor(private prisma: PrismaService) { }
 
-  async create(createBannerDto: CreateBannerDto) {
+  async create(
+    createBannerDto: CreateBannerDto,
+    imageUrl: string,
+  ) {
+    if (!imageUrl) {
+      throw new BadRequestException('Banner image is required');
+    }
+
     return this.prisma.banner.create({
-      data: createBannerDto,
+      data: {
+        image: imageUrl,
+        title: createBannerDto.title,
+        link: createBannerDto.link,
+      },
     });
   }
 
@@ -31,14 +42,22 @@ export class BannersService {
     return banner;
   }
 
-  async update(id: string, updateBannerDto: UpdateBannerDto) {
-    await this.findOne(id); // Ensure exists
+  async update(
+    id: string,
+    updateBannerDto: UpdateBannerDto,
+    imageUrl?: string,
+  ) {
+    await this.findOne(id); // Ensure banner exists
 
     return this.prisma.banner.update({
       where: { id },
-      data: updateBannerDto,
+      data: {
+        ...updateBannerDto,
+        ...(imageUrl && { image: imageUrl }),
+      },
     });
   }
+
 
   async remove(id: string) {
     await this.findOne(id); // Ensure exists
