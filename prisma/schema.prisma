@@ -218,6 +218,7 @@ model ProductVariation {
   product    Product     @relation(fields: [productId], references: [id], onDelete: Cascade)
   cartItems  CartItem[]
   orderItems OrderItem[]
+  Wishlist   Wishlist[]
 
   @@map("product_variations")
 }
@@ -389,14 +390,16 @@ model CouponUsage {
 }
 
 model Wishlist {
-  id                String   @id @default(uuid())
-  customerProfileId String
-  productId         String?
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
+  id                 String   @id @default(uuid())
+  customerProfileId  String
+  productId          String?
+  productVariationId String?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
 
-  product         Product?        @relation(fields: [productId], references: [id], onDelete: Cascade)
-  customerProfile CustomerProfile @relation(fields: [customerProfileId], references: [id], onDelete: Cascade)
+  product          Product?          @relation(fields: [productId], references: [id], onDelete: Cascade)
+  productVariation ProductVariation? @relation(fields: [productVariationId], references: [id], onDelete: Cascade)
+  customerProfile  CustomerProfile   @relation(fields: [customerProfileId], references: [id], onDelete: Cascade)
 
   @@unique([customerProfileId, productId]) // Prevent duplicates
   @@map("wishlist")
