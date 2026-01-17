@@ -25,6 +25,8 @@ import { CategoriesModule } from './categories/categories.module';
 import { SubCategoriesModule } from './subcategories/subcategories.module';
 import { S3Module } from './s3/s3.module';
 import { DashboardModule } from './dashboard/dashboard.module';
+import { BannersModule } from './banners/banners.module';
+import { AnalyticsModule } from './analytics/analytics.module';
 
 @Module({
   imports: [
@@ -70,6 +72,8 @@ import { DashboardModule } from './dashboard/dashboard.module';
         from: '"No Reply" <no-wishyougrowth@gmail.com>',
       },
     }),
+    BannersModule,
+    AnalyticsModule,
   ],
   providers: [RazorpayService],
   controllers: [RazorpayController],

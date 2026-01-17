@@ -139,20 +139,71 @@ export class AuthService {
   async validateOtp(email: string, otp: string) {
     const user = await this.prisma.user.findUnique({
       where: { email },
+      include: { CustomerProfile: true },
     });
+
     if (!user) throw new UnauthorizedException('Invalid credentials');
+
     const userOtp = await this.prisma.userOtp.findUnique({
       where: { userId: user.id },
     });
+
     if (!userOtp || userOtp.otp !== otp) {
       throw new UnauthorizedException('Invalid OTP');
     }
+
     if (new Date() > userOtp.expiresAt) {
       throw new UnauthorizedException('OTP has expired');
     }
-    // Clear OTP after validation
-    await this.prisma.userOtp.delete({ where: { userId: user.id } });
-    return this.generateToken(user);
+
+    // Mark OTP as used
+    await this.prisma.userOtp.update({
+      where: { userId: user.id },
+      data: { used: true },
+    });
+
+    // Check if user has completed registration (has customer profile)
+    const isNewUser = !user.CustomerProfile;
+
+    if (isNewUser) {
+      // Generate a temporary token for completing registration
+      const tempPayload = {
+        email: user.email,
+        sub: user.id,
+        role: user.role,
+        temp: true,
+      };
+
+      return {
+        isNew: true,
+        access_token: this.jwtService.sign(tempPayload, { expiresIn: '30m' }),
+        message: 'Please complete your registration',
+      };
+    }
+
+    // Existing user - return full login response with complete user data
+    const payload = {
+      email: user.email,
+      sub: user.id,
+      role: user.role,
+    };
+
+    const token = this.jwtService.sign(payload);
+
+    return {
+      isNew: false,
+      access_token: token,
+      user: {
+        id: user.id,
+        email: user.email,
+        name: user.CustomerProfile?.name || '',
+        phone: user.CustomerProfile?.phone || '',
+        role: user.role,
+        createdAt: user.createdAt,
+        updatedAt: user.updatedAt,
+      },
+      message: 'Login successful',
+    };
   }
 
   async getAdminProfile(id: string, role: string) {
@@ -569,28 +620,31 @@ export class AuthService {
         access_token: this.jwtService.sign(tempPayload, { expiresIn: '30m' }), // 30 min to complete registration
         message: 'Please complete your registration',
       };
-    } else {
-      // Existing user - return full login response with complete user data
-      const payload = {
-        email: user.email,
-        sub: user.id,
-        role: user.role,
-      };
-
-      return {
-        isNew: false,
-        access_token: this.jwtService.sign(payload),
-        user: {
-          id: user.id,
-          email: user.email,
-          name: user.CustomerProfile.name,
-          phone: user.CustomerProfile.phone,
-          role: user.role,
-          createdAt: user.createdAt,
-          updatedAt: user.updatedAt,
-        },
-      };
     }
+
+    // Existing user - return full login response with complete user data
+    const payload = {
+      email: user.email,
+      sub: user.id,
+      role: user.role,
+    };
+
+    const token = this.jwtService.sign(payload);
+
+    return {
+      isNew: false,
+      access_token: token,
+      user: {
+        id: user.id,
+        email: user.email,
+        name: user.CustomerProfile?.name || '',
+        phone: user.CustomerProfile?.phone || '',
+        role: user.role,
+        createdAt: user.createdAt,
+        updatedAt: user.updatedAt,
+      },
+      message: 'Login successful',
+    };
   }
 
   // 🔹 NEW OTP FLOW - Complete registration with name and phone
