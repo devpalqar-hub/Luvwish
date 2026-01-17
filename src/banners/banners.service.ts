@@ -6,23 +6,31 @@ import { UpdateBannerDto } from './dto/update-banner.dto';
 @Injectable()
 export class BannersService {
   constructor(private prisma: PrismaService) { }
-
   async create(
     createBannerDto: CreateBannerDto,
-    imageUrl: string,
+    images: { url: string }[],
   ) {
-    if (!imageUrl) {
-      throw new BadRequestException('Banner image is required');
+    if (!images || images.length === 0) {
+      throw new BadRequestException('At least one image is required');
     }
 
-    return this.prisma.banner.create({
-      data: {
-        image: imageUrl,
-        title: createBannerDto.title,
-        link: createBannerDto.link,
-      },
-    });
+    const operations = images.map((image) =>
+      this.prisma.banner.create({
+        data: {
+          image: image.url,
+          link: createBannerDto.link,
+          title: createBannerDto.title
+        },
+      }),
+    );
+
+    const createdBanners = await this.prisma.$transaction(operations);
+
+    return createdBanners;
   }
+
+
+
 
   async findAll() {
     return this.prisma.banner.findMany({
