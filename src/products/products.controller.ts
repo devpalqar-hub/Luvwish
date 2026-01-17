@@ -105,12 +105,12 @@ export class ProductsController {
   }
 
   // 🔹 Get single product
+  @UseGuards(OptionalJwtAuthGuard)
   @Get(':id')
-  findOne(@Param('id') id: string) {
-    return this.productsService.findOne(id);
+  findOne(@Param('id') id: string, @Request() req) {
+    const userId = req.user?.id || req.user?.sub;
+    return this.productsService.findOne(id, userId);
   }
-
-
 
   // // 🔹 Update product (with images)
   // @Patch(':id')

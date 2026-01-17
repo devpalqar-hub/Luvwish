@@ -175,13 +175,13 @@ export class ProductsService {
   }
 
   async findAll(query: SearchFilterDto, userId?: string) {
-    let customerProfileId: string | undefined; // ✅ Declare outside
+    let customerProfileId: string | undefined;
 
     if (userId) {
       const customerProfile = await this.prisma.customerProfile.findUnique({
         where: { userId },
       });
-      customerProfileId = customerProfile?.id; // ✅ Assign inside
+      customerProfileId = customerProfile?.id;
     }
 
     const {
@@ -195,11 +195,12 @@ export class ProductsService {
       isFeatured,
       isStock,
     } = query;
+
     const skip = (page - 1) * limit;
 
     const where: any = {
       AND: [
-        // 🔒 Always enforce active category + subcategory
+        // 🔒 Active category + subcategory only
         {
           subCategory: {
             is: {
@@ -239,7 +240,6 @@ export class ProductsService {
       ].filter((c) => Object.keys(c).length > 0),
     };
 
-
     const [products, total] = await this.prisma.$transaction([
       this.prisma.product.findMany({
         where,
@@ -259,36 +259,53 @@ export class ProductsService {
       this.prisma.product.count({ where }),
     ]);
 
-    // 🚀 Add is_wishlisted for each product
-    let productsWithWishlist;
+    // -------------------------
+    // Wishlist flag
+    // -------------------------
+    let productsWithFlags = products.map((p) => ({
+      ...p,
+      is_wishlisted: false,
+      is_in_cart: false,
+    }));
+
     if (customerProfileId) {
-      const wishlist = await this.prisma.wishlist.findMany({
-        where: {
-          customerProfileId,
-          productId: { in: products.map((p) => p.id) },
-        },
-        select: { productId: true },
-      });
+      const [wishlist, cartItems] = await Promise.all([
+        this.prisma.wishlist.findMany({
+          where: {
+            customerProfileId,
+            productId: { in: products.map((p) => p.id) },
+          },
+          select: { productId: true },
+        }),
+        this.prisma.cartItem.findMany({
+          where: {
+            customerProfileId,
+            productId: { in: products.map((p) => p.id) },
+          },
+          select: { productId: true },
+        }),
+      ]);
 
       const wishlistedIds = new Set(wishlist.map((w) => w.productId));
+      const cartProductIds = new Set(cartItems.map((c) => c.productId));
 
-      productsWithWishlist = products.map((p) => ({
+      productsWithFlags = products.map((p) => ({
         ...p,
         is_wishlisted: wishlistedIds.has(p.id),
-      }));
-    } else {
-      // if not logged in, default false
-      productsWithWishlist = products.map((p) => ({
-        ...p,
-        is_wishlisted: false,
+        is_in_cart: cartProductIds.has(p.id),
       }));
     }
 
-    return new PaginationResponseDto(productsWithWishlist, total, page, limit);
+    return new PaginationResponseDto(
+      productsWithFlags,
+      total,
+      page,
+      limit,
+    );
   }
 
-  // 🔹 Get product by ID
-  async findOne(id: string) {
+
+  async findOne(id: string, userId?: string) {
     const product = await this.prisma.product.findUnique({
       where: { id },
       include: {
@@ -309,36 +326,74 @@ export class ProductsService {
               },
             },
           },
-          orderBy: {
-            createdAt: 'desc',
-          },
+          orderBy: { createdAt: 'desc' },
         },
       },
     });
 
-    if (!product)
+    if (!product) {
       throw new NotFoundException(`Product with ID ${id} not found`);
+    }
 
-    // Calculate review statistics
+    // -------------------------
+    // Review statistics
+    // -------------------------
     const reviewStats = {
       totalReviews: product.reviews.length,
-      averageRating: product.reviews.length > 0
-        ? product.reviews.reduce((sum, review) => sum + review.rating, 0) / product.reviews.length
-        : 0,
+      averageRating:
+        product.reviews.length > 0
+          ? product.reviews.reduce((s, r) => s + r.rating, 0) /
+          product.reviews.length
+          : 0,
       ratingDistribution: {
-        5: product.reviews.filter(r => r.rating === 5).length,
-        4: product.reviews.filter(r => r.rating === 4).length,
-        3: product.reviews.filter(r => r.rating === 3).length,
-        2: product.reviews.filter(r => r.rating === 2).length,
-        1: product.reviews.filter(r => r.rating === 1).length,
+        5: product.reviews.filter((r) => r.rating === 5).length,
+        4: product.reviews.filter((r) => r.rating === 4).length,
+        3: product.reviews.filter((r) => r.rating === 3).length,
+        2: product.reviews.filter((r) => r.rating === 2).length,
+        1: product.reviews.filter((r) => r.rating === 1).length,
       },
     };
 
+    // -------------------------
+    // Optional flags
+    // -------------------------
+    let is_wishlisted = false;
+    let is_in_cart = false;
+
+    if (userId) {
+      const customerProfile = await this.prisma.customerProfile.findUnique({
+        where: { userId },
+      });
+
+      if (customerProfile) {
+        const [wishlistItem, cartItem] = await Promise.all([
+          this.prisma.wishlist.findFirst({
+            where: {
+              customerProfileId: customerProfile.id,
+              productId: id,
+            },
+          }),
+          this.prisma.cartItem.findFirst({
+            where: {
+              customerProfileId: customerProfile.id,
+              productId: id,
+            },
+          }),
+        ]);
+
+        is_wishlisted = !!wishlistItem;
+        is_in_cart = !!cartItem;
+      }
+    }
+
     return {
       ...product,
+      is_wishlisted,
+      is_in_cart,
       reviewStats,
     };
   }
+
 
   async updateProductWithImages(
     productId: string,
