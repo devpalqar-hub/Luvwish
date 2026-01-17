@@ -74,7 +74,7 @@ export class AddressService {
     }
 
     // remove customerProfileId if accidentally passed
-    const { customerProfileId, ...data } = updateDto;
+    const { ...data } = updateDto;
 
     return this.prisma.address.update({
       where: { id: addressId },
