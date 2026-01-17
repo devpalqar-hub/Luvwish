@@ -11,7 +11,7 @@ export class CategoriesService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly s3Service: S3Service,
-  ) {}
+  ) { }
 
   async create(createCategoryDto: CreateCategoryDto, imageFile?: Express.Multer.File) {
     const existingCategory = await this.prisma.category.findFirst({
@@ -35,7 +35,7 @@ export class CategoriesService {
     }
 
     const { image, ...categoryData } = createCategoryDto;
-    
+
     return this.prisma.category.create({
       data: {
         ...categoryData,
@@ -92,9 +92,14 @@ export class CategoriesService {
     return category;
   }
 
-  async update(id: string, updateCategoryDto: UpdateCategoryDto, imageFile?: Express.Multer.File) {
+  async update(
+    id: string,
+    updateCategoryDto: UpdateCategoryDto,
+    imageFile?: Express.Multer.File,
+  ) {
     await this.findOne(id);
 
+    // Validate name / slug uniqueness
     if (updateCategoryDto.name || updateCategoryDto.slug) {
       const existingCategory = await this.prisma.category.findFirst({
         where: {
@@ -102,37 +107,48 @@ export class CategoriesService {
             { id: { not: id } },
             {
               OR: [
-                updateCategoryDto.name ? { name: updateCategoryDto.name } : {},
-                updateCategoryDto.slug ? { slug: updateCategoryDto.slug } : {},
-              ],
+                updateCategoryDto.name
+                  ? { name: updateCategoryDto.name }
+                  : undefined,
+                updateCategoryDto.slug
+                  ? { slug: updateCategoryDto.slug }
+                  : undefined,
+              ].filter(Boolean),
             },
           ],
         },
       });
 
       if (existingCategory) {
-        throw new ConflictException('Category with this name or slug already exists');
+        throw new ConflictException(
+          'Category with this name or slug already exists',
+        );
       }
     }
 
-    // Upload image to S3 if provided
+    // Upload image if provided
     let imageUrl: string | undefined;
     if (imageFile) {
-      const uploadResult = await this.s3Service.uploadFile(imageFile, 'categories');
+      const uploadResult = await this.s3Service.uploadFile(
+        imageFile,
+        'categories',
+      );
       imageUrl = uploadResult.url;
     }
 
+    // Exclude image from DTO (handled separately)
     const { image, ...categoryData } = updateCategoryDto;
-    
+
     return this.prisma.category.update({
       where: { id },
       data: {
-        ...categoryData,
+        ...categoryData,            // ← includes isActive safely
         ...(imageUrl && { image: imageUrl }),
       },
       include: { subCategories: true },
     });
   }
+
 
   async remove(id: string) {
     await this.findOne(id);
