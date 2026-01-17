@@ -1,13 +1,17 @@
-import { IsNotEmpty, IsString } from 'class-validator';
+import {
+  IsUUID,
+  IsOptional,
+  ValidateIf,
+} from 'class-validator';
 
 export class CreateWishlistDto {
-  @IsString()
-  @IsNotEmpty()
-  productId: string;
-}
+  @ValidateIf((o) => !o.productVariationId)
+  @IsUUID()
+  @IsOptional()
+  productId?: string;
 
-export class UpdateWishlistDto {
-  @IsString()
-  @IsNotEmpty()
-  productId: string;
+  @ValidateIf((o) => !o.productId)
+  @IsUUID()
+  @IsOptional()
+  productVariationId?: string;
 }
