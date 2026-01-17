@@ -199,6 +199,18 @@ export class ProductsService {
 
     const where: any = {
       AND: [
+        // 🔒 Always enforce active category + subcategory
+        {
+          subCategory: {
+            is: {
+              isActive: true,
+              category: {
+                isActive: true,
+              },
+            },
+          },
+        },
+
         search
           ? {
             OR: [
@@ -207,9 +219,11 @@ export class ProductsService {
             ],
           }
           : {},
+
         minPrice ? { discountedPrice: { gte: minPrice } } : {},
         maxPrice ? { discountedPrice: { lte: maxPrice } } : {},
         subCategoryId ? { subCategoryId } : {},
+
         categoryId
           ? {
             subCategory: {
@@ -219,10 +233,12 @@ export class ProductsService {
             },
           }
           : {},
+
         isFeatured !== undefined ? { isFeatured } : {},
         isStock !== undefined ? { isStock } : {},
-      ].filter((condition) => Object.keys(condition).length > 0),
+      ].filter((c) => Object.keys(c).length > 0),
     };
+
 
     const [products, total] = await this.prisma.$transaction([
       this.prisma.product.findMany({
