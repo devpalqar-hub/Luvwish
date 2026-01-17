@@ -200,6 +200,16 @@ export class ProductsService {
 
     const where: any = {
       AND: [
+        {
+          subCategory: {
+            is: {
+              isActive: true,
+              category: {
+                isActive: true,
+              },
+            },
+          },
+        },
         search
           ? {
             OR: [
