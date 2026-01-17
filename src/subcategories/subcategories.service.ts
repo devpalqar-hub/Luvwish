@@ -15,7 +15,7 @@ export class SubCategoriesService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly s3Service: S3Service,
-  ) {}
+  ) { }
 
   async create(
     createSubCategoryDto: CreateSubCategoryDto,
@@ -119,7 +119,6 @@ export class SubCategoriesService {
 
     return subCategory;
   }
-
   async update(
     id: string,
     updateSubCategoryDto: UpdateSubCategoryDto,
@@ -127,6 +126,7 @@ export class SubCategoriesService {
   ) {
     await this.findOne(id);
 
+    // Validate category change
     if (updateSubCategoryDto.categoryId) {
       const category = await this.prisma.category.findUnique({
         where: { id: updateSubCategoryDto.categoryId },
@@ -139,6 +139,7 @@ export class SubCategoriesService {
       }
     }
 
+    // Validate slug uniqueness
     if (updateSubCategoryDto.slug) {
       const existingSubCategory = await this.prisma.subCategory.findFirst({
         where: {
@@ -153,7 +154,7 @@ export class SubCategoriesService {
       }
     }
 
-    // Upload image to S3 if provided
+    // Upload image if provided
     let imageUrl: string | undefined;
     if (imageFile) {
       const uploadResult = await this.s3Service.uploadFile(
@@ -163,12 +164,13 @@ export class SubCategoriesService {
       imageUrl = uploadResult.url;
     }
 
+    // Exclude image from DTO (handled separately)
     const { image, ...subCategoryData } = updateSubCategoryDto;
 
     return this.prisma.subCategory.update({
       where: { id },
       data: {
-        ...subCategoryData,
+        ...subCategoryData,          // ← includes isActive safely
         ...(imageUrl && { image: imageUrl }),
       },
       include: { category: true },

@@ -1,4 +1,4 @@
-import { IsString, IsOptional, IsUUID, Allow } from 'class-validator';
+import { IsString, IsOptional, IsUUID, Allow, IsBoolean } from 'class-validator';
 
 export class CreateSubCategoryDto {
   @IsString()
@@ -16,4 +16,9 @@ export class CreateSubCategoryDto {
 
   @Allow()
   image?: any; // Handled separately as file upload
+
+  @IsOptional()
+  @IsBoolean()
+  isActive?: boolean;
+
 }

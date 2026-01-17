@@ -141,6 +141,8 @@ model Category {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
+  isActive Boolean @default(true)
+
   subCategories SubCategory[]
 
   @@map("categories")
@@ -155,6 +157,8 @@ model SubCategory {
   image       String?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+
+  isActive Boolean @default(true)
 
   category Category  @relation(fields: [categoryId], references: [id], onDelete: Cascade)
   products Product[]
