@@ -208,7 +208,7 @@ export class ProductsController {
   // @UseGuards(JwtAuthGuard, RolesGuard)
   // @Roles(Role.MESS_ADMIN)
   @Post(':productId/gallery/images')
-  @UseInterceptors(FilesInterceptor('files', 10))
+  @UseInterceptors(FilesInterceptor('image', 10))
   async addProductImages(
     @Param('productId') productId: string,
     @UploadedFiles() files: Express.Multer.File[],
