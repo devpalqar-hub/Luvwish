@@ -40,8 +40,8 @@ export class ProductsController {
 
   // 🔹 Create product with images
   @Post()
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('ADMIN', 'SUPER_ADMIN')
+  // @UseGuards(JwtAuthGuard, RolesGuard)
+  // @Roles('ADMIN', 'SUPER_ADMIN')
   @UseInterceptors(FilesInterceptor('images', 10))
   async create(
     @Body() body: any,

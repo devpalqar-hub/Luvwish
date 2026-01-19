@@ -25,8 +25,8 @@ export class SubCategoriesController {
   constructor(private readonly subCategoriesService: SubCategoriesService) { }
 
   @Post()
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('ADMIN', 'SUPER_ADMIN', 'PRODUCT_MANAGER')
+  // @UseGuards(JwtAuthGuard, RolesGuard)
+  // @Roles('ADMIN', 'SUPER_ADMIN', 'PRODUCT_MANAGER')
   @UseInterceptors(FileInterceptor('image'))
   create(
     @Body() createSubCategoryDto: CreateSubCategoryDto,
