@@ -8,93 +8,137 @@ import { CoupounValueType } from '@prisma/client';
 
 @Injectable()
 export class RazorpayService {
-  constructor(@Inject('RAZORPAY_CLIENT') private readonly razorpayClient: Razorpay, private prisma: PrismaService) { }
+  constructor(
+    @Inject('RAZORPAY_CLIENT') private readonly razorpayClient: Razorpay,
+    private prisma: PrismaService,
+  ) {}
 
   async createOrder(dto: CreatePaymentIntentDto, customerProfileId: string) {
-    const { productId, quantity, useCart, currency, ShippingAddressId, paymentMethod, couponName } = dto;
+    const {
+      productId,
+      quantity,
+      useCart,
+      currency,
+      ShippingAddressId,
+      paymentMethod,
+      couponName,
+    } = dto;
+
+    // 1️⃣ Get customer profile
     const customerProfile = await this.prisma.customerProfile.findUnique({
       where: { userId: customerProfileId },
     });
-    if (!customerProfile) throw new Error('Customer profile not found');
 
-    console.log(ShippingAddressId, "shipping address id")
+    if (!customerProfile) {
+      throw new Error('Customer profile not found');
+    }
+
+    // 2️⃣ Get shipping address
+    if (!ShippingAddressId) {
+      throw new Error('Shipping address is required');
+    }
 
     const shippingAddrs = await this.prisma.address.findUnique({
-      where: { id: ShippingAddressId, customerProfileId: customerProfile.id },
+      where: {
+        id: ShippingAddressId,
+        customerProfileId: customerProfile.id,
+      },
     });
-    if (!shippingAddrs) throw new Error('Shipping address is required');
 
+    if (!shippingAddrs) {
+      throw new Error('Shipping address not found');
+    }
 
+    let coupuon: {
+      id: string;
+      Value: string;
+      ValueType: CoupounValueType;
+    } | null = null;
 
-    const coupuon = await this.prisma.coupon.findUnique({
-      where: { couponName: couponName },
-      select: { id: true, Value: true, ValueType: true }
-    });
-    if (!coupuon) throw new Error('Coupoun Not Found');
+    if (couponName) {
+      coupuon = await this.prisma.coupon.findUnique({
+        where: { couponName },
+        select: {
+          id: true,
+          Value: true,
+          ValueType: true,
+        },
+      });
 
+      if (!coupuon) {
+        throw new Error('Coupon not found');
+      }
+    }
 
     let amount = 0;
-    let orderItemsData = [];
+    const orderItemsData: any[] = [];
 
-    // 1️⃣ Calculate total amount
+    // 4️⃣ Calculate order amount
     if (productId) {
-      if (!quantity || quantity < 1) throw new Error('Quantity must be at least 1');
-      const pdt = await this.prisma.product.findUnique({
+      if (!quantity || quantity < 1) {
+        throw new Error('Quantity must be at least 1');
+      }
+
+      const product = await this.prisma.product.findUnique({
         where: { id: productId },
       });
-      if (!pdt) throw new Error('Product not found');
-      if (quantity > pdt.stockCount) throw new Error('Insufficient stock');
 
-      amount = (Number(pdt.discountedPrice) * quantity)
-      let value;
-      if (coupuon.ValueType === CoupounValueType.amount) {
-        amount -= Number(coupuon.Value)
+      if (!product) {
+        throw new Error('Product not found');
       }
-      else if (coupuon.ValueType === CoupounValueType.percentage) {
-        value = amount * Number(coupuon.Value) / 100
-        amount -= value
+
+      if (quantity > product.stockCount) {
+        throw new Error('Insufficient stock');
       }
+
+      amount = Number(product.discountedPrice) * quantity;
+
       orderItemsData.push({
-        productId: pdt.id,
+        productId: product.id,
         quantity,
-        discountedPrice: pdt.discountedPrice,
-        actualPrice: pdt.actualPrice,
+        discountedPrice: product.discountedPrice,
+        actualPrice: product.actualPrice,
       });
-    }
-    else if (useCart) {
+    } else if (useCart) {
       const cartItems = await this.prisma.cartItem.findMany({
         where: { customerProfileId: customerProfile.id },
         include: { product: true },
       });
 
-      if (!cartItems || cartItems.length === 0)
+      if (!cartItems.length) {
         throw new Error('Cart is empty');
+      }
 
-      cartItems.forEach((item) => {
-        if (!item.product) return;
+      for (const item of cartItems) {
+        if (!item.product) continue;
+
         amount += Number(item.product.discountedPrice) * (item.quantity ?? 1);
-        let value;
-        if (coupuon.ValueType === CoupounValueType.amount) {
-          amount -= Number(coupuon.Value)
-        }
-        else if (coupuon.ValueType === CoupounValueType.percentage) {
-          value = amount * Number(coupuon.Value) / 100
-          amount -= value
-        }
+
         orderItemsData.push({
           productId: item.product.id,
           quantity: item.quantity ?? 1,
           discountedPrice: item.product.discountedPrice,
           actualPrice: item.product.actualPrice,
         });
-      });
-    }
-    else {
+      }
+    } else {
       throw new Error('Either productId or useCart must be provided');
     }
 
-    // 2️⃣ Create Order
+    // 5️⃣ Apply coupon ONCE (after total calculation)
+    if (coupuon) {
+      if (coupuon.ValueType === CoupounValueType.amount) {
+        amount -= Number(coupuon.Value);
+      } else if (coupuon.ValueType === CoupounValueType.percentage) {
+        amount -= (amount * Number(coupuon.Value)) / 100;
+      }
+
+      if (amount < 0) amount = 0;
+    }
+
+    // 6️⃣ Create order
     const isCOD = paymentMethod === 'cash_on_delivery';
+
     const order = await this.prisma.order.create({
       data: {
         customerProfileId: customerProfile.id,
@@ -104,37 +148,23 @@ export class RazorpayService {
         paymentMethod: paymentMethod || 'cash_on_delivery',
         totalAmount: amount,
         shippingAddressId: shippingAddrs.id,
-        coupounId: coupuon.id,
-        isCoupuonApplied: false,
+        coupounId: coupuon?.id ?? null,
+        isCoupuonApplied: !!coupuon,
         items: {
-          create: orderItemsData.map((item) => ({
-            productId: item.productId,
-            quantity: item.quantity,
-            discountedPrice: item.discountedPrice,
-            actualPrice: item.actualPrice,
-          })),
+          create: orderItemsData,
         },
       },
     });
 
-    // 3️⃣ Clear cart if useCart was true
+    // 7️⃣ Clear cart if checkout via cart
     if (useCart) {
       await this.prisma.cartItem.deleteMany({
         where: { customerProfileId: customerProfile.id },
       });
     }
 
-    // 4️⃣ Handle payment method
-    if (paymentMethod === 'cash_on_delivery') {
-      // For COD, create tracking details with initial status
-      const initialHistory = [
-        {
-          status: 'order_placed',
-          timestamp: new Date().toISOString(),
-          notes: 'Order placed successfully with Cash on Delivery',
-        },
-      ];
-
+    // 8️⃣ COD flow
+    if (isCOD) {
       await this.prisma.trackingDetail.create({
         data: {
           orderId: order.id,
@@ -142,21 +172,24 @@ export class RazorpayService {
           trackingNumber: order.orderNumber,
           trackingUrl: null,
           status: 'order_placed',
-          statusHistory: initialHistory,
+          statusHistory: [
+            {
+              status: 'order_placed',
+              timestamp: new Date().toISOString(),
+              notes: 'Order placed with Cash on Delivery',
+            },
+          ],
           lastUpdatedAt: new Date(),
         },
       });
 
-      // Fetch the complete order with tracking and items
       const completeOrder = await this.prisma.order.findUnique({
         where: { id: order.id },
         include: {
           items: {
             include: {
               product: {
-                include: {
-                  images: true,
-                },
+                include: { images: true },
               },
             },
           },
@@ -172,33 +205,33 @@ export class RazorpayService {
       };
     }
 
-    // 5️⃣ Create Razorpay order for online payments
+    // 9️⃣ Razorpay flow
     const options = {
       amount: Math.round(amount * 100),
-      currency: 'INR',
+      currency: currency || 'INR',
       receipt: order.orderNumber,
     };
 
     try {
       const razorpayOrder = await this.razorpayClient.orders.create(options);
-      console.log('Razorpay Order:', razorpayOrder.id);
-      const updatedOrder = await this.prisma.order.update({
+
+      await this.prisma.order.update({
         where: { id: order.id },
         data: { razorpay_id: razorpayOrder.id },
       });
 
       return {
         message: 'Order created successfully',
-        updatedOrder,
+        orderId: order.id,
         razorpayOrder,
       };
     } catch (error) {
-      console.error('Error creating Razorpay order:', error);
-      await this.prisma.order.delete({ where: { id: order.id } });
+      await this.prisma.order.delete({
+        where: { id: order.id },
+      });
       throw error;
     }
   }
-
 
   async verifyPaymentSignature(
     razorpayOrderId: string,
@@ -240,13 +273,16 @@ export class RazorpayService {
       data: {
         paymentStatus: 'completed',
         status: 'confirmed',
-        isCoupuonApplied: true
+        isCoupuonApplied: true,
       },
     });
 
     await this.prisma.couponUsage.create({
-      data: { couponId: existingOrder.coupounId, customerProfileId: existingOrder.customerProfileId }
-    })
+      data: {
+        couponId: existingOrder.coupounId,
+        customerProfileId: existingOrder.customerProfileId,
+      },
+    });
 
     // Step 4: Create tracking details for online payment
     const existingTracking = await this.prisma.trackingDetail.findUnique({
@@ -277,7 +313,6 @@ export class RazorpayService {
 
     return { success: true, order };
   }
-
 
   // Add more methods for payment verification, refunds, etc.
 }
