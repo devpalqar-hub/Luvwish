@@ -30,4 +30,10 @@ export class CreatePaymentIntentDto {
   @IsOptional()
   @IsEnum(PaymentMethod)
   paymentMethod?: PaymentMethod;
+
+  @IsString()
+  @IsOptional()
+  coupounId: string;
+
+
 }
