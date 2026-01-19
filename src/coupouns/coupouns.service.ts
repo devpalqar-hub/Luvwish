@@ -160,10 +160,10 @@ export class CouponService {
     profile_id: string,
   ) {
     const now = new Date();
-    const { couponId, orderAmount } = dto;
+    const { couponName, orderAmount } = dto;
 
     const coupon = await this.prisma.coupon.findUnique({
-      where: { id: couponId },
+      where: { couponName: couponName },
     });
 
     if (!coupon) {
@@ -248,10 +248,10 @@ export class CouponService {
 
 
   async checkApplicability(dto: CheckCouponDto, customerProfileId: string) {
-    const { couponCode, cartAmount } = dto;
+    const { couponName, cartAmount } = dto;
 
     const coupon = await this.prisma.coupon.findFirst({
-      where: { couponName: couponCode },
+      where: { couponName: couponName },
       include: { usages: true },
     });
 

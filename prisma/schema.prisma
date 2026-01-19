@@ -368,7 +368,7 @@ model ReviewImage {
 
 model Coupon {
   id                  String           @id @default(uuid())
-  couponName          String
+  couponName          String           @unique
   ValueType           CoupounValueType @default(amount)
   Value               String
   minimumSpent        Decimal          @default(0) @db.Decimal(10, 2)

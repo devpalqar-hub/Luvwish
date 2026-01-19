@@ -33,7 +33,7 @@ export class CreatePaymentIntentDto {
 
   @IsString()
   @IsOptional()
-  coupounId: string;
+  couponName: string;
 
 
 }

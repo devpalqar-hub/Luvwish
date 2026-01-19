@@ -4,7 +4,7 @@ import { Transform } from 'class-transformer';
 
 export class CheckCouponDto {
     @IsString()
-    couponCode: string;
+    couponName: string;
 
     @IsNumber()
     @Transform(({ value }) => Number(value))
