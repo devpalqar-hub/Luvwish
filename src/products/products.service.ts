@@ -213,12 +213,12 @@ export class ProductsService {
         search
           ? {
             OR: [
-              { name: { contains: search } },
-              { description: { contains: search } },
+              { name: { contains: search, } },
+              { description: { contains: search, } },
               {
                 subCategory: {
                   is: {
-                    name: { contains: search },
+                    name: { contains: search, },
                   },
                 },
               },
@@ -227,7 +227,7 @@ export class ProductsService {
                   is: {
                     category: {
                       is: {
-                        name: { contains: search },
+                        name: { contains: search, },
                       },
                     },
                   },
@@ -856,7 +856,6 @@ export class ProductsService {
     if (search) {
       where.name = {
         contains: search,
-    ,
       };
     }
 
