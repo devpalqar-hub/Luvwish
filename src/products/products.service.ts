@@ -408,7 +408,6 @@ export class ProductsService {
     };
   }
 
-
   async updateProductWithImages(
     productId: string,
     dto: UpdateProductDto,
@@ -422,23 +421,53 @@ export class ProductsService {
       throw new NotFoundException('Product not found');
     }
 
+    // 🔍 FINAL CONFIRMATION
+    console.log('DTO BOOLS:', dto.isStock, dto.isFeatured);
+
     await this.prisma.$transaction(async (tx) => {
-      /** 1️⃣ Update product */
-      await tx.product.update({
+      /* ============================
+         1️⃣ PRODUCT UPDATE (SAFE)
+         ============================ */
+
+      const updateData: any = {};
+
+      if (dto.name !== undefined) updateData.name = dto.name;
+      if (dto.discountedPrice !== undefined) updateData.discountedPrice = dto.discountedPrice;
+      if (dto.actualPrice !== undefined) updateData.actualPrice = dto.actualPrice;
+      if (dto.stockCount !== undefined) updateData.stockCount = dto.stockCount;
+      if (dto.description !== undefined) updateData.description = dto.description;
+
+      // ✅ BOOLEANS (NO SPREAD, NO FALSY ISSUES)
+      if (dto.isStock !== undefined) {
+        updateData.isStock = dto.isStock;
+      }
+
+      if (dto.isFeatured !== undefined) {
+        updateData.isFeatured = dto.isFeatured;
+      }
+
+      // ✅ RELATION UPDATE
+      if (dto.subCategoryId !== undefined) {
+        updateData.subCategory = {
+          connect: { id: dto.subCategoryId },
+        };
+      }
+
+      const updatedProduct = await tx.product.update({
         where: { id: productId },
-        data: {
-          ...(dto.name !== undefined && { name: dto.name }),
-          ...(dto.subCategoryId !== undefined && { subCategoryId: dto.subCategoryId }),
-          ...(dto.discountedPrice !== undefined && { discountedPrice: dto.discountedPrice }),
-          ...(dto.actualPrice !== undefined && { actualPrice: dto.actualPrice }),
-          ...(dto.stockCount !== undefined && { stockCount: Number(dto.stockCount) }),
-          ...(dto.description !== undefined && { description: dto.description }),
-          ...(dto.isStock !== undefined && { isStock: Boolean(dto.isStock) }),
-          ...(dto.isFeatured !== undefined && { isFeatured: Boolean(dto.isFeatured) }),
-        },
+        data: updateData,
       });
 
-      /** 2️⃣ Update variations */
+      console.log(
+        'UPDATED IN TX:',
+        updatedProduct.isStock,
+        updatedProduct.isFeatured,
+      );
+
+      /* ============================
+         2️⃣ VARIATIONS UPDATE
+         ============================ */
+
       if (dto.variations?.length) {
         for (const v of dto.variations) {
           const variation = await tx.productVariation.findUnique({
@@ -463,7 +492,10 @@ export class ProductsService {
         }
       }
 
-      /** 3️⃣ Add new images */
+      /* ============================
+         3️⃣ IMAGES
+         ============================ */
+
       if (files?.length) {
         const folder = 'uploads/product/';
         const uploaded = await this.s3Service.uploadMultipleFiles(files, folder);
@@ -476,7 +508,7 @@ export class ProductsService {
 
         let nextSortOrder = lastImage?.sortOrder ?? 0;
 
-        const hasMain = dto.newImages?.some((i) => i.isMain);
+        const hasMain = dto.newImages?.some((i) => i.isMain === true);
 
         if (hasMain) {
           await tx.productImage.updateMany({
@@ -499,18 +531,27 @@ export class ProductsService {
 
         await tx.productImage.createMany({ data: imageData });
       }
-    });
 
-    /** 4️⃣ FINAL FULL RESPONSE */
+    });
+    setTimeout(async () => {
+      const p = await this.prisma.product.findUnique({
+        where: { id: productId },
+        select: { isStock: true, isFeatured: true },
+      });
+
+      console.log('AFTER 500ms:', p);
+    }, 500);
+
+
+    /* ============================
+       4️⃣ FINAL RESPONSE
+       ============================ */
+
     const fullProduct = await this.prisma.product.findUnique({
       where: { id: productId },
       include: {
         subCategory: {
-          select: {
-            id: true,
-            name: true,
-            slug: true,
-          },
+          select: { id: true, name: true, slug: true },
         },
         variations: {
           orderBy: { createdAt: 'asc' },
@@ -521,11 +562,21 @@ export class ProductsService {
       },
     });
 
+    const rawDb = await this.prisma.$queryRawUnsafe<any[]>(`
+  SELECT isStock, isFeatured
+  FROM products
+  WHERE id = '${productId}'
+`);
+
+    console.log('RAW DB AFTER ALL:', rawDb);
+
+
     return {
       success: true,
       data: fullProduct,
     };
   }
+
 
 
   // // 🔹 Update product with file upload

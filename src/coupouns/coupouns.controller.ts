@@ -90,7 +90,7 @@ export class CouponController {
     return this.couponService.getCouponByName(name);
   }
 
-  @Post('check-applicability')
+  @Post('check/applicability')
   async checkCoupon(@Body() dto: CheckCouponDto, @Request() req) {
     const customerProfileId = req.user.customerProfile.id;
     return this.couponService.checkApplicability(dto, customerProfileId);
