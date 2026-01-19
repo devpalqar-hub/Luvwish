@@ -1,209 +1,250 @@
-import { PrismaClient, Roles, PaymentMethod, OrderStatus, PaymentStatus, CoupounValueType } from '@prisma/client';
-import { faker } from '@faker-js/faker';
+import { PrismaClient, Roles, OrderStatus, PaymentStatus, PaymentMethod, CoupounValueType, TrackingStatus } from '@prisma/client'
 
-
-const prisma = new PrismaClient();
+const prisma = new PrismaClient()
 
 async function main() {
-    console.log('🌱 Seeding database...');
 
-    // ----- USERS -----
-    for (let i = 0; i < 5; i++) {
-        const user = await prisma.user.create({
-            data: {
-                email: faker.internet.email(),
-                password: faker.internet.password(),
-                role: Roles.CUSTOMER,
-                CustomerProfile: {
-                    create: {
-                        name: faker.person.fullName(),
-                        phone: faker.phone.number(),
-                        address: faker.location.streetAddress(),
-                        city: faker.location.city(),
-                        state: faker.location.state(),
-                        postalCode: faker.location.zipCode(),
-                        country: faker.location.country(),
-                        profilePicture: faker.image.avatar(),
-                    },
-                },
-            },
-        });
+    /* =========================
+       USERS
+    ========================== */
 
-        console.log(`Created user: ${user.email}`);
-    }
-
-    // ----- ADMIN -----
-    const admin = await prisma.user.create({
+    const adminUser = await prisma.user.create({
         data: {
-            email: 'admin@example.com',
-            password: 'admin123',
-            role: Roles.SUPER_ADMIN,
+            email: 'admin@store.com',
+            role: Roles.ADMIN,
+            password: 'hashed-password',
             AdminProfile: {
-                create: {
-                    name: 'Super Admin',
-                    phone: faker.phone.number(),
-                },
-            },
-        },
-    });
+                create: { name: 'Admin One', phone: '9999999999' }
+            }
+        }
+    })
 
-    console.log(`Created admin: ${admin.email}`);
+    const customers = await Promise.all(
+        ['alice', 'bob', 'charlie'].map(email =>
+            prisma.user.create({
+                data: {
+                    email: `${email}@mail.com`,
+                    password: 'hashed-password',
+                    CustomerProfile: {
+                        create: {
+                            name: email.toUpperCase(),
+                            phone: '8888888888',
+                            city: 'Bangalore',
+                            state: 'Karnataka',
+                            country: 'India'
+                        }
+                    }
+                }
+            })
+        )
+    )
 
-    // ----- FIXED PRODUCTS -----
-    const productsData = [
-        {
-            name: "Organic Cotton Sanitary Pads - Ultra Thin",
-            discountedPrice: 149,
-            actualPrice: 199,
-            stockCount: 500,
-            description: "Ultra-thin sanitary pads made from 100% organic cotton...",
-            isStock: true,
-            images: {
-                create: [
-                    { url: "https://example.com/images/sanitary-pad-front.jpg", altText: "Front view", isMain: true },
-                    { url: "https://example.com/images/sanitary-pad-packaging.jpg", altText: "Packaging", isMain: false },
-                ],
-            },
-        },
-        {
-            name: "Herbal Pantyliners - Daily Fresh",
-            discountedPrice: 79,
-            actualPrice: 99,
-            stockCount: 300,
-            description: "Pantyliners infused with natural herbal extracts...",
-            isStock: true,
-            images: {
-                create: [
-                    { url: "https://example.com/images/pantyliner-pack.jpg", altText: "Herbal pantyliner pack", isMain: true },
-                ],
-            },
-        },
-        {
-            name: "Overnight Sanitary Pads - XL",
-            discountedPrice: 199,
-            actualPrice: 249,
-            stockCount: 450,
-            description: "Extra-long sanitary pads for overnight protection...",
-            isStock: true,
-            images: {
-                create: [
-                    { url: "https://example.com/images/overnight-pad.jpg", altText: "Overnight pad pack", isMain: true },
-                ],
-            },
-        },
-        {
-            name: "Reusable Menstrual Cup - Medium",
-            discountedPrice: 499,
-            actualPrice: 699,
-            stockCount: 200,
-            description: "Eco-friendly menstrual cup made from medical-grade silicone...",
-            isStock: true,
-            images: {
-                create: [
-                    { url: "https://example.com/images/menstrual-cup.jpg", altText: "Menstrual cup", isMain: true },
-                ],
-            },
-        },
-        {
-            name: "Period Pain Relief Heat Patch",
-            discountedPrice: 199,
-            actualPrice: 249,
-            stockCount: 600,
-            description: "Self-heating patch for soothing period cramps...",
-            isStock: true,
-            images: {
-                create: [
-                    { url: "https://example.com/images/heat-patch.jpg", altText: "Heat patch pack", isMain: true },
-                ],
-            },
-        },
-    ];
+    const customerProfiles = await prisma.customerProfile.findMany()
 
-    for (const p of productsData) {
-        const product = await prisma.product.create({ data: p });
-        console.log(`Created fixed product: ${product.name}`);
-    }
+    /* =========================
+       CATEGORIES & PRODUCTS
+    ========================== */
 
-    // ----- RANDOM PRODUCTS -----
-    for (let i = 0; i < 5; i++) {
-        const product = await prisma.product.create({
-            data: {
-                name: faker.commerce.productName(),
-                discountedPrice: faker.number.float({ min: 100, max: 500, fractionDigits: 2 }),
-                actualPrice: faker.number.float({ min: 500, max: 1000, fractionDigits: 2 }),
-                description: faker.commerce.productDescription(),
-                stockCount: faker.number.int({ min: 10, max: 100 }),
-                isStock: true,
-                images: {
-                    create: [
-                        {
-                            url: faker.image.url(),
-                            altText: faker.commerce.productAdjective(),
-                            isMain: true,
-                        },
-                    ],
-                },
-            },
-        });
+    const categories = await Promise.all(
+        ['Electronics', 'Fashion', 'Home'].map(cat =>
+            prisma.category.create({
+                data: {
+                    name: cat,
+                    slug: cat.toLowerCase(),
+                    subCategories: {
+                        create: [
+                            { name: `${cat} Sub 1`, slug: `${cat}-sub1`.toLowerCase() },
+                            { name: `${cat} Sub 2`, slug: `${cat}-sub2`.toLowerCase() }
+                        ]
+                    }
+                }
+            })
+        )
+    )
 
-        console.log(`Created random product: ${product.name}`);
-    }
+    const subCategories = await prisma.subCategory.findMany()
 
-    // ----- COUPONS -----
-    // ----- COUPONS -----
-    const couponsData = [
-        { couponName: "WELCOME10", ValueType: CoupounValueType.percentage, Value: "10", minimumSpent: 500, usageLimitPerPerson: 1, validFrom: new Date("2025-01-01"), ValidTill: new Date("2025-12-31") },
-        { couponName: "SAVE200", ValueType: CoupounValueType.amount, Value: "200", minimumSpent: 1000, usageLimitPerPerson: 2, validFrom: new Date("2025-01-01"), ValidTill: new Date("2025-12-31") },
-        { couponName: "FREESHIP", ValueType: CoupounValueType.amount, Value: "50", minimumSpent: 300, usageLimitPerPerson: 5, validFrom: new Date("2025-01-01"), ValidTill: new Date("2025-12-31") },
-    ];
-
-
-    // ----- SAMPLE ORDER -----
-    const customer = await prisma.customerProfile.findFirst();
-    const product = await prisma.product.findFirst();
-
-    if (customer && product) {
-        const order = await prisma.order.create({
-            data: {
-                orderNumber: `ORD-${Date.now()}`,
-                status: OrderStatus.confirmed,
-                paymentStatus: PaymentStatus.completed,
-                totalAmount: product.discountedPrice,
-                shippingCost: 50,
-                taxAmount: 18,
-                discountAmount: 0,
-                CustomerProfile: { connect: { id: customer.id } },
-                items: {
-                    create: [
-                        {
-                            product: { connect: { id: product.id } },
-                            quantity: 2,
-                            discountedPrice: product.discountedPrice,
-                            actualPrice: product.actualPrice,
-                        },
-                    ],
-                },
-                Payment: {
-                    create: {
-                        amount: product.discountedPrice,
-                        method: PaymentMethod.credit_card,
-                        status: PaymentStatus.completed,
-                        transactionId: faker.string.uuid(),
+    for (const sub of subCategories) {
+        for (let i = 1; i <= 2; i++) {
+            const product = await prisma.product.create({
+                data: {
+                    name: `${sub.name} Product ${i}`,
+                    subCategoryId: sub.id,
+                    actualPrice: 1000,
+                    discountedPrice: 850,
+                    stockCount: 50,
+                    images: {
+                        create: [
+                            { url: 'https://img.com/1.jpg', isMain: true },
+                            { url: 'https://img.com/2.jpg' }
+                        ]
                     },
-                },
-            },
-        });
-
-        console.log(`Created sample order: ${order.orderNumber}`);
+                    variations: {
+                        create: [
+                            {
+                                variationName: 'Small',
+                                sku: `${sub.slug}-S-${i}`,
+                                actualPrice: 1000,
+                                discountedPrice: 850,
+                                stockCount: 20
+                            },
+                            {
+                                variationName: 'Large',
+                                sku: `${sub.slug}-L-${i}`,
+                                actualPrice: 1200,
+                                discountedPrice: 999,
+                                stockCount: 30
+                            }
+                        ]
+                    }
+                }
+            })
+        }
     }
 
-    console.log('✅ Seeding completed!');
+    const products = await prisma.product.findMany({
+        include: { variations: true }
+    })
+
+    /* =========================
+       COUPONS
+    ========================== */
+
+    const coupon = await prisma.coupon.create({
+        data: {
+            couponName: 'NEWUSER10',
+            ValueType: CoupounValueType.percentage,
+            Value: '10',
+            minimumSpent: 500,
+            validFrom: '2025-01-01',
+            ValidTill: '2026-01-01'
+        }
+    })
+
+    /* =========================
+       ADDRESSES
+    ========================== */
+
+    for (const profile of customerProfiles) {
+        await prisma.address.create({
+            data: {
+                name: profile.name ?? 'Customer',
+                address: '123 Main Road',
+                city: 'Bangalore',
+                state: 'KA',
+                postalCode: '560001',
+                country: 'India',
+                isDefault: true,
+
+                CustomerProfile: {
+                    connect: { id: profile.id }
+                }
+            }
+        })
+
+    }
+
+    const addresses = await prisma.address.findMany()
+
+    /* =========================
+       ORDERS
+    ========================== */
+
+    const order = await prisma.order.create({
+        data: {
+            orderNumber: 'ORD-10001',
+            status: OrderStatus.confirmed,
+            paymentMethod: PaymentMethod.stripe,
+            totalAmount: 1700,
+            customerProfileId: customerProfiles[0].id,
+            shippingAddressId: addresses[0].id,
+            isCoupuonApplied: true,
+            coupounId: coupon.id,
+            items: {
+                create: [
+                    {
+                        productId: products[0].id,
+                        productVariationId: products[0].variations[0].id,
+                        quantity: 2,
+                        actualPrice: 1000,
+                        discountedPrice: 850
+                    }
+                ]
+            },
+            Payment: {
+                create: {
+                    amount: 1700,
+                    method: PaymentMethod.stripe,
+                    status: PaymentStatus.completed,
+                    transactionId: 'txn_123'
+                }
+            },
+            tracking: {
+                create: {
+                    carrier: 'BlueDart',
+                    trackingNumber: 'BD123',
+                    status: TrackingStatus.shipped,
+                    lastUpdatedAt: new Date()
+                }
+            }
+        }
+    })
+
+    /* =========================
+       REVIEW
+    ========================== */
+
+    const orderItem = await prisma.orderItem.findFirst()
+
+    await prisma.review.create({
+        data: {
+            rating: 5,
+            comment: 'Excellent product',
+            productId: orderItem!.productId,
+            customerProfileId: customerProfiles[0].id,
+            orderItemId: orderItem!.id,
+            images: {
+                create: [{ url: 'https://img.com/rev1.jpg' }]
+            }
+        }
+    })
+
+    /* =========================
+       CART & WISHLIST
+    ========================== */
+
+    await prisma.cartItem.create({
+        data: {
+            customerProfileId: customerProfiles[1].id,
+            productId: products[1].id,
+            quantity: 1
+        }
+    })
+
+    await prisma.wishlist.create({
+        data: {
+            customerProfileId: customerProfiles[2].id,
+            productId: products[2].id
+        }
+    })
+
+    /* =========================
+       BANNERS
+    ========================== */
+
+    await prisma.banner.createMany({
+        data: [
+            { image: 'https://img.com/banner1.jpg', title: 'Sale' },
+            { image: 'https://img.com/banner2.jpg', title: 'New Arrivals' }
+        ]
+    })
+
+    console.log('✅ Database seeded successfully')
 }
 
 main()
-    .then(() => prisma.$disconnect())
-    .catch(async (e) => {
-        console.error(e);
-        await prisma.$disconnect();
-        process.exit(1);
-    });
+    .catch(e => {
+        console.error(e)
+        process.exit(1)
+    })
+    .finally(() => prisma.$disconnect())
