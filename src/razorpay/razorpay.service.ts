@@ -11,7 +11,7 @@ export class RazorpayService {
   constructor(@Inject('RAZORPAY_CLIENT') private readonly razorpayClient: Razorpay, private prisma: PrismaService) { }
 
   async createOrder(dto: CreatePaymentIntentDto, customerProfileId: string) {
-    const { productId, quantity, useCart, currency, ShippingAddressId, paymentMethod, coupounId } = dto;
+    const { productId, quantity, useCart, currency, ShippingAddressId, paymentMethod, couponName } = dto;
     const customerProfile = await this.prisma.customerProfile.findUnique({
       where: { userId: customerProfileId },
     });
@@ -27,7 +27,8 @@ export class RazorpayService {
 
 
     const coupuon = await this.prisma.coupon.findUnique({
-      where: { id: coupounId },
+      where: { couponName: couponName },
+      select: { id: true, Value: true, ValueType: true }
     });
     if (!coupuon) throw new Error('Coupoun Not Found');
 
@@ -228,7 +229,7 @@ export class RazorpayService {
     }
     if (existingOrder.coupounId) {
       const coupuon = await this.prisma.coupon.findUnique({
-        where: { id: existingOrder.coupounId },
+        where: { couponName: existingOrder.coupounId },
       });
       if (!coupuon) throw new Error('Coupoun Not Found');
     }
