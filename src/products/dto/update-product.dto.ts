@@ -40,10 +40,10 @@ export class UpdateProductDto {
 
     @IsOptional()
     @IsString()
-    // @Transform(({ value }) => {
-    //     if (typeof value === 'number') return value;
-    //     return Number(value);
-    // })
+    @Transform(({ value }) => {
+        if (typeof value === 'number') return value;
+        return Number(value);
+    })
     stockCount?: string;
 
 
@@ -53,18 +53,18 @@ export class UpdateProductDto {
 
     @IsOptional()
     @IsString()
-    // @Transform(({ value }) => {
-    //     if (typeof value === 'boolean') return value;
-    //     return value === 'true';
-    // })
+    @Transform(({ value }) => {
+        if (typeof value === 'boolean') return value;
+        return value === 'true';
+    })
     isStock?: string;
 
     @IsOptional()
     @IsString()
-    // @Transform(({ value }) => {
-    //     if (typeof value === 'boolean') return value;
-    //     return value === 'true';
-    // })
+    @Transform(({ value }) => {
+        if (typeof value === 'boolean') return value;
+        return value === 'true';
+    })
     isFeatured?: string;
 
 
