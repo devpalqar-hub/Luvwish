@@ -215,6 +215,24 @@ export class ProductsService {
             OR: [
               { name: { contains: search } },
               { description: { contains: search } },
+              {
+                subCategory: {
+                  is: {
+                    name: { contains: search },
+                  },
+                },
+              },
+              {
+                subCategory: {
+                  is: {
+                    category: {
+                      is: {
+                        name: { contains: search },
+                      },
+                    },
+                  },
+                },
+              },
             ],
           }
           : {},
@@ -234,6 +252,7 @@ export class ProductsService {
         isStock !== undefined ? { isStock } : {},
       ].filter((condition) => Object.keys(condition).length > 0),
     };
+
 
     const [products, total] = await this.prisma.$transaction([
       this.prisma.product.findMany({
@@ -837,7 +856,7 @@ export class ProductsService {
     if (search) {
       where.name = {
         contains: search,
-        mode: 'insensitive',
+    ,
       };
     }
 

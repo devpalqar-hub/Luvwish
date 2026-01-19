@@ -4,7 +4,7 @@ import { Transform } from 'class-transformer';
 
 export class ApplyCouponDto {
     @IsUUID()
-    couponId: string;
+    couponName: string;
 
     @IsOptional()
     @IsNumber()
