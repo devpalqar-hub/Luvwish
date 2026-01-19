@@ -37,7 +37,7 @@ export class AuthService {
 
   async validateUser(email: string, password: string): Promise<any> {
     const user = await this.prisma.user.findUnique({
-      where: { email },
+      where: { email, isActive: true },
     });
     if (!user) return null;
     if (!user.password) {
@@ -51,7 +51,7 @@ export class AuthService {
 
   async login(loginDto: LoginDto) {
     const user = await this.validateUser(loginDto.email, loginDto.password);
-    if (!user) throw new UnauthorizedException('Invalid credentials');
+    if (!user) throw new UnauthorizedException('Invalid credentials or User disabled');
     return this.generateToken(user);
   }
 
