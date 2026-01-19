@@ -1,9 +1,9 @@
 // apply-coupon.dto.ts
-import { IsUUID, IsNumber, IsOptional, Min } from 'class-validator';
+import { IsUUID, IsNumber, IsOptional, Min, IsString } from 'class-validator';
 import { Transform } from 'class-transformer';
 
 export class ApplyCouponDto {
-    @IsUUID()
+    @IsString()
     couponName: string;
 
     @IsOptional()
