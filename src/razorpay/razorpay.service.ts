@@ -4,23 +4,33 @@ import Razorpay from 'razorpay';
 import { CreatePaymentIntentDto } from './dto/checkout.dto';
 import { PrismaService } from '../prisma/prisma.service';
 import * as crypto from 'crypto';
+import { CoupounValueType } from '@prisma/client';
 
 @Injectable()
 export class RazorpayService {
   constructor(@Inject('RAZORPAY_CLIENT') private readonly razorpayClient: Razorpay, private prisma: PrismaService) { }
 
   async createOrder(dto: CreatePaymentIntentDto, customerProfileId: string) {
-    const { productId, quantity, useCart, currency, ShippingAddressId, paymentMethod } = dto;
+    const { productId, quantity, useCart, currency, ShippingAddressId, paymentMethod, coupounId } = dto;
     const customerProfile = await this.prisma.customerProfile.findUnique({
       where: { userId: customerProfileId },
     });
     if (!customerProfile) throw new Error('Customer profile not found');
 
     console.log(ShippingAddressId, "shipping address id")
+
     const shippingAddrs = await this.prisma.address.findUnique({
       where: { id: ShippingAddressId, customerProfileId: customerProfile.id },
     });
     if (!shippingAddrs) throw new Error('Shipping address is required');
+
+
+
+    const coupuon = await this.prisma.coupon.findUnique({
+      where: { id: coupounId },
+    });
+    if (!coupuon) throw new Error('Coupoun Not Found');
+
 
     let amount = 0;
     let orderItemsData = [];
@@ -34,8 +44,15 @@ export class RazorpayService {
       if (!pdt) throw new Error('Product not found');
       if (quantity > pdt.stockCount) throw new Error('Insufficient stock');
 
-      amount = Number(pdt.discountedPrice) * quantity;
-
+      amount = (Number(pdt.discountedPrice) * quantity)
+      let value;
+      if (coupuon.ValueType === CoupounValueType.amount) {
+        amount -= Number(coupuon.Value)
+      }
+      else if (coupuon.ValueType === CoupounValueType.percentage) {
+        value = amount * Number(coupuon.Value) / 100
+        amount -= value
+      }
       orderItemsData.push({
         productId: pdt.id,
         quantity,
@@ -55,7 +72,14 @@ export class RazorpayService {
       cartItems.forEach((item) => {
         if (!item.product) return;
         amount += Number(item.product.discountedPrice) * (item.quantity ?? 1);
-
+        let value;
+        if (coupuon.ValueType === CoupounValueType.amount) {
+          amount -= Number(coupuon.Value)
+        }
+        else if (coupuon.ValueType === CoupounValueType.percentage) {
+          value = amount * Number(coupuon.Value) / 100
+          amount -= value
+        }
         orderItemsData.push({
           productId: item.product.id,
           quantity: item.quantity ?? 1,
@@ -79,6 +103,8 @@ export class RazorpayService {
         paymentMethod: paymentMethod || 'cash_on_delivery',
         totalAmount: amount,
         shippingAddressId: shippingAddrs.id,
+        coupounId: coupuon.id,
+        isCoupuonApplied: false,
         items: {
           create: orderItemsData.map((item) => ({
             productId: item.productId,
@@ -200,6 +226,12 @@ export class RazorpayService {
     if (!existingOrder) {
       return { success: false, message: 'Order not found for verification' };
     }
+    if (existingOrder.coupounId) {
+      const coupuon = await this.prisma.coupon.findUnique({
+        where: { id: existingOrder.coupounId },
+      });
+      if (!coupuon) throw new Error('Coupoun Not Found');
+    }
 
     // Step 3: Update payment status
     const order = await this.prisma.order.update({
@@ -207,8 +239,13 @@ export class RazorpayService {
       data: {
         paymentStatus: 'completed',
         status: 'confirmed',
+        isCoupuonApplied: true
       },
     });
+
+    await this.prisma.couponUsage.create({
+      data: { couponId: existingOrder.coupounId, customerProfileId: existingOrder.customerProfileId }
+    })
 
     // Step 4: Create tracking details for online payment
     const existingTracking = await this.prisma.trackingDetail.findUnique({

@@ -5,6 +5,9 @@ import { UpdateCouponDto } from './dto/update-coupon.dto';
 import { HttpStatus } from '@nestjs/common';
 import { SearchFilterDto } from 'src/pagination/dto/search-filter.dto';
 import { PaginationResponseDto } from 'src/pagination/pagination-response.dto';
+import { CheckCouponDto } from './dto/check-coupon.dto';
+import { CoupounValueType } from '@prisma/client';
+import { ApplyCouponDto } from './dto/apply-coupon.dto';
 
 @Injectable()
 export class CouponService {
@@ -152,33 +155,28 @@ export class CouponService {
 
     return applicableCoupons;
   }
-
-  // 2. Apply a coupon
   async applyCoupon(
+    dto: ApplyCouponDto,
     profile_id: string,
-    coupon_id: string,
-    orderAmount?: number,
   ) {
     const now = new Date();
+    const { couponId, orderAmount } = dto;
 
-    // find coupon
     const coupon = await this.prisma.coupon.findUnique({
-      where: { id: coupon_id },
+      where: { id: couponId },
     });
 
     if (!coupon) {
-      throw new Error('Invalid coupon');
+      throw new NotFoundException('Invalid coupon');
     }
 
-    // validate active period
     const validFrom = new Date(coupon.validFrom);
     const validTill = new Date(coupon.ValidTill);
 
     if (validFrom > now || validTill < now) {
-      throw new Error('This coupon is not active');
+      throw new BadRequestException('This coupon is not active');
     }
 
-    // check usage count
     const usageCount = await this.prisma.couponUsage.count({
       where: {
         customerProfileId: profile_id,
@@ -187,40 +185,42 @@ export class CouponService {
     });
 
     if (usageCount >= coupon.usageLimitPerPerson) {
-      throw new Error(
+      throw new BadRequestException(
         'You have reached the maximum usage limit for this coupon',
       );
     }
 
-    // check minimum spent requirement
-    if (orderAmount && orderAmount < Number(coupon.minimumSpent)) {
-      throw new Error(
+    if (
+      orderAmount !== undefined &&
+      orderAmount < Number(coupon.minimumSpent)
+    ) {
+      throw new BadRequestException(
         `This coupon requires a minimum purchase of ${coupon.minimumSpent}`,
       );
     }
 
-    // record usage
-    await this.prisma.couponUsage.create({
-      data: {
-        customerProfileId: profile_id,
-        couponId: coupon.id,
-      },
-    });
-
-    // calculate discount
     let discount = 0;
-    if (coupon.ValueType === 'amount') {
+
+    if (coupon.ValueType === CoupounValueType.amount) {
       discount = Number(coupon.Value);
-    } else if (coupon.ValueType === 'percentage') {
-      if (!orderAmount) {
-        throw new Error('Order amount required for percentage coupons');
+    } else {
+      if (orderAmount === undefined) {
+        throw new BadRequestException(
+          'Order amount required for percentage coupons',
+        );
       }
       discount = (orderAmount * Number(coupon.Value)) / 100;
     }
 
+    const finalAmount =
+      orderAmount !== undefined
+        ? Math.max(orderAmount - discount, 0)
+        : undefined;
+
     return {
       message: 'Coupon applied successfully',
       discount,
+      finalAmount,
       status: HttpStatus.OK,
     };
   }
@@ -245,5 +245,78 @@ export class CouponService {
 
     return coupon;
   }
+
+
+  async checkApplicability(dto: CheckCouponDto, customerProfileId: string) {
+    const { couponCode, cartAmount } = dto;
+
+    const coupon = await this.prisma.coupon.findFirst({
+      where: { couponName: couponCode },
+      include: { usages: true },
+    });
+
+    if (!coupon) {
+      throw new BadRequestException('Invalid coupon code');
+    }
+
+    const now = new Date();
+
+    // Date validation
+    if (
+      now < new Date(coupon.validFrom) ||
+      now > new Date(coupon.ValidTill)
+    ) {
+      throw new BadRequestException('Coupon is expired or not active yet');
+    }
+
+    // Minimum spend check
+    if (cartAmount < Number(coupon.minimumSpent)) {
+      throw new BadRequestException(
+        `Minimum cart value should be ${coupon.minimumSpent}`,
+      );
+    }
+
+    // Global usage limit
+    if (coupon.usages.length >= coupon.usedByCount) {
+      throw new BadRequestException('Coupon usage limit exceeded');
+    }
+
+    // Per-user usage limit
+    if (customerProfileId) {
+      const userUsageCount = coupon.usages.filter(
+        (u) => u.customerProfileId === customerProfileId,
+      ).length;
+
+      if (userUsageCount >= coupon.usageLimitPerPerson) {
+        throw new BadRequestException(
+          'Coupon usage limit exceeded for this user',
+        );
+      }
+    }
+
+    // Calculate discount
+    let discountAmount = 0;
+
+    if (coupon.ValueType === 'percentage') {
+      discountAmount =
+        (cartAmount * Number(coupon.Value)) / 100;
+    } else {
+      discountAmount = Number(coupon.Value);
+    }
+
+    const finalPayableAmount = Math.max(
+      cartAmount - discountAmount,
+      0,
+    );
+
+    return {
+      isApplicable: true,
+      discountType: coupon.ValueType,
+      discountValue: discountAmount,
+      finalPayableAmount,
+      message: 'Coupon is applicable',
+    };
+  }
+
 
 }
