@@ -12,6 +12,8 @@ import {
   UseInterceptors,
   UploadedFiles,
   BadRequestException,
+  UsePipes,
+  ValidationPipe,
 } from '@nestjs/common';
 import { FilesInterceptor } from '@nestjs/platform-express';
 import { ProductsService } from './products.service';
@@ -172,34 +174,28 @@ export class ProductsController {
   }
 
 
-
+  //this is by devanand joly
   @Patch(':id')
+  @UsePipes(
+    new ValidationPipe({
+      transform: true,
+      whitelist: true,
+      forbidNonWhitelisted: true,
+
+    }),
+  )
   @UseInterceptors(FilesInterceptor('image', 10))
   async updateProduct(
     @Param('id') id: string,
     @UploadedFiles() files: Express.Multer.File[],
-    @Body() body: any,
+    @Body() dto: UpdateProductDto,
   ) {
-    /** 🔴 Manually parse JSON fields BEFORE validation */
-    if (body.variations && typeof body.variations === 'string') {
-      try {
-        body.variations = JSON.parse(body.variations);
-      } catch {
-        throw new BadRequestException('Invalid JSON format for variations');
-      }
-    }
-
-    if (body.newImages && typeof body.newImages === 'string') {
-      try {
-        body.newImages = JSON.parse(body.newImages);
-      } catch {
-        throw new BadRequestException('Invalid JSON format for newImages');
-      }
-    }
-
+    // 🔍 DEBUG (will now be boolean)
+    console.log(typeof dto.isFeatured, dto.isFeatured);
+    console.log("hi adheena")
     return this.productsService.updateProductWithImages(
       id,
-      body as UpdateProductDto,
+      dto,
       files,
     );
   }

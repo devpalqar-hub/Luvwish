@@ -47,6 +47,7 @@ export class WishlistService {
           data: {
             customerProfileId: customerProfile.id,
             productVariationId,
+            productId: variation.productId
           },
           include: {
             productVariation: {

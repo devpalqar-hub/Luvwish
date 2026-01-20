@@ -1,9 +1,12 @@
-// import { PartialType } from '@nestjs/mapped-types';
-// import { CreateProductDto } from './create-product.dto';
-
-// export class UpdateProductDto extends PartialType(CreateProductDto) { }
-
-import { IsString, IsOptional, IsBoolean, IsNumber, ValidateNested, IsArray, IsInt } from 'class-validator';
+import {
+    IsString,
+    IsOptional,
+    IsBoolean,
+    IsNumber,
+    ValidateNested,
+    IsArray,
+    IsInt,
+} from 'class-validator';
 import { Transform, Type } from 'class-transformer';
 import { UpdateProductVariationDto } from './update-product-variation.dto';
 
@@ -17,7 +20,6 @@ class NewProductImageDto {
     @Transform(({ value }) => value === true || value === 'true')
     isMain?: boolean;
 }
-
 
 export class UpdateProductDto {
     @IsOptional()
@@ -39,36 +41,37 @@ export class UpdateProductDto {
     actualPrice?: number;
 
     @IsOptional()
-    @IsString()
-    // @Transform(({ value }) => {
-    //     if (typeof value === 'number') return value;
-    //     return Number(value);
-    // })
-    stockCount?: string;
-
+    @IsInt()
+    @Transform(({ value }) => Number(value))
+    stockCount?: number;
 
     @IsOptional()
     @IsString()
     description?: string;
 
-    @IsOptional()
-    @IsString()
-    // @Transform(({ value }) => {
-    //     if (typeof value === 'boolean') return value;
-    //     return value === 'true';
-    // })
-    isStock?: string;
 
     @IsOptional()
-    @IsString()
-    // @Transform(({ value }) => {
-    //     if (typeof value === 'boolean') return value;
-    //     return value === 'true';
-    // })
-    isFeatured?: string;
+    @IsBoolean()
+    @Transform(({ value }) => {
+        if (value === true || value === 'true') return true;
+        if (value === false || value === 'false') return false;
+        return undefined;
+    })
+    isStock?: boolean;
+
+    @IsOptional()
+    @IsBoolean()
+    @Transform(({ value }) => {
+        if (value === true || value === 'true') return true;
+        if (value === false || value === 'false') return false;
+        return undefined;
+    })
+    isFeatured?: boolean;
 
 
-    /** 🔹 Variations edit */
+
+
+    /* variations */
     @IsOptional()
     @IsArray()
     @Transform(({ value }) =>
@@ -78,7 +81,7 @@ export class UpdateProductDto {
     @Type(() => UpdateProductVariationDto)
     variations?: UpdateProductVariationDto[];
 
-    /** image metadata (files come separately) */
+    /* images metadata */
     @IsOptional()
     @IsArray()
     @ValidateNested({ each: true })

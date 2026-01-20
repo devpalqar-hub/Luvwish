@@ -14,6 +14,7 @@ import {
   AdminCustomerListResponseDto,
   AdminCustomerItemDto,
 } from './dto/admin-customer-response.dto';
+import { UpdateUserStatusDto } from './dto/update-user-status.dto';
 
 @Injectable()
 export class UsersService {
@@ -369,6 +370,104 @@ export class UsersService {
       limit: limitNum,
       totalPages: Math.ceil(total / limitNum),
     };
+  }
+
+
+  /* ---------------------------
+    GET ALL USERS
+ ---------------------------- */
+  async getUsers() {
+    return this.prisma.user.findMany({
+      orderBy: { createdAt: 'desc' },
+      select: {
+        id: true,
+        email: true,
+        role: true,
+        isActive: true,
+        createdAt: true,
+        updatedAt: true,
+        CustomerProfile: {
+          select: {
+            name: true,
+            phone: true,
+          },
+        },
+        AdminProfile: {
+          select: {
+            name: true,
+            phone: true,
+          },
+        },
+      },
+    });
+  }
+
+  /* ---------------------------
+     GET USER BY ID
+  ---------------------------- */
+  async getUserById(userId: string) {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        id: true,
+        email: true,
+        role: true,
+        isActive: true,
+        createdAt: true,
+        updatedAt: true,
+        CustomerProfile: {
+          select: {
+            id: true,
+            name: true,
+            phone: true,
+            city: true,
+            state: true,
+            country: true,
+          },
+        },
+        AdminProfile: {
+          select: {
+            id: true,
+            name: true,
+            phone: true,
+            notes: true,
+          },
+        },
+      },
+    });
+
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    return user;
+  }
+
+
+
+  async updateUserStatus(userId: string, dto: UpdateUserStatusDto) {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { id: true },
+    });
+
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    return this.prisma.user.update({
+      where: { id: userId },
+      data: {
+        isActive: dto.isActive,
+      },
+      select: {
+        id: true,
+        email: true,
+        role: true,
+        isActive: true,
+        updatedAt: true,
+      },
+    });
   }
 }
 

@@ -9,6 +9,7 @@ import {
   Request,
   UseGuards,
   Query,
+  Req,
 } from '@nestjs/common';
 import { CouponService } from './coupouns.service';
 import { CreateCouponDto } from './dto/create-coupon.dto';
@@ -18,13 +19,15 @@ import { RolesGuard } from 'src/common/guards/roles.guard';
 import { Roles } from 'src/common/decorators/roles.decorator';
 import { query } from 'express';
 import { SearchFilterDto } from 'src/pagination/dto/search-filter.dto';
+import { CheckCouponDto } from './dto/check-coupon.dto';
+import { ApplyCouponDto } from './dto/apply-coupon.dto';
 
 @Controller('coupons')
 export class CouponController {
   constructor(private readonly couponService: CouponService) { }
 
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('ADMIN')
+  // @UseGuards(JwtAuthGuard, RolesGuard)
+  // @Roles('ADMIN')
   @Post()
   create(@Body() dto: CreateCouponDto) {
     return this.couponService.create(dto);
@@ -53,8 +56,8 @@ export class CouponController {
     return this.couponService.findOne(id);
   }
 
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('ADMIN')
+  // @UseGuards(JwtAuthGuard, RolesGuard)
+  // @Roles('ADMIN')
   @Patch(':id')
   update(@Param('id') id: string, @Body() dto: UpdateCouponDto) {
     return this.couponService.update(id, dto);
@@ -74,10 +77,12 @@ export class CouponController {
   }
 
   @UseGuards(JwtAuthGuard)
-  @Get('apply-coupoun')
-  applyCoupon(@Query('coupoun_id') coupoun_id: string, @Request() req) {
-    const user_id = req.user.id;
-    return this.couponService.applyCoupon(user_id, coupoun_id);
+  @Post('apply/coupon')
+  async applyCoupon(
+    @Req() req,
+    @Body() dto: ApplyCouponDto,
+  ) {
+    return this.couponService.applyCoupon(dto, req.user.id);
   }
 
   @Get('name/:name')
@@ -85,6 +90,11 @@ export class CouponController {
     return this.couponService.getCouponByName(name);
   }
 
+  @Post('check/applicability')
+  async checkCoupon(@Body() dto: CheckCouponDto, @Request() req) {
+    const customerProfileId = req.user.customerProfile.id;
+    return this.couponService.checkApplicability(dto, customerProfileId);
+  }
 }
 
 

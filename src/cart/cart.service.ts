@@ -69,6 +69,7 @@ export class CartService {
           data: {
             productVariationId,
             quantity,
+            productId: variation.productId,
             customerProfileId: customerProfile.id,
           },
         });
