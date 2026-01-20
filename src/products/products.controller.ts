@@ -176,27 +176,16 @@ export class ProductsController {
 
   //this is by devanand joly
   @Patch(':id')
-  @UsePipes(
-    new ValidationPipe({
-      transform: true,
-      whitelist: true,
-      forbidNonWhitelisted: true,
-
-    }),
-  )
-  @UseInterceptors(FilesInterceptor('image', 10))
   async updateProduct(
     @Param('id') id: string,
-    @UploadedFiles() files: Express.Multer.File[],
     @Body() dto: UpdateProductDto,
   ) {
     // 🔍 DEBUG (will now be boolean)
     console.log(typeof dto.isFeatured, dto.isFeatured);
     console.log("hi adheena")
-    return this.productsService.updateProductWithImages(
+    return this.productsService.updateProduct(
       id,
       dto,
-      files,
     );
   }
 

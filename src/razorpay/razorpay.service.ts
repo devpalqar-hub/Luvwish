@@ -11,7 +11,7 @@ export class RazorpayService {
   constructor(
     @Inject('RAZORPAY_CLIENT') private readonly razorpayClient: Razorpay,
     private prisma: PrismaService,
-  ) {}
+  ) { }
 
   async createOrder(dto: CreatePaymentIntentDto, customerProfileId: string) {
     const {
