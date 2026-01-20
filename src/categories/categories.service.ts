@@ -60,6 +60,10 @@ export class CategoriesService {
         { description: { contains: filters.search } },
       ];
     }
+    // ✅ isActive filter
+    if (filters?.isActive !== undefined) {
+      where.isActive = filters.isActive;
+    }
 
     const [data, total] = await this.prisma.$transaction([
       this.prisma.category.findMany({

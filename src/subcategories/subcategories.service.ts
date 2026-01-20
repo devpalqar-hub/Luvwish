@@ -77,6 +77,12 @@ export class SubCategoriesService {
         { description: { contains: filters.search } },
       ];
     }
+
+    // ✅ isActive filter
+    if (filters?.isActive !== undefined) {
+      where.isActive = filters.isActive;
+    }
+
     if (filters?.categoryId) {
       where.categoryId = filters.categoryId;
     }
