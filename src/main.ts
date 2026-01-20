@@ -25,7 +25,14 @@ async function bootstrap() {
   app.use(urlencoded({ extended: true }));
 
 
-  app.enableCors();
+  app.enableCors({
+    origin: '*',
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
+    exposedHeaders: ['Content-Length'],
+    credentials: false,
+    optionsSuccessStatus: 204,
+  });
 
   app.useGlobalPipes(new ValidationPipe({
     transform: true,
