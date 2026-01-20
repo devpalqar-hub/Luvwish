@@ -23,6 +23,7 @@ import {
 } from './dto/admin-product-response.dto';
 import { generateSKU } from '../common/utility/utils';
 import { UpdateProductVariationDto } from './dto/update-product-variation.dto';
+import { Prisma } from '@prisma/client';
 
 @Injectable()
 export class ProductsService {
@@ -407,11 +408,9 @@ export class ProductsService {
       reviewStats,
     };
   }
-
-  async updateProductWithImages(
+  async updateProduct(
     productId: string,
     dto: UpdateProductDto,
-    files?: Express.Multer.File[],
   ) {
     const product = await this.prisma.product.findUnique({
       where: { id: productId },
@@ -421,14 +420,9 @@ export class ProductsService {
       throw new NotFoundException('Product not found');
     }
 
-    // 🔍 FINAL CONFIRMATION
     console.log('DTO BOOLS:', dto.isStock, dto.isFeatured);
 
     await this.prisma.$transaction(async (tx) => {
-      /* ============================
-         1️⃣ PRODUCT UPDATE (SAFE)
-         ============================ */
-
       const updateData: any = {};
 
       if (dto.name !== undefined) updateData.name = dto.name;
@@ -437,35 +431,23 @@ export class ProductsService {
       if (dto.stockCount !== undefined) updateData.stockCount = dto.stockCount;
       if (dto.description !== undefined) updateData.description = dto.description;
 
-      // ✅ BOOLEANS (NO SPREAD, NO FALSY ISSUES)
-      if (dto.isStock !== undefined) {
-        updateData.isStock = dto.isStock;
-      }
+      // ✅ Correct boolean handling
+      if (dto.isStock !== undefined) updateData.isStock = dto.isStock;
+      if (dto.isFeatured !== undefined) updateData.isFeatured = dto.isFeatured;
 
-      if (dto.isFeatured !== undefined) {
-        updateData.isFeatured = dto.isFeatured;
-      }
-
-      // ✅ RELATION UPDATE
       if (dto.subCategoryId !== undefined) {
         updateData.subCategory = {
           connect: { id: dto.subCategoryId },
         };
       }
 
-      const updatedProduct = await tx.product.update({
+      await tx.product.update({
         where: { id: productId },
         data: updateData,
       });
 
-      console.log(
-        'UPDATED IN TX:',
-        updatedProduct.isStock,
-        updatedProduct.isFeatured,
-      );
-
       /* ============================
-         2️⃣ VARIATIONS UPDATE
+         VARIATIONS UPDATE
          ============================ */
 
       if (dto.variations?.length) {
@@ -491,91 +473,23 @@ export class ProductsService {
           });
         }
       }
-
-      /* ============================
-         3️⃣ IMAGES
-         ============================ */
-
-      if (files?.length) {
-        const folder = 'uploads/product/';
-        const uploaded = await this.s3Service.uploadMultipleFiles(files, folder);
-
-        const lastImage = await tx.productImage.findFirst({
-          where: { productId },
-          orderBy: { sortOrder: 'desc' },
-          select: { sortOrder: true },
-        });
-
-        let nextSortOrder = lastImage?.sortOrder ?? 0;
-
-        const hasMain = dto.newImages?.some((i) => i.isMain === true);
-
-        if (hasMain) {
-          await tx.productImage.updateMany({
-            where: { productId, isMain: true },
-            data: { isMain: false },
-          });
-        }
-
-        const imageData = uploaded.map((file, index) => {
-          nextSortOrder += 1;
-
-          return {
-            productId,
-            url: file.url,
-            altText: dto.newImages?.[index]?.altText ?? null,
-            isMain: dto.newImages?.[index]?.isMain ?? false,
-            sortOrder: nextSortOrder,
-          };
-        });
-
-        await tx.productImage.createMany({ data: imageData });
-      }
-
     });
-    setTimeout(async () => {
-      const p = await this.prisma.product.findUnique({
-        where: { id: productId },
-        select: { isStock: true, isFeatured: true },
-      });
-
-      console.log('AFTER 500ms:', p);
-    }, 500);
-
-
-    /* ============================
-       4️⃣ FINAL RESPONSE
-       ============================ */
 
     const fullProduct = await this.prisma.product.findUnique({
       where: { id: productId },
       include: {
-        subCategory: {
-          select: { id: true, name: true, slug: true },
-        },
-        variations: {
-          orderBy: { createdAt: 'asc' },
-        },
-        images: {
-          orderBy: { sortOrder: 'asc' },
-        },
+        subCategory: { select: { id: true, name: true, slug: true } },
+        variations: { orderBy: { createdAt: 'asc' } },
+        images: { orderBy: { sortOrder: 'asc' } }, // still fetched, just not updated
       },
     });
-
-    const rawDb = await this.prisma.$queryRawUnsafe<any[]>(`
-  SELECT isStock, isFeatured
-  FROM products
-  WHERE id = '${productId}'
-`);
-
-    console.log('RAW DB AFTER ALL:', rawDb);
-
 
     return {
       success: true,
       data: fullProduct,
     };
   }
+
 
 
 
@@ -799,27 +713,31 @@ export class ProductsService {
     if (userId) {
       const customerProfile = await this.prisma.customerProfile.findUnique({
         where: { userId },
+        select: { id: true },
       });
       customerProfileId = customerProfile?.id;
     }
 
-    const { limit = 10, page = 1, categoryId, subCategoryId } = query;
-    const skip = (page - 1) * limit;
+    const {
+      limit = 10,
+      page = 1,
+      categoryId,
+      subCategoryId,
+    } = query;
 
-    const where: any = {
+    const take = Number(limit);
+    const skip = (Number(page) - 1) * take;
+
+    const where: Prisma.ProductWhereInput = {
       isFeatured: true,
-      AND: [
-        subCategoryId ? { subCategoryId } : {},
-        categoryId
-          ? {
-            subCategory: {
-              is: {
-                categoryId,
-              },
-            },
-          }
-          : {},
-      ].filter((condition) => Object.keys(condition).length > 0),
+      subCategory: {
+        isActive: true,
+        category: {
+          isActive: true,
+          ...(categoryId && { id: categoryId }),
+        },
+      },
+      ...(subCategoryId && { subCategoryId }),
     };
 
     const [products, total] = await this.prisma.$transaction([
@@ -836,14 +754,14 @@ export class ProductsService {
         },
         orderBy: { createdAt: 'desc' },
         skip,
-        take: limit,
+        take,
       }),
       this.prisma.product.count({ where }),
     ]);
 
-    // Add is_wishlisted for each product
     let productsWithWishlist;
-    if (customerProfileId) {
+
+    if (customerProfileId && products.length > 0) {
       const wishlist = await this.prisma.wishlist.findMany({
         where: {
           customerProfileId,
@@ -865,7 +783,12 @@ export class ProductsService {
       }));
     }
 
-    return new PaginationResponseDto(productsWithWishlist, total, page, limit);
+    return new PaginationResponseDto(
+      productsWithWishlist,
+      total,
+      Number(page),
+      take,
+    );
   }
 
   async toggleFeatured(id: string, dto: ToggleFeaturedDto) {
