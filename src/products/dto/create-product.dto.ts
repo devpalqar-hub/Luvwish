@@ -48,6 +48,7 @@ export class CreateProductVariationDto {
   isAvailable?: boolean;
 }
 
+
 export class CreateProductDto {
   @IsString()
   name: string;
