@@ -27,6 +27,7 @@ import { S3Module } from './s3/s3.module';
 import { DashboardModule } from './dashboard/dashboard.module';
 import { BannersModule } from './banners/banners.module';
 import { AnalyticsModule } from './analytics/analytics.module';
+import { join } from 'path';
 
 @Module({
   imports: [
@@ -57,20 +58,6 @@ import { AnalyticsModule } from './analytics/analytics.module';
     RazorpayModule.forRoot({
       key_id: process.env.RAZORPAY_KEY_ID, // Use environment variables for keys
       key_secret: process.env.RAZORPAY_KEY_SECRET,
-    }),
-    MailerModule.forRoot({
-      transport: {
-        host: 'smtp.gmail.com', // your SMTP host
-        port: 587,
-        secure: false,
-        auth: {
-          user: process.env.MAIL_USER,
-          pass: process.env.MAIL_PASS,
-        },
-      },
-      defaults: {
-        from: '"No Reply" <no-wishyougrowth@gmail.com>',
-      },
     }),
     BannersModule,
     AnalyticsModule,

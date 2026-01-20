@@ -25,46 +25,52 @@ export class DashboardService {
     ): Promise<DashboardResponseDto> {
         const { startDate, endDate } = filters;
 
-        // Build date filter for queries
-        const dateFilter: any = {};
-        if (startDate || endDate) {
-            dateFilter.createdAt = {};
-            if (startDate) {
-                dateFilter.createdAt.gte = new Date(startDate);
-            }
-            if (endDate) {
-                dateFilter.createdAt.lte = new Date(endDate);
-            }
-        }
+        // 1️⃣ Date filter (orders & users only)
+        const createdAtFilter: any = {};
+        if (startDate) createdAtFilter.gte = new Date(startDate);
+        if (endDate) createdAtFilter.lte = new Date(endDate);
 
-        // 1. Total Orders (with optional date filter)
+        const hasDateFilter = Object.keys(createdAtFilter).length > 0;
+
+        // 2️⃣ Total Orders
         const totalOrders = await this.prisma.order.count({
-            where: dateFilter,
+            where: hasDateFilter ? { createdAt: createdAtFilter } : undefined,
         });
 
-        // 2. Total Customers (with optional date filter for registration)
+        // 3️⃣ Total Active Customers
         const totalCustomers = await this.prisma.user.count({
             where: {
                 role: 'CUSTOMER',
-                ...dateFilter,
+                isActive: true,
+                ...(hasDateFilter && { createdAt: createdAtFilter }),
             },
         });
 
-        // 3. Total Products (all products, not filtered by date)
-        const totalProducts = await this.prisma.product.count();
+        // 4️⃣ Total Products (only via active category & subcategory)
+        const totalProducts = await this.prisma.product.count({
+            where: {
+                subCategory: {
+                    isActive: true,
+                    category: {
+                        isActive: true,
+                    },
+                },
+            },
+        });
 
-        // 4. Total Revenue (sum of all order amounts with optional date filter)
+        // 5️⃣ Total Revenue
         const revenueResult = await this.prisma.order.aggregate({
-            where: dateFilter,
+            where: hasDateFilter ? { createdAt: createdAtFilter } : undefined,
             _sum: {
                 totalAmount: true,
             },
         });
-        const totalRevenue = Number(revenueResult._sum.totalAmount || 0);
 
-        // 5. Category-wise Order Analytics
+        const totalRevenue = Number(revenueResult._sum.totalAmount ?? 0);
+
+        // 6️⃣ Category-wise analytics
         const categoryWiseAnalytics = await this.getCategoryWiseAnalytics(
-            dateFilter,
+            hasDateFilter ? { createdAt: createdAtFilter } : {},
         );
 
         return {
@@ -74,11 +80,13 @@ export class DashboardService {
             totalRevenue,
             categoryWiseAnalytics,
             dateRange: {
-                startDate: startDate || null,
-                endDate: endDate || null,
+                startDate: startDate ?? null,
+                endDate: endDate ?? null,
             },
         };
     }
+
+
 
     private async getCategoryWiseAnalytics(
         dateFilter: any,
