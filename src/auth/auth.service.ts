@@ -17,7 +17,6 @@ import { error } from 'console';
 import { ResetPasswordDto } from './dto/reset-password.dto';
 import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { ChangePasswordDto } from './dto/change-password.dto';
-import { MailerService } from '@nestjs-modules/mailer';
 import { RegisterWithOtpDto } from './dto/register-with-otp.dto';
 import { VerifyRegistrationOtpDto } from './dto/verify-registration-otp.dto';
 import { LoginWithOtpDto } from './dto/login-with-otp.dto';
@@ -25,6 +24,7 @@ import { VerifyLoginOtpDto } from './dto/verify-login-otp.dto';
 import { SendOtpDto } from './dto/send-otp.dto';
 import { VerifyOtpDto } from './dto/verify-otp.dto';
 import { CompleteRegistrationDto } from './dto/complete-registration.dto';
+import { MailService } from 'src/mail/mail.service';
 
 @Injectable()
 export class AuthService {
@@ -32,7 +32,7 @@ export class AuthService {
     private readonly prisma: PrismaService,
     private readonly usersService: UsersService,
     private readonly jwtService: JwtService,
-    private emailService: MailerService
+    private readonly emailService: MailService,
   ) { }
 
   async validateUser(email: string, password: string): Promise<any> {
@@ -251,10 +251,14 @@ export class AuthService {
       },
     });
     await this.emailService.sendMail({
-      from: `"MyApp" <${process.env.EMAIL_USER}>`,
       to: dto.email,
       subject: 'Password Reset OTP',
-      text: `Your OTP is ${otp}. It will expire in 10 minutes.`,
+      template: 'password-reset-otp',
+      context: {
+        otp,
+        expiryMinutes: 10,
+      },
+      text: `Your password reset OTP is ${otp}. It will expire in 10 minutes.`,
     });
     return { message: 'OTP sent to email' };
   }
@@ -291,20 +295,15 @@ export class AuthService {
   // 🔹 Helper method to send OTP email (with error handling)
   private async sendOtpEmail(email: string, otp: string): Promise<void> {
     try {
+      console.log(12535)
       await this.emailService.sendMail({
-        from: `"Luvwish" <${process.env.MAIL_USER}>`,
         to: email,
         subject: 'Your OTP for Verification',
-        text: `Your OTP is: ${otp}. It will expire in 15 minutes.`,
-        html: `
-          <div style="font-family: Arial, sans-serif; padding: 20px;">
-            <h2>Welcome to Luvwish!</h2>
-            <p>Your OTP for verification is:</p>
-            <h1 style="color: #4CAF50; font-size: 32px;">${otp}</h1>
-            <p>This OTP will expire in 15 minutes.</p>
-            <p>If you didn't request this, please ignore this email.</p>
-          </div>
-        `,
+        template: 'otp-email',
+        context: {
+          otp,
+        },
+        text: `Your OTP is ${otp}. It will expire in 15 minutes.`,
       });
     } catch (error) {
       // Log error but don't crash the API
