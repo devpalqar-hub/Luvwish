@@ -13,10 +13,13 @@ import { UpdateOrderStatusDto } from './dto/update-order-status.dto';
 import { OrderAggregatesFilterDto } from './dto/order-aggregates-filter.dto';
 import * as ExcelJS from 'exceljs';
 import { MailService } from 'src/mail/mail.service';
+import { FirebaseSender } from 'src/firebase/firebase.sender';
 
 @Injectable()
 export class OrdersService {
-  constructor(private prisma: PrismaService, private readonly emailService: MailService) { }
+  constructor(private prisma: PrismaService, private readonly emailService: MailService,
+    private readonly firebaseSender: FirebaseSender
+  ) { }
 
   async create(createOrderDto: CreateOrderDto) {
     const { items, ...orderData } = createOrderDto;
@@ -244,6 +247,7 @@ export class OrdersService {
         CustomerProfile: {
           select: {
             name: true,
+            fcmToken: true,
             user: {
               select: { email: true },
             },
@@ -291,6 +295,11 @@ export class OrdersService {
             : null,
         },
       });
+      await this.firebaseSender.sendPush(
+        existing.CustomerProfile.fcmToken,
+        'Order Status Updated',
+        `Your order ${existing.orderNumber} is now ${dto.status}`,
+      );
     }
 
     return {

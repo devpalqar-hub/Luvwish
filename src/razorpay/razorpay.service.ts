@@ -6,6 +6,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import * as crypto from 'crypto';
 import { CoupounValueType } from '@prisma/client';
 import { MailService } from 'src/mail/mail.service';
+import { FirebaseSender } from 'src/firebase/firebase.sender';
 
 @Injectable()
 export class RazorpayService {
@@ -13,6 +14,7 @@ export class RazorpayService {
     @Inject('RAZORPAY_CLIENT') private readonly razorpayClient: Razorpay,
     private prisma: PrismaService,
     private readonly emailService: MailService,
+    private readonly firebaseSender: FirebaseSender
   ) { }
 
   async createOrder(dto: CreatePaymentIntentDto, customerProfileId: string) {
@@ -267,6 +269,16 @@ export class RazorpayService {
         })),
       },
     });
+    const adminTokens = await this.prisma.adminProfile.findMany({
+      where: { fcmToken: { not: null } },
+      select: { fcmToken: true },
+    });
+    await this.firebaseSender.sendPushMultiple(
+      adminTokens.map(a => a.fcmToken),
+      'New Order Placed',
+      `Order ${order.orderNumber} placed for ₹${totalamt}`,
+    );
+
 
 
     // 9️⃣ Razorpay flow
