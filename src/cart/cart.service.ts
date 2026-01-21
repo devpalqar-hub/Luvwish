@@ -11,6 +11,7 @@ import { UpdateCartDto } from './dto/update-cart-item.dto';
 export class CartService {
   constructor(private prisma: PrismaService) { }
 
+
   async addToCart(userId: string, dto: AddToCartDto) {
     const { productId, productVariationId, quantity } = dto;
 
@@ -146,7 +147,7 @@ export class CartService {
 
     const skip = (page - 1) * limit;
 
-    // 2️⃣ Get paginated cart items (product + productVariation)
+    // 2️⃣ Get paginated cart items
     const [cartItems, totalCount] = await this.prisma.$transaction([
       this.prisma.cartItem.findMany({
         where: { customerProfileId: customerProfile.id },
@@ -184,28 +185,36 @@ export class CartService {
       },
     });
 
-    // 4️⃣ Calculate total amount (product OR variation)
+    // 4️⃣ Calculate total amount with fallback pricing
     const totalAmount = allCartItems.reduce((sum, item) => {
       const qty = item.quantity ?? 1;
 
+      // PRODUCT VARIATION
       if (item.productVariation) {
-        return (
-          sum +
-          Number(item.productVariation.discountedPrice) * qty
-        );
+        const price =
+          !item.productVariation.discountedPrice ||
+            Number(item.productVariation.discountedPrice) === 0
+            ? Number(item.productVariation.actualPrice)
+            : Number(item.productVariation.discountedPrice);
+
+        return sum + price * qty;
       }
 
+      // PRODUCT (NO VARIATION)
       if (item.product) {
-        return (
-          sum +
-          Number(item.product.discountedPrice) * qty
-        );
+        const price =
+          !item.product.discountedPrice ||
+            Number(item.product.discountedPrice) === 0
+            ? Number(item.product.actualPrice)
+            : Number(item.product.discountedPrice);
+
+        return sum + price * qty;
       }
 
       return sum;
     }, 0);
 
-    // 5️⃣ RETURN — response structure unchanged
+    // 5️⃣ Return response (UNCHANGED)
     return {
       items: cartItems,
       totalAmount,
@@ -217,6 +226,7 @@ export class CartService {
       },
     };
   }
+
 
 
   async updateCartItem(userId: string, dto: UpdateCartDto) {

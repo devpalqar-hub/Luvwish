@@ -10,7 +10,9 @@ import {
   UseGuards,
   Request,
   ParseUUIDPipe,
+  Res,
 } from '@nestjs/common';
+import { Response } from 'express';
 import { OrdersService } from './orders.service';
 import { CreateOrderDto } from './dto/create-orders.dto';
 import { UpdateOrderDto } from './dto/update-orders.dto';
@@ -23,7 +25,7 @@ import { UpdateOrderStatusDto } from './dto/update-order-status.dto';
 import { get } from 'http';
 @Controller('orders')
 export class OrdersController {
-  constructor(private readonly ordersService: OrdersService) {}
+  constructor(private readonly ordersService: OrdersService) { }
 
   //user
   @Post()
@@ -136,7 +138,21 @@ export class OrdersController {
       customerProfileId,
     });
   }
-}
 
-// order post
-// ordres get
+  @Get('export/data')
+  async exportOrders(@Res() res: Response) {
+    const fileBuffer =
+      await this.ordersService.exportOrdersToExcel();
+
+    res.setHeader(
+      'Content-Type',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    );
+    res.setHeader(
+      'Content-Disposition',
+      'attachment; filename=orders.xlsx',
+    );
+
+    res.send(fileBuffer);
+  }
+}

@@ -11,10 +11,11 @@ import { PaginationResponseDto } from 'src/pagination/pagination-response.dto';
 import { PaginationDto } from 'src/pagination/dto/pagination.dto';
 import { UpdateOrderStatusDto } from './dto/update-order-status.dto';
 import { OrderAggregatesFilterDto } from './dto/order-aggregates-filter.dto';
+import * as ExcelJS from 'exceljs';
 
 @Injectable()
 export class OrdersService {
-  constructor(private prisma: PrismaService) {}
+  constructor(private prisma: PrismaService) { }
 
   async create(createOrderDto: CreateOrderDto) {
     const { items, ...orderData } = createOrderDto;
@@ -184,16 +185,16 @@ export class OrdersService {
         ...orderData,
         ...(items
           ? {
-              items: {
-                deleteMany: {}, // clear old items
-                create: items.map((item) => ({
-                  productId: item.productId,
-                  quantity: item.quantity,
-                  actualPrice: item.actualPrice,
-                  discountedPrice: item.discountedPrice,
-                })),
-              },
-            }
+            items: {
+              deleteMany: {}, // clear old items
+              create: items.map((item) => ({
+                productId: item.productId,
+                quantity: item.quantity,
+                actualPrice: item.actualPrice,
+                discountedPrice: item.discountedPrice,
+              })),
+            },
+          }
           : {}),
       },
       include: {
@@ -464,12 +465,12 @@ export class OrdersService {
               : {}),
             ...(filters.categoryId
               ? {
-                  subCategory: {
-                    is: {
-                      categoryId: filters.categoryId,
-                    },
+                subCategory: {
+                  is: {
+                    categoryId: filters.categoryId,
                   },
-                }
+                },
+              }
               : {}),
           },
         },
@@ -515,5 +516,109 @@ export class OrdersService {
       completedOrders,
       filters: filters || null,
     };
+  }
+
+  async exportOrdersToExcel(): Promise<Buffer> {
+    const orders = await this.prisma.order.findMany({
+      include: {
+        CustomerProfile: {
+          include: {
+            user: true,
+          },
+        },
+        shippingAddress: true,
+        items: {
+          include: {
+            product: true,
+            productVariation: true,
+          },
+        },
+        coupun: true,
+        Payment: true,
+      },
+      orderBy: {
+        createdAt: 'desc',
+      },
+    });
+
+    const workbook = new ExcelJS.Workbook();
+    const worksheet = workbook.addWorksheet('Orders');
+
+    worksheet.columns = [
+      { header: 'Order Number', key: 'orderNumber', width: 20 },
+      { header: 'Order Status', key: 'status', width: 15 },
+      { header: 'Payment Status', key: 'paymentStatus', width: 18 },
+      { header: 'Payment Method', key: 'paymentMethod', width: 20 },
+
+      { header: 'Total Amount', key: 'totalAmount', width: 15 },
+      { header: 'Shipping Cost', key: 'shippingCost', width: 15 },
+      { header: 'Tax Amount', key: 'taxAmount', width: 15 },
+      { header: 'Discount Amount', key: 'discountAmount', width: 18 },
+
+      { header: 'Customer Name', key: 'customerName', width: 20 },
+      { header: 'Customer Email', key: 'customerEmail', width: 25 },
+      { header: 'Customer Phone', key: 'customerPhone', width: 18 },
+
+      { header: 'Shipping Address', key: 'shippingAddress', width: 40 },
+
+      { header: 'Coupon', key: 'coupon', width: 15 },
+      { header: 'Coupon Value', key: 'couponValue', width: 15 },
+
+      { header: 'Items', key: 'items', width: 50 },
+
+      { header: 'Payments', key: 'payments', width: 30 },
+
+      { header: 'Created At', key: 'createdAt', width: 22 },
+    ];
+
+    for (const order of orders) {
+      const itemsText = order.items
+        .map(item => {
+          const variation = item.productVariation
+            ? ` (${item.productVariation.variationName})`
+            : '';
+          return `${item.product.name}${variation} x${item.quantity}`;
+        })
+        .join(', ');
+
+      const paymentsText = order.Payment
+        .map(
+          p => `${p.method} - ${p.status} - ₹${p.amount.toString()}`
+        )
+        .join(', ');
+
+      const shippingAddress = order.shippingAddress
+        ? `${order.shippingAddress.name}, ${order.shippingAddress.address}, ${order.shippingAddress.city}, ${order.shippingAddress.state} - ${order.shippingAddress.postalCode}`
+        : '';
+
+      worksheet.addRow({
+        orderNumber: order.orderNumber,
+        status: order.status,
+        paymentStatus: order.paymentStatus,
+        paymentMethod: order.paymentMethod,
+
+        totalAmount: order.totalAmount.toString(),
+        shippingCost: order.shippingCost.toString(),
+        taxAmount: order.taxAmount.toString(),
+        discountAmount: order.discountAmount.toString(),
+
+        customerName: order.CustomerProfile?.name || '',
+        customerEmail: order.CustomerProfile?.user?.email || '',
+        customerPhone: order.CustomerProfile?.phone || '',
+
+        shippingAddress,
+
+        coupon: order.coupun?.couponName || '',
+        couponValue: order.coupun?.Value || '',
+
+        items: itemsText,
+        payments: paymentsText,
+
+        createdAt: order.createdAt.toISOString(),
+      });
+    }
+
+    const buffer = await workbook.xlsx.writeBuffer();
+    return Buffer.from(buffer);
   }
 }
