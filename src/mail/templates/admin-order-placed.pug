@@ -1,0 +1,57 @@
+doctype html
+html
+  head
+    meta(charset="UTF-8")
+    title New Order Placed
+  body
+    h2 New Order Placed
+
+    p
+      strong Order Number:
+      |  #{orderNumber}
+
+    p
+      strong Order Date:
+      |  #{createdAt}
+
+    hr
+
+    h3 Customer Details
+    p
+      strong Name:
+      |  #{customer.name || 'N/A'}
+    p
+      strong Email:
+      |  #{customer.email || 'N/A'}
+    p
+      strong Phone:
+      |  #{customer.phone || 'N/A'}
+
+    hr
+
+    h3 Ordered Items
+    table(border="1" cellpadding="8" cellspacing="0")
+      thead
+        tr
+          th Product
+          th Quantity
+          th Price
+      tbody
+        each item in items
+          tr
+            td #{item.name}
+            td #{item.quantity}
+            td ₹#{item.price}
+
+    hr
+
+    p
+      strong Payment Method:
+      |  #{paymentMethod}
+
+    p
+      strong Total Amount:
+      |  ₹#{totalAmount}
+
+    br
+    p This is an automated notification.

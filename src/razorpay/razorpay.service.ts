@@ -5,12 +5,14 @@ import { CreatePaymentIntentDto } from './dto/checkout.dto';
 import { PrismaService } from '../prisma/prisma.service';
 import * as crypto from 'crypto';
 import { CoupounValueType } from '@prisma/client';
+import { MailService } from 'src/mail/mail.service';
 
 @Injectable()
 export class RazorpayService {
   constructor(
     @Inject('RAZORPAY_CLIENT') private readonly razorpayClient: Razorpay,
     private prisma: PrismaService,
+    private readonly emailService: MailService,
   ) { }
 
   async createOrder(dto: CreatePaymentIntentDto, customerProfileId: string) {
@@ -213,6 +215,59 @@ export class RazorpayService {
         paymentMethod: 'cash_on_delivery',
       };
     }
+    // 🔹 Fetch minimal data required for admin mail
+    const orderForMail = await this.prisma.order.findUnique({
+      where: { id: order.id },
+      select: {
+        orderNumber: true,
+        totalAmount: true,
+        paymentMethod: true,
+        createdAt: true,
+        CustomerProfile: {
+          select: {
+            name: true,
+            phone: true,
+            user: {
+              select: { email: true },
+            },
+          },
+        },
+        items: {
+          select: {
+            quantity: true,
+            discountedPrice: true,
+            product: {
+              select: { name: true },
+            },
+          },
+        },
+      },
+    });
+
+    await this.emailService.sendMail({
+      to: process.env.ADMIN_EMAIL!, // configured in .env
+      subject: `🛒 New Order Placed – ${orderForMail.orderNumber}`,
+      template: 'admin-order-placed', // pug file name
+      context: {
+        orderNumber: orderForMail.orderNumber,
+        totalAmount: orderForMail.totalAmount,
+        paymentMethod: orderForMail.paymentMethod,
+        createdAt: orderForMail.createdAt,
+
+        customer: {
+          name: orderForMail.CustomerProfile?.name,
+          email: orderForMail.CustomerProfile?.user?.email,
+          phone: orderForMail.CustomerProfile?.phone,
+        },
+
+        items: orderForMail.items.map(item => ({
+          name: item.product.name,
+          quantity: item.quantity,
+          price: item.discountedPrice,
+        })),
+      },
+    });
+
 
     // 9️⃣ Razorpay flow
     const options = {

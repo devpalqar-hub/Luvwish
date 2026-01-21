@@ -10,9 +10,7 @@ import { ProductsModule } from './products/products.module';
 import { CartModule } from './cart/cart.module';
 import { RazorpayModule } from './razorpay/razorpay.module';
 import { CouponModule } from './coupouns/coupouns.module';
-import { NotificationsModule } from './firebase/notifications.module';
 import { WishlistModule } from './wishlist/wishlist.module';
-import { MailerModule } from '@nestjs-modules/mailer';
 import { AddressModule } from './address/address.module';
 import { RazorpayService } from './razorpay/razorpay.service';
 import { RazorpayController } from './razorpay/razorpay.controller';
@@ -29,6 +27,8 @@ import { BannersModule } from './banners/banners.module';
 import { AnalyticsModule } from './analytics/analytics.module';
 import { join } from 'path';
 import { DeliveryChargesModule } from './deliverycharges/delivery-charges.module';
+import { FirebaseModule } from './firebase/firebase.module';
+import { MailModule } from './mail/mail.module';
 
 @Module({
   imports: [
@@ -44,7 +44,7 @@ import { DeliveryChargesModule } from './deliverycharges/delivery-charges.module
     ProductsModule,
     CartModule,
     CouponModule,
-    // NotificationsModule,
+    FirebaseModule,
     WishlistModule,
     AddressModule,
     ProductVariationsModule,
@@ -57,6 +57,7 @@ import { DeliveryChargesModule } from './deliverycharges/delivery-charges.module
     DeliveryChargesModule,
     S3Module,
     DashboardModule,
+    MailModule,
     RazorpayModule.forRoot({
       key_id: process.env.RAZORPAY_KEY_ID, // Use environment variables for keys
       key_secret: process.env.RAZORPAY_KEY_SECRET,

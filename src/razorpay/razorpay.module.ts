@@ -1,4 +1,5 @@
 import { Module, DynamicModule } from '@nestjs/common';
+import { MailModule } from 'src/mail/mail.module';
 const Razorpay = require('razorpay');
 
 export interface RazorpayModuleOptions {
@@ -23,6 +24,7 @@ export class RazorpayModule {
       module: RazorpayModule,
       providers: [razorpayProvider],
       exports: [razorpayProvider],
+      imports: [MailModule]
     };
   }
 }
