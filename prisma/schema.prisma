@@ -437,3 +437,12 @@ model Banner {
 
   @@map("banners")
 }
+
+model DeliveryCharges {
+  id             String  @id @default(uuid())
+  postalCode     String  @unique
+  deliveryCharge Decimal @db.Decimal(10, 2)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
