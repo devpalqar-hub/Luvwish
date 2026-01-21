@@ -469,5 +469,35 @@ export class UsersService {
       },
     });
   }
+
+  async saveCustomerFcmToken(userId: string, token: string) {
+    const customer = await this.prisma.customerProfile.findUnique({
+      where: { userId },
+    });
+
+    if (!customer) {
+      throw new NotFoundException('Customer profile not found');
+    }
+
+    return this.prisma.customerProfile.update({
+      where: { userId },
+      data: { fcmToken: token },
+    });
+  }
+
+  async saveAdminFcmToken(userId: string, token: string) {
+    const admin = await this.prisma.adminProfile.findUnique({
+      where: { userId },
+    });
+
+    if (!admin) {
+      throw new NotFoundException('Admin profile not found');
+    }
+
+    return this.prisma.adminProfile.update({
+      where: { userId },
+      data: { fcmToken: token },
+    });
+  }
 }
 

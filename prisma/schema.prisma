@@ -77,6 +77,7 @@ model User {
   CustomerProfile CustomerProfile?
   AdminProfile    AdminProfile?
   UserOtp         UserOtp[]
+  DeviceToken     DeviceToken[]
 
   @@map("users")
 }
@@ -94,6 +95,7 @@ model CustomerProfile {
   profilePicture String? @map("profile_picture")
   userId         String  @unique
   user           User    @relation(fields: [userId], references: [id])
+  fcmToken       String?
 
   addresses    Address[]
   reviews      Review[]
@@ -112,9 +114,11 @@ model AdminProfile {
   phone          String? @map("phone")
   profilePicture String? @map("profile_picture")
   userId         String  @unique
+  fcmToken       String?
   user           User    @relation(fields: [userId], references: [id])
 
-  notes String? // any internal notes about the admin
+  notes       String? // any internal notes about the admin
+  DeviceToken DeviceToken[]
 
   @@map("AdminProfile")
 }
@@ -442,6 +446,22 @@ model DeliveryCharges {
   id             String  @id @default(uuid())
   postalCode     String  @unique
   deliveryCharge Decimal @db.Decimal(10, 2)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model DeviceToken {
+  id       String  @id @default(uuid())
+  token    String  @unique
+  platform String? // android | ios | web
+  isActive Boolean @default(true)
+
+  userId  String?
+  adminId String?
+
+  user  User?         @relation(fields: [userId], references: [id])
+  admin AdminProfile? @relation(fields: [adminId], references: [id])
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

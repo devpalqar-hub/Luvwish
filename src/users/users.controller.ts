@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Patch, Query, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Param, Patch, Post, Query, Req, UseGuards } from '@nestjs/common';
 import { UsersService } from './users.service';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
@@ -43,5 +43,28 @@ export class UsersController {
     @Body() dto: UpdateUserStatusDto,
   ) {
     return this.usersService.updateUserStatus(userId, dto);
+  }
+  @Post('fcm-token/users/')
+  @UseGuards(JwtAuthGuard)
+  async saveCustomerFcmToken(
+    @Req() req,
+    @Body('token') token: string,
+  ) {
+    return this.usersService.saveCustomerFcmToken(
+      req.user.id,
+      token,
+    );
+  }
+
+  @Post('fcm-token/admin')
+  @UseGuards(JwtAuthGuard)
+  async saveAdminFcmToken(
+    @Req() req,
+    @Body('token') token: string,
+  ) {
+    return this.usersService.saveAdminFcmToken(
+      req.user.id,
+      token,
+    );
   }
 }
