@@ -1,0 +1,27 @@
+doctype html
+html
+  head
+    meta(charset="UTF-8")
+    title Order Update
+  body
+    p Hi #{customerName || 'Customer'},
+
+    p Your order
+      strong  #{orderNumber}
+      |  has been updated.
+
+    if oldStatus && newStatus
+      p
+        strong Order Status:
+        |  #{oldStatus} → #{newStatus}
+
+    if oldPaymentStatus && newPaymentStatus
+      p
+        strong Payment Status:
+        |  #{oldPaymentStatus} → #{newPaymentStatus}
+
+    br
+    p You can track further updates from your account.
+
+    br
+    p Thanks for shopping with us.

@@ -12,10 +12,11 @@ import { PaginationDto } from 'src/pagination/dto/pagination.dto';
 import { UpdateOrderStatusDto } from './dto/update-order-status.dto';
 import { OrderAggregatesFilterDto } from './dto/order-aggregates-filter.dto';
 import * as ExcelJS from 'exceljs';
+import { MailService } from 'src/mail/mail.service';
 
 @Injectable()
 export class OrdersService {
-  constructor(private prisma: PrismaService) { }
+  constructor(private prisma: PrismaService, private readonly emailService: MailService) { }
 
   async create(createOrderDto: CreateOrderDto) {
     const { items, ...orderData } = createOrderDto;
@@ -232,28 +233,73 @@ export class OrdersService {
   }
 
   async updateOrderStatus(id: string, dto: UpdateOrderStatusDto) {
-    // ensure order exists
-    const existing = await this.prisma.order.findUnique({ where: { id } });
-    if (!existing) throw new NotFoundException(`Order with id ${id} not found`);
+    // 1️⃣ Ensure order exists (minimal fetch)
+    const existing = await this.prisma.order.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        orderNumber: true,
+        status: true,
+        paymentStatus: true,
+        CustomerProfile: {
+          select: {
+            name: true,
+            user: {
+              select: { email: true },
+            },
+          },
+        },
+      },
+    });
 
-    // update
+    if (!existing) {
+      throw new NotFoundException(`Order with id ${id} not found`);
+    }
+
+    const statusChanged =
+      dto.status && dto.status !== existing.status;
+    const paymentStatusChanged =
+      dto.paymentStatus && dto.paymentStatus !== existing.paymentStatus;
+
+    // 2️⃣ Update order
     const updated = await this.prisma.order.update({
       where: { id },
       data: {
         ...(dto.status && { status: dto.status }),
         ...(dto.paymentStatus && { paymentStatus: dto.paymentStatus }),
       },
-      include: {
-        items: true,
-        shippingAddress: true,
-      },
     });
+
+    // 3️⃣ Send mail ONLY if something changed
+    if ((statusChanged || paymentStatusChanged) && existing.CustomerProfile?.user?.email) {
+      await this.emailService.sendMail({
+        to: existing.CustomerProfile.user.email,
+        subject: `Order Update – ${existing.orderNumber}`,
+        template: 'order-status-update',
+        context: {
+          customerName: existing.CustomerProfile.name,
+          orderNumber: existing.orderNumber,
+
+          oldStatus: statusChanged ? existing.status : null,
+          newStatus: statusChanged ? dto.status : null,
+
+          oldPaymentStatus: paymentStatusChanged
+            ? existing.paymentStatus
+            : null,
+          newPaymentStatus: paymentStatusChanged
+            ? dto.paymentStatus
+            : null,
+        },
+      });
+    }
 
     return {
       message: 'Order updated successfully',
       data: updated,
     };
   }
+
+
 
   async adminFindAll(
     pagination: PaginationDto & {
