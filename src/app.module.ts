@@ -28,6 +28,7 @@ import { DashboardModule } from './dashboard/dashboard.module';
 import { BannersModule } from './banners/banners.module';
 import { AnalyticsModule } from './analytics/analytics.module';
 import { join } from 'path';
+import { DeliveryChargesModule } from './deliverycharges/delivery-charges.module';
 
 @Module({
   imports: [
@@ -53,6 +54,7 @@ import { join } from 'path';
     CategoriesModule,
     SubCategoriesModule,
     ReviewModule,
+    DeliveryChargesModule,
     S3Module,
     DashboardModule,
     RazorpayModule.forRoot({

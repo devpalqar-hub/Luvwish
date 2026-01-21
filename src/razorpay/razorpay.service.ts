@@ -38,6 +38,7 @@ export class RazorpayService {
       throw new Error('Shipping address is required');
     }
 
+
     const shippingAddrs = await this.prisma.address.findUnique({
       where: {
         id: ShippingAddressId,
@@ -48,6 +49,14 @@ export class RazorpayService {
     if (!shippingAddrs) {
       throw new Error('Shipping address not found');
     }
+
+    const deliverCharge = await this.prisma.deliveryCharges.findUnique({
+      where: { postalCode: shippingAddrs.postalCode }
+    })
+    if (!deliverCharge) {
+      throw new Error('Sorry. We are not delivering at your location currently.');
+    }
+
 
     let coupuon: {
       id: string;
@@ -138,7 +147,7 @@ export class RazorpayService {
 
     // 6️⃣ Create order
     const isCOD = paymentMethod === 'cash_on_delivery';
-
+    const totalamt = amount + Number(deliverCharge.deliveryCharge)
     const order = await this.prisma.order.create({
       data: {
         customerProfileId: customerProfile.id,
@@ -146,7 +155,7 @@ export class RazorpayService {
         status: isCOD ? 'confirmed' : 'pending',
         paymentStatus: 'pending',
         paymentMethod: paymentMethod || 'cash_on_delivery',
-        totalAmount: amount,
+        totalAmount: totalamt,
         shippingAddressId: shippingAddrs.id,
         coupounId: coupuon?.id ?? null,
         isCoupuonApplied: !!coupuon,
@@ -207,7 +216,7 @@ export class RazorpayService {
 
     // 9️⃣ Razorpay flow
     const options = {
-      amount: Math.round(amount * 100),
+      amount: Math.round(totalamt * 100),
       currency: currency || 'INR',
       receipt: order.orderNumber,
     };
