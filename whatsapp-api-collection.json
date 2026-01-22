@@ -1,0 +1,263 @@
+{
+  "info": {
+    "name": "WhatsApp Shopping Module API",
+    "description": "Complete API collection for WhatsApp Shopping Module",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Settings Management",
+      "item": [
+        {
+          "name": "Create WhatsApp Settings",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"apiKey\": \"your_api_key\",\n  \"phoneNumberId\": \"123456789\",\n  \"businessId\": \"987654321\",\n  \"accessToken\": \"your_long_access_token_here\",\n  \"webhookToken\": \"my_secure_webhook_token\",\n  \"webhookUrl\": \"https://yourdomain.com/whatsapp/webhook\",\n  \"isActive\": true\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/whatsapp/settings",
+              "host": ["{{base_url}}"],
+              "path": ["whatsapp", "settings"]
+            }
+          }
+        },
+        {
+          "name": "Get All Settings",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/whatsapp/settings",
+              "host": ["{{base_url}}"],
+              "path": ["whatsapp", "settings"]
+            }
+          }
+        },
+        {
+          "name": "Get Active Settings",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/whatsapp/settings/active",
+              "host": ["{{base_url}}"],
+              "path": ["whatsapp", "settings", "active"]
+            }
+          }
+        },
+        {
+          "name": "Update Settings",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"accessToken\": \"new_access_token\",\n  \"isActive\": true\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/whatsapp/settings/{{settings_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["whatsapp", "settings", "{{settings_id}}"]
+            }
+          }
+        },
+        {
+          "name": "Delete Settings",
+          "request": {
+            "method": "DELETE",
+            "url": {
+              "raw": "{{base_url}}/whatsapp/settings/{{settings_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["whatsapp", "settings", "{{settings_id}}"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Webhook",
+      "item": [
+        {
+          "name": "Webhook Verification",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/whatsapp/webhook?hub.mode=subscribe&hub.verify_token=my_secure_webhook_token&hub.challenge=TEST_CHALLENGE",
+              "host": ["{{base_url}}"],
+              "path": ["whatsapp", "webhook"],
+              "query": [
+                {
+                  "key": "hub.mode",
+                  "value": "subscribe"
+                },
+                {
+                  "key": "hub.verify_token",
+                  "value": "my_secure_webhook_token"
+                },
+                {
+                  "key": "hub.challenge",
+                  "value": "TEST_CHALLENGE"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Simulate Incoming Message",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"object\": \"whatsapp_business_account\",\n  \"entry\": [\n    {\n      \"id\": \"business_id\",\n      \"changes\": [\n        {\n          \"value\": {\n            \"messaging_product\": \"whatsapp\",\n            \"metadata\": {\n              \"display_phone_number\": \"919876543210\",\n              \"phone_number_id\": \"123456789\"\n            },\n            \"messages\": [\n              {\n                \"from\": \"919876543210\",\n                \"id\": \"wamid.test123\",\n                \"timestamp\": \"1234567890\",\n                \"type\": \"text\",\n                \"text\": {\n                  \"body\": \"hi\"\n                }\n              }\n            ]\n          },\n          \"field\": \"messages\"\n        }\n      ]\n    }\n  ]\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/whatsapp/webhook",
+              "host": ["{{base_url}}"],
+              "path": ["whatsapp", "webhook"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Testing",
+      "item": [
+        {
+          "name": "Send Test Text Message",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"phoneNumber\": \"919876543210\",\n  \"message\": \"Hello! This is a test message from Luvwish.\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/whatsapp/send-test-message",
+              "host": ["{{base_url}}"],
+              "path": ["whatsapp", "send-test-message"]
+            }
+          }
+        },
+        {
+          "name": "Send Test Interactive Buttons",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"phoneNumber\": \"919876543210\",\n  \"message\": \"Welcome to Luvwish! How can I help you?\",\n  \"buttons\": [\n    {\n      \"id\": \"browse_categories\",\n      \"title\": \"Browse Products\"\n    },\n    {\n      \"id\": \"view_cart\",\n      \"title\": \"View Cart\"\n    },\n    {\n      \"id\": \"help\",\n      \"title\": \"Need Help?\"\n    }\n  ]\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/whatsapp/send-test-button",
+              "host": ["{{base_url}}"],
+              "path": ["whatsapp", "send-test-button"]
+            }
+          }
+        },
+        {
+          "name": "Send Test List Message",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"phoneNumber\": \"919876543210\",\n  \"message\": \"Browse our product categories:\",\n  \"buttonText\": \"View Categories\",\n  \"sections\": [\n    {\n      \"title\": \"Electronics\",\n      \"rows\": [\n        {\n          \"id\": \"cat_mobiles\",\n          \"title\": \"Mobile Phones\",\n          \"description\": \"Latest smartphones\"\n        },\n        {\n          \"id\": \"cat_laptops\",\n          \"title\": \"Laptops\",\n          \"description\": \"Computers & laptops\"\n        }\n      ]\n    },\n    {\n      \"title\": \"Fashion\",\n      \"rows\": [\n        {\n          \"id\": \"cat_clothing\",\n          \"title\": \"Clothing\",\n          \"description\": \"Men & women apparel\"\n        }\n      ]\n    }\n  ]\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/whatsapp/send-test-list",
+              "host": ["{{base_url}}"],
+              "path": ["whatsapp", "send-test-list"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Session Management",
+      "item": [
+        {
+          "name": "Get All Active Sessions",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/whatsapp/sessions",
+              "host": ["{{base_url}}"],
+              "path": ["whatsapp", "sessions"]
+            }
+          }
+        },
+        {
+          "name": "Get Session by Phone Number",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/whatsapp/sessions/919876543210",
+              "host": ["{{base_url}}"],
+              "path": ["whatsapp", "sessions", "919876543210"]
+            }
+          }
+        },
+        {
+          "name": "Get Session Messages",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/whatsapp/sessions/{{session_id}}/messages",
+              "host": ["{{base_url}}"],
+              "path": ["whatsapp", "sessions", "{{session_id}}", "messages"]
+            }
+          }
+        }
+      ]
+    }
+  ],
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:3000",
+      "type": "string"
+    },
+    {
+      "key": "settings_id",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "session_id",
+      "value": "",
+      "type": "string"
+    }
+  ]
+}
