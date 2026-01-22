@@ -676,4 +676,12 @@ export class OrdersService {
     const buffer = await workbook.xlsx.writeBuffer();
     return Buffer.from(buffer);
   }
+
+  async testPush(token: string) {
+    return this.firebaseSender.sendPush(
+      token,
+      'FCM Test',
+      'If you see this, backend push works',
+    );
+  }
 }
