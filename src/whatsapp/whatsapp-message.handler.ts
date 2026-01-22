@@ -133,6 +133,10 @@ export class WhatsAppMessageHandler {
         const [action, ...params] = buttonId.split('_');
 
         switch (action) {
+          case 'maincategory':
+            await this.showSubCategories(session, params[0], phoneNumber);
+            break;
+
           case 'category':
             await this.selectCategory(session, params[0], phoneNumber);
             break;
@@ -221,25 +225,80 @@ export class WhatsAppMessageHandler {
       );
     }
 
-    const sections = categories.map((category) => ({
-      title: category.name,
-      rows: category.subCategories.map((sub) => ({
-        id: `subcategory_${sub.id}`,
-        title: sub.name,
-        description: sub.description?.substring(0, 72),
-      })),
+    // Show first 3 categories as buttons
+    const categoriesToShow = categories.slice(0, 3);
+    const buttons = categoriesToShow.map((category) => ({
+      id: `maincategory_${category.id}`,
+      title: category.name.substring(0, 20), // WhatsApp limit
     }));
 
-    await this.whatsappService.sendListMessage(
+    await this.whatsappService.sendInteractiveMessage(
       phoneNumber,
-      '📂 *Browse Categories*\n\nSelect a category to view products:',
-      'Select Category',
-      sections,
+      '📂 *Browse Categories*\n\nSelect a category:',
+      buttons,
       '🏪 Product Categories',
     );
 
+    if (categories.length > 3) {
+      await this.whatsappService.sendTextMessage(
+        phoneNumber,
+        `Showing ${categoriesToShow.length} of ${categories.length} categories. Type category name to see more.`,
+      );
+    }
+
     const session = await this.whatsappService.getOrCreateSession(phoneNumber);
     await this.whatsappService.updateSessionState(session.id, 'BROWSING_CATEGORIES', {});
+  }
+
+  private async showSubCategories(session: any, categoryId: string, phoneNumber: string) {
+    const category = await this.prisma.category.findUnique({
+      where: { id: categoryId },
+      include: {
+        subCategories: {
+          where: { isActive: true },
+        },
+      },
+    });
+
+    if (!category) {
+      await this.whatsappService.sendTextMessage(
+        phoneNumber,
+        '❌ Category not found.',
+      );
+      return;
+    }
+
+    if (category.subCategories.length === 0) {
+      await this.whatsappService.sendTextMessage(
+        phoneNumber,
+        `No subcategories found in ${category.name}.`,
+      );
+      return;
+    }
+
+    // Show first 3 subcategories as buttons
+    const subCategoriesToShow = category.subCategories.slice(0, 3);
+    const buttons = subCategoriesToShow.map((sub) => ({
+      id: `subcategory_${sub.id}`,
+      title: sub.name.substring(0, 20), // WhatsApp limit
+    }));
+
+    await this.whatsappService.sendInteractiveMessage(
+      phoneNumber,
+      `📂 *${category.name}*\n\nSelect a subcategory:`,
+      buttons,
+    );
+
+    if (category.subCategories.length > 3) {
+      await this.whatsappService.sendTextMessage(
+        phoneNumber,
+        `Showing ${subCategoriesToShow.length} of ${category.subCategories.length} subcategories.`,
+      );
+    }
+
+    await this.whatsappService.updateSessionState(session.id, 'BROWSING_CATEGORIES', {
+      categoryId,
+    });
   }
 
   private async handleCategorySelection(session: any, text: string, phoneNumber: string) {
@@ -252,11 +311,6 @@ export class WhatsAppMessageHandler {
         ],
         isActive: true,
       },
-      include: {
-        subCategories: {
-          where: { isActive: true },
-        },
-      },
     });
 
     if (!category) {
@@ -267,31 +321,8 @@ export class WhatsAppMessageHandler {
       return;
     }
 
-    if (category.subCategories.length === 0) {
-      await this.whatsappService.sendTextMessage(
-        phoneNumber,
-        `No products found in ${category.name}. Type "categories" to browse other categories.`,
-      );
-      return;
-    }
-
-    const sections = [
-      {
-        title: category.name,
-        rows: category.subCategories.map((sub) => ({
-          id: `subcategory_${sub.id}`,
-          title: sub.name,
-          description: sub.description?.substring(0, 72),
-        })),
-      },
-    ];
-
-    await this.whatsappService.sendListMessage(
-      phoneNumber,
-      `📂 *${category.name}*\n\nSelect a subcategory:`,
-      'Select Subcategory',
-      sections,
-    );
+    // Show subcategories for this category
+    await this.showSubCategories(session, category.id, phoneNumber);
   }
 
   private async selectCategory(session: any, subCategoryId: string, phoneNumber: string) {
