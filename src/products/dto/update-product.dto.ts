@@ -36,6 +36,10 @@ export class UpdateProductDto {
     description?: string;
 
     @IsOptional()
+    @IsString()
+    variationTitle: string
+
+    @IsOptional()
     @IsBoolean()
     isStock?: boolean;
 

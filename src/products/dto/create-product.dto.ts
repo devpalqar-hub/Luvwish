@@ -69,6 +69,10 @@ export class CreateProductDto {
   @IsString()
   description?: string;
 
+
+  @IsString()
+  variationTitle: string
+
   @IsOptional()
   @IsBoolean()
   isStock?: boolean;
