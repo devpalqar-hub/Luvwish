@@ -114,50 +114,71 @@ export class WhatsAppMessageHandler {
   }
 
   private async processButtonClick(session: any, buttonId: string, phoneNumber: string) {
-    const [action, ...params] = buttonId.split('_');
-
-    switch (action) {
-      case 'category':
-        await this.selectCategory(session, params[0], phoneNumber);
+    // Handle full button IDs and split IDs
+    switch (buttonId) {
+      case 'browse_categories':
+        await this.showCategories(phoneNumber);
         break;
 
-      case 'product':
-        await this.selectProduct(session, params[0], phoneNumber);
+      case 'search_products':
+        await this.startProductSearch(session, phoneNumber);
         break;
 
-      case 'variation':
-        await this.selectVariation(session, params[0], phoneNumber);
-        break;
-
-      case 'addcart':
-        await this.addToCart(session, params[0], params[1], phoneNumber);
-        break;
-
-      case 'viewcart':
+      case 'view_cart':
         await this.showCart(session, phoneNumber);
         break;
 
-      case 'checkout':
-        await this.startCheckout(session, phoneNumber);
-        break;
-
-      case 'remove':
-        await this.removeFromCart(session, params[0], phoneNumber);
-        break;
-
-      case 'confirm':
-        await this.confirmOrder(session, phoneNumber);
-        break;
-
-      case 'cancel':
-        await this.showMainMenu(phoneNumber);
-        break;
-
       default:
-        await this.whatsappService.sendTextMessage(
-          phoneNumber,
-          'Invalid option. Please try again.',
-        );
+        // Handle split button IDs (e.g., 'category_123', 'product_456')
+        const [action, ...params] = buttonId.split('_');
+
+        switch (action) {
+          case 'category':
+            await this.selectCategory(session, params[0], phoneNumber);
+            break;
+
+          case 'subcategory':
+            await this.selectCategory(session, params[0], phoneNumber);
+            break;
+
+          case 'product':
+            await this.selectProduct(session, params[0], phoneNumber);
+            break;
+
+          case 'variation':
+            await this.selectVariation(session, params[0], phoneNumber);
+            break;
+
+          case 'addcart':
+            await this.addToCart(session, params[0], params[1], phoneNumber);
+            break;
+
+          case 'viewcart':
+            await this.showCart(session, phoneNumber);
+            break;
+
+          case 'checkout':
+            await this.startCheckout(session, phoneNumber);
+            break;
+
+          case 'remove':
+            await this.removeFromCart(session, params[0], phoneNumber);
+            break;
+
+          case 'confirm':
+            await this.confirmOrder(session, phoneNumber);
+            break;
+
+          case 'cancel':
+            await this.showMainMenu(phoneNumber);
+            break;
+
+          default:
+            await this.whatsappService.sendTextMessage(
+              phoneNumber,
+              'Invalid option. Please try again.',
+            );
+        }
     }
   }
 
@@ -308,6 +329,17 @@ export class WhatsAppMessageHandler {
   }
 
   // ==================== PRODUCT SEARCH & DISPLAY ====================
+
+  private async startProductSearch(session: any, phoneNumber: string) {
+    await this.whatsappService.sendTextMessage(
+      phoneNumber,
+      '🔍 *Product Search*\n\nType the name or keywords of the product you\'re looking for.\n\nExample: "shoes", "red dress", "laptop"',
+    );
+
+    await this.whatsappService.updateSessionState(session.id, 'BROWSING_PRODUCTS', {
+      searchQuery: '',
+    });
+  }
 
   private async handleProductSearch(session: any, text: string, phoneNumber: string) {
     const searchQuery = text.trim();
