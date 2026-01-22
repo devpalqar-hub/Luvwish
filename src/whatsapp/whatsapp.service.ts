@@ -11,7 +11,7 @@ import axios from 'axios';
 @Injectable()
 export class WhatsAppService {
   private readonly logger = new Logger(WhatsAppService.name);
-  private readonly WHATSAPP_API_URL = 'https://graph.facebook.com/v18.0';
+  private readonly WHATSAPP_API_URL = 'https://graph.facebook.com/v22.0';
 
   constructor(public readonly prisma: PrismaService) {}
 

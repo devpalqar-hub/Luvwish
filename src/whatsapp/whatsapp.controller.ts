@@ -12,6 +12,7 @@ import {
   UseGuards,
   Logger,
   Req,
+  Res,
 } from '@nestjs/common';
 import { WhatsAppService } from './whatsapp.service';
 import { WhatsAppMessageHandler } from './whatsapp-message.handler';
@@ -56,21 +57,23 @@ export class WhatsAppController {
   // ==================== WEBHOOK ENDPOINTS ====================
 
   @Get('webhook')
-  @HttpCode(HttpStatus.OK)
   async verifyWebhook(
     @Query('hub.mode') mode: string,
     @Query('hub.verify_token') token: string,
     @Query('hub.challenge') challenge: string,
+    @Res() res: any,
   ) {
     this.logger.log(`Webhook verification request: mode=${mode}, token=${token}`);
 
     const result = await this.whatsappService.verifyWebhook(mode, token, challenge);
 
     if (result) {
-      return result;
+      // Return challenge as plain text with 200 status
+      return res.status(200).send(result);
     }
 
-    return 'Forbidden';
+    // Return 403 Forbidden for invalid verification
+    return res.status(403).send('Forbidden');
   }
 
   @Post('webhook')
