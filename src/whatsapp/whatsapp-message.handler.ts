@@ -226,8 +226,8 @@ export class WhatsAppMessageHandler {
     const category = await this.prisma.category.findFirst({
       where: {
         OR: [
-          { name: { contains: text, mode: 'insensitive' } },
-          { slug: { contains: text, mode: 'insensitive' } },
+          { name: { contains: text } },
+          { slug: { contains: text } },
         ],
         isActive: true,
       },
@@ -315,8 +315,8 @@ export class WhatsAppMessageHandler {
     const products = await this.prisma.product.findMany({
       where: {
         OR: [
-          { name: { contains: searchQuery, mode: 'insensitive' } },
-          { description: { contains: searchQuery, mode: 'insensitive' } },
+          { name: { contains: searchQuery } },
+          { description: { contains: searchQuery } },
         ],
         isStock: true,
       },

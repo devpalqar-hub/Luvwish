@@ -60,7 +60,7 @@ export class MailService {
             await this.mailer.sendMail({
                 to: options.to,
                 subject: options.subject,
-                attachments: options.attachments,
+                attachments: options.attachments as any,
 
                 ...(options.template
                     ? {

@@ -35,7 +35,7 @@ import { WhatsAppModule } from './whatsapp/whatsapp.module';
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
-      envFilePath: `.env${process.env.NODE_ENV === 'test' ? '.env.test' : ''}`,
+      envFilePath: `.env`,
     }),
     PrismaModule,
     AuthModule,
