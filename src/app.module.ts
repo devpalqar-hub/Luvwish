@@ -29,12 +29,13 @@ import { join } from 'path';
 import { DeliveryChargesModule } from './deliverycharges/delivery-charges.module';
 import { FirebaseModule } from './firebase/firebase.module';
 import { MailModule } from './mail/mail.module';
+import { WhatsAppModule } from './whatsapp/whatsapp.module';
 
 @Module({
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
-      envFilePath: `.env${process.env.NODE_ENV === 'test' ? '.test' : ''}`,
+      envFilePath: `.env${process.env.NODE_ENV === 'test' ? '.env.test' : ''}`,
     }),
     PrismaModule,
     AuthModule,
@@ -64,6 +65,7 @@ import { MailModule } from './mail/mail.module';
     }),
     BannersModule,
     AnalyticsModule,
+    WhatsAppModule,
   ],
   providers: [RazorpayService],
   controllers: [RazorpayController],
