@@ -156,6 +156,13 @@ export class OrdersController {
     res.send(fileBuffer);
   }
 
+
+  @Get('check/delivery')
+  async checkDeliverable(@Query('postalCode') postalCode: string) {
+    return this.ordersService.checkDeliverable(postalCode);
+  }
+
+
   @Get('notification/test-push')
   async testPush(@Query('token') token: string) {
     if (!token) {
@@ -165,4 +172,7 @@ export class OrdersController {
     await this.ordersService.testPush(token);
     return { message: 'Push sent' };
   }
+
+
+
 }

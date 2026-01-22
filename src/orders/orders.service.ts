@@ -677,6 +677,18 @@ export class OrdersService {
     return Buffer.from(buffer);
   }
 
+  async checkDeliverable(postalCode: string) {
+    const area = await this.prisma.deliveryCharges.findUnique({
+      where: { postalCode: postalCode }
+    })
+
+    if (!area) {
+      throw new NotFoundException("Cannot Deliver at this location")
+    }
+
+    return { message: "Deliverable at this location", data: area }
+  }
+
   async testPush(token: string) {
     return this.firebaseSender.sendPush(
       token,
@@ -684,4 +696,6 @@ export class OrdersService {
       'If you see this, backend push works',
     );
   }
+
+
 }
