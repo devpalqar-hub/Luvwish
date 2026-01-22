@@ -63,7 +63,9 @@ export class WhatsAppController {
     @Query('hub.challenge') challenge: string,
     @Res() res: any,
   ) {
+    this.logger.log('========== WEBHOOK GET (VERIFICATION) ==========');
     this.logger.log(`Webhook verification request: mode=${mode}, token=${token}`);
+    this.logger.log('===============================================');
 
     const result = await this.whatsappService.verifyWebhook(mode, token, challenge);
 
@@ -79,8 +81,13 @@ export class WhatsAppController {
   @Post('webhook')
   @HttpCode(HttpStatus.OK)
   async handleWebhook(@Body() body: any, @Req() req: any) {
+    // Log immediately when webhook endpoint is hit
+    this.logger.log('========== WEBHOOK POST RECEIVED ==========');
+    this.logger.log(`Headers: ${JSON.stringify(req.headers)}`);
+    this.logger.log(`Body: ${JSON.stringify(body, null, 2)}`);
+    this.logger.log('=========================================');
+    
     try {
-      this.logger.log('Received webhook:', JSON.stringify(body, null, 2));
 
       // WhatsApp sends webhook in this format
       if (body.object === 'whatsapp_business_account') {
