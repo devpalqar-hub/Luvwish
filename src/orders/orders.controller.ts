@@ -155,4 +155,14 @@ export class OrdersController {
 
     res.send(fileBuffer);
   }
+
+  @Get('notification/test-push')
+  async testPush(@Query('token') token: string) {
+    if (!token) {
+      return { message: 'FCM token is required' };
+    }
+
+    await this.ordersService.testPush(token);
+    return { message: 'Push sent' };
+  }
 }

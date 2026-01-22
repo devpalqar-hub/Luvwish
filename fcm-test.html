@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>FCM Token Test</title>
+</head>
+
+<body>
+    <h3>Firebase FCM Token Generator</h3>
+    <button onclick="getToken()">Get FCM Token</button>
+    <pre id="output"></pre>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+        import { getMessaging, getToken } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-messaging.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyA9OEeWmPU1sHcscA3XJdL-rmvaAxcjj1Q",
+            authDomain: "doulas-41702.firebaseapp.com",
+            projectId: "doulas-41702",
+            storageBucket: "doulas-41702.firebasestorage.app",
+            messagingSenderId: "806325345760",
+            appId: "1:806325345760:web:a27fa65d457a7ce2be5f85"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const messaging = getMessaging(app);
+
+        window.getToken = async () => {
+            const token = await getToken(messaging, {
+                vapidKey: "BDn5UPXn4cbJesa4CMdzFn3Gn_P2hFhHu206h0gqxdEV8v12qBdmfOKEmk-8bR_LXVG62P4HFgqs4_-y186lnrM"
+            });
+            document.getElementById("output").textContent = token;
+        };
+    </script>
+</body>
+
+</html>
