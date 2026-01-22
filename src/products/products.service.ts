@@ -445,6 +445,7 @@ export class ProductsService {
       if (dto.actualPrice !== undefined) updateData.actualPrice = dto.actualPrice;
       if (dto.stockCount !== undefined) updateData.stockCount = dto.stockCount;
       if (dto.description !== undefined) updateData.description = dto.description;
+      if (dto.variationTitle !== undefined) updateData.variationTitle = dto.variationTitle;
 
       // ✅ Correct boolean handling
       if (dto.isStock !== undefined) updateData.isStock = dto.isStock;
