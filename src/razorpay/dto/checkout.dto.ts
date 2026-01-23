@@ -5,7 +5,9 @@ export enum SupportedCurrency {
   USD = 'usd',
   INR = 'inr',
   EUR = 'eur',
+  QAR = 'qar',
 }
+
 
 export class CreatePaymentIntentDto {
   @IsOptional()
@@ -24,8 +26,10 @@ export class CreatePaymentIntentDto {
   @IsString()
   ShippingAddressId: string;
 
+  // ✅ Optional + Default Qatar Riyal
+  @IsOptional()
   @IsEnum(SupportedCurrency)
-  currency: SupportedCurrency;
+  currency?: SupportedCurrency = SupportedCurrency.QAR;
 
   @IsOptional()
   @IsEnum(PaymentMethod)

@@ -146,7 +146,9 @@ export class WhatsAppMessageHandler {
             break;
 
           case 'product':
-            await this.selectProduct(session, params[0], phoneNumber);
+            // Handle both 'product_id' and 'product_id_variations' formats
+            const productId = params[0];
+            await this.selectProduct(session, productId, phoneNumber);
             break;
 
           case 'variation':
@@ -451,7 +453,7 @@ export class WhatsAppMessageHandler {
 
       if (product.variations && product.variations.length > 0) {
         buttons.push({
-          id: `product_${product.id}_variations`,
+          id: `product_${product.id}`,
           title: '🎨 View Options',
         });
       } else if (product.stockCount > 0) {
