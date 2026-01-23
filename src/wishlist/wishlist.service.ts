@@ -111,7 +111,7 @@ export class WishlistService {
 
     const [data, total] = await this.prisma.$transaction([
       this.prisma.wishlist.findMany({
-        where: { customerProfileId: customerProfile.id }, // ✅ correct FK
+        where: { customerProfileId: customerProfile.id, productId: { not: null } }, // ✅ correct FK
         include: {
           product: {
             include: {
