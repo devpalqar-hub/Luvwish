@@ -150,7 +150,7 @@ export class CartService {
     // 2️⃣ Get paginated cart items
     const [cartItems, totalCount] = await this.prisma.$transaction([
       this.prisma.cartItem.findMany({
-        where: { customerProfileId: customerProfile.id },
+        where: { customerProfileId: customerProfile.id, productId: { not: null } },
         skip,
         take: limit,
         include: {
