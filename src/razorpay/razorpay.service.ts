@@ -42,7 +42,6 @@ export class RazorpayService {
       throw new Error('Shipping address is required');
     }
 
-
     const shippingAddrs = await this.prisma.address.findUnique({
       where: {
         id: ShippingAddressId,
@@ -55,12 +54,12 @@ export class RazorpayService {
     }
 
     const deliverCharge = await this.prisma.deliveryCharges.findUnique({
-      where: { postalCode: shippingAddrs.postalCode }
-    })
+      where: { postalCode: shippingAddrs.postalCode },
+    });
+
     if (!deliverCharge) {
       throw new Error('Sorry. We are not delivering at your location currently.');
     }
-
 
     let coupuon: {
       id: string;
@@ -138,7 +137,7 @@ export class RazorpayService {
       throw new Error('Either productId or useCart must be provided');
     }
 
-    // 5️⃣ Apply coupon ONCE (after total calculation)
+    // 5️⃣ Apply coupon
     if (coupuon) {
       if (coupuon.ValueType === CoupounValueType.amount) {
         amount -= Number(coupuon.Value);
@@ -149,32 +148,53 @@ export class RazorpayService {
       if (amount < 0) amount = 0;
     }
 
-    // 6️⃣ Create order
     const isCOD = paymentMethod === 'cash_on_delivery';
-    const totalamt = amount + Number(deliverCharge.deliveryCharge)
-    const order = await this.prisma.order.create({
-      data: {
-        customerProfileId: customerProfile.id,
-        orderNumber: `ORD-${Date.now()}`,
-        status: isCOD ? 'confirmed' : 'pending',
-        paymentStatus: 'pending',
-        paymentMethod: paymentMethod || 'cash_on_delivery',
-        totalAmount: totalamt,
-        shippingAddressId: shippingAddrs.id,
-        coupounId: coupuon?.id ?? null,
-        isCoupuonApplied: !!coupuon,
-        items: {
-          create: orderItemsData,
-        },
-      },
-    });
+    const totalamt = amount + Number(deliverCharge.deliveryCharge);
 
-    // 7️⃣ Clear cart if checkout via cart
-    if (useCart) {
-      await this.prisma.cartItem.deleteMany({
-        where: { customerProfileId: customerProfile.id },
+    // 6️⃣ CREATE ORDER + REDUCE STOCK (TRANSACTION)
+    const order = await this.prisma.$transaction(async (tx) => {
+      // Reduce stock
+      for (const item of orderItemsData) {
+        const updated = await tx.product.updateMany({
+          where: {
+            id: item.productId,
+            stockCount: { gte: item.quantity },
+          },
+          data: {
+            stockCount: { decrement: item.quantity },
+          },
+        });
+
+        if (updated.count === 0) {
+          throw new Error('Insufficient stock during checkout');
+        }
+      }
+
+      const createdOrder = await tx.order.create({
+        data: {
+          customerProfileId: customerProfile.id,
+          orderNumber: `ORD-${Date.now()}`,
+          status: isCOD ? 'confirmed' : 'pending',
+          paymentStatus: 'pending',
+          paymentMethod: paymentMethod || 'cash_on_delivery',
+          totalAmount: totalamt,
+          shippingAddressId: shippingAddrs.id,
+          coupounId: coupuon?.id ?? null,
+          isCoupuonApplied: !!coupuon,
+          items: {
+            create: orderItemsData,
+          },
+        },
       });
-    }
+
+      if (useCart) {
+        await tx.cartItem.deleteMany({
+          where: { customerProfileId: customerProfile.id },
+        });
+      }
+
+      return createdOrder;
+    });
 
     // 8️⃣ COD flow
     if (isCOD) {
@@ -201,9 +221,7 @@ export class RazorpayService {
         include: {
           items: {
             include: {
-              product: {
-                include: { images: true },
-              },
+              product: { include: { images: true } },
             },
           },
           shippingAddress: true,
@@ -217,69 +235,70 @@ export class RazorpayService {
         paymentMethod: 'cash_on_delivery',
       };
     }
-    // 🔹 Fetch minimal data required for admin mail
-    const orderForMail = await this.prisma.order.findUnique({
-      where: { id: order.id },
-      select: {
-        orderNumber: true,
-        totalAmount: true,
-        paymentMethod: true,
-        createdAt: true,
-        CustomerProfile: {
+
+    // 🔔 EMAIL & PUSH (NON-BLOCKING)
+    (async () => {
+      try {
+        const orderForMail = await this.prisma.order.findUnique({
+          where: { id: order.id },
           select: {
-            name: true,
-            phone: true,
-            user: {
-              select: { email: true },
+            orderNumber: true,
+            totalAmount: true,
+            paymentMethod: true,
+            createdAt: true,
+            CustomerProfile: {
+              select: {
+                name: true,
+                phone: true,
+                user: { select: { email: true } },
+              },
+            },
+            items: {
+              select: {
+                quantity: true,
+                discountedPrice: true,
+                product: { select: { name: true } },
+              },
             },
           },
-        },
-        items: {
-          select: {
-            quantity: true,
-            discountedPrice: true,
-            product: {
-              select: { name: true },
+        });
+
+        await this.emailService.sendMail({
+          to: process.env.ADMIN_EMAIL!,
+          subject: `🛒 New Order Placed – ${orderForMail.orderNumber}`,
+          template: 'admin-order-placed',
+          context: {
+            orderNumber: orderForMail.orderNumber,
+            totalAmount: orderForMail.totalAmount,
+            paymentMethod: orderForMail.paymentMethod,
+            createdAt: orderForMail.createdAt,
+            customer: {
+              name: orderForMail.CustomerProfile?.name,
+              email: orderForMail.CustomerProfile?.user?.email,
+              phone: orderForMail.CustomerProfile?.phone,
             },
+            items: orderForMail.items.map(item => ({
+              name: item.product.name,
+              quantity: item.quantity,
+              price: item.discountedPrice,
+            })),
           },
-        },
-      },
-    });
+        });
 
-    await this.emailService.sendMail({
-      to: process.env.ADMIN_EMAIL!, // configured in .env
-      subject: `🛒 New Order Placed – ${orderForMail.orderNumber}`,
-      template: 'admin-order-placed', // pug file name
-      context: {
-        orderNumber: orderForMail.orderNumber,
-        totalAmount: orderForMail.totalAmount,
-        paymentMethod: orderForMail.paymentMethod,
-        createdAt: orderForMail.createdAt,
+        const adminTokens = await this.prisma.adminProfile.findMany({
+          where: { fcmToken: { not: null } },
+          select: { fcmToken: true },
+        });
 
-        customer: {
-          name: orderForMail.CustomerProfile?.name,
-          email: orderForMail.CustomerProfile?.user?.email,
-          phone: orderForMail.CustomerProfile?.phone,
-        },
-
-        items: orderForMail.items.map(item => ({
-          name: item.product.name,
-          quantity: item.quantity,
-          price: item.discountedPrice,
-        })),
-      },
-    });
-    const adminTokens = await this.prisma.adminProfile.findMany({
-      where: { fcmToken: { not: null } },
-      select: { fcmToken: true },
-    });
-    await this.firebaseSender.sendPushMultiple(
-      adminTokens.map(a => a.fcmToken),
-      'New Order Placed',
-      `Order ${order.orderNumber} placed for ₹${totalamt}`,
-    );
-
-
+        await this.firebaseSender.sendPushMultiple(
+          adminTokens.map(a => a.fcmToken),
+          'New Order Placed',
+          `Order ${order.orderNumber} placed for ₹${totalamt}`,
+        );
+      } catch (err) {
+        console.error('Notification failed:', err);
+      }
+    })();
 
     // 9️⃣ Razorpay flow
     const options = {
@@ -308,6 +327,7 @@ export class RazorpayService {
       throw error;
     }
   }
+
 
   async verifyPaymentSignature(
     razorpayOrderId: string,
