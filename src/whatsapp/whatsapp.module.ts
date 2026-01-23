@@ -2,7 +2,8 @@ import { Module } from '@nestjs/common';
 import { WhatsAppController } from './whatsapp.controller';
 import { WhatsAppService } from './whatsapp.service';
 import { WhatsAppMessageHandler } from './whatsapp-message.handler';
-import { WhatsAppGateway } from './whatsapp.gateway';
+// WebSocket Gateway not needed for order listing and booking
+// import { WhatsAppGateway } from './whatsapp.gateway';
 import { PrismaService } from '../prisma/prisma.service';
 import { ProductsService } from '../products/products.service';
 import { CartService } from '../cart/cart.service';
@@ -16,7 +17,7 @@ import { FirebaseSender } from '../firebase/firebase.sender';
   providers: [
     WhatsAppService,
     WhatsAppMessageHandler,
-    WhatsAppGateway,
+    // WhatsAppGateway, // Not needed for order functionality
     PrismaService,
     ProductsService,
     CartService,
@@ -25,6 +26,6 @@ import { FirebaseSender } from '../firebase/firebase.sender';
     MailService,
     FirebaseSender,
   ],
-  exports: [WhatsAppService, WhatsAppGateway],
+  exports: [WhatsAppService],
 })
 export class WhatsAppModule {}
