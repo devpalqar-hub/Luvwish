@@ -9,7 +9,7 @@ import { TopProductsFilterDto } from './dto/top-products-filter.dto';
 
 @Controller('dashboard')
 export class DashboardController {
-  constructor(private readonly dashboardService: DashboardService) {}
+  constructor(private readonly dashboardService: DashboardService) { }
 
   // 🔹 Admin: Get dashboard analytics with optional date filters
   @UseGuards(JwtAuthGuard, RolesGuard)
@@ -33,5 +33,10 @@ export class DashboardController {
   @Get('top-products')
   getTopProducts(@Query() filters: TopProductsFilterDto) {
     return this.dashboardService.getTopProducts(filters);
+  }
+
+  @Get('total')
+  async getTotalRevenue() {
+    return await this.dashboardService.getTotalRevenue();
   }
 }
