@@ -18,6 +18,17 @@ export class UsersController {
     return this.usersService.getAdminCustomers(query);
   }
 
+  // 🔹 Get customer count (with optional status filter)
+  // @UseGuards(JwtAuthGuard, RolesGuard)
+  // @Roles('ADMIN', 'SUPER_ADMIN')
+  @Get('admin/customers/count')
+  async getCustomerCount(
+    @Query() query: AdminCustomerFilterDto,
+  ): Promise<{ total: number }> {
+    return this.usersService.getAdminCustomerCount(query);
+  }
+
+
   /* ==========================
     GET ALL USERS
  =========================== */

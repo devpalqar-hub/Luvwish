@@ -29,7 +29,7 @@
     "@nestjs/platform-socket.io": "10.4.22",
     "@nestjs/schedule": "3.0.4",
     "@nestjs/throttler": "5.1.2",
-    "@nestjs/websockets": "10.4.22",
+    "@nestjs/websockets": "^10.4.22",
     "@prisma/client": "^6.16.2",
     "axios": "^1.13.2",
     "bcrypt": "^6.0.0",
