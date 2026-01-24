@@ -172,6 +172,7 @@ export class RazorpayService {
           throw new Error('Insufficient stock during checkout');
         }
       }
+      console.log("hi devanand", shippingCost)
 
       const createdOrder = await tx.order.create({
         data: {
