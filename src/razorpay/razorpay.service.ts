@@ -149,7 +149,10 @@ export class RazorpayService {
     }
 
     const isCOD = paymentMethod === 'cash_on_delivery';
-    const totalamt = amount + Number(deliverCharge.deliveryCharge);
+    const orderAmount = amount;
+    const shippingCost = Number(deliverCharge.deliveryCharge);
+    const totalOrderAmount = orderAmount + shippingCost;
+
 
     // 6️⃣ CREATE ORDER + REDUCE STOCK (TRANSACTION)
     const order = await this.prisma.$transaction(async (tx) => {
@@ -177,7 +180,7 @@ export class RazorpayService {
           status: isCOD ? 'confirmed' : 'pending',
           paymentStatus: 'pending',
           paymentMethod: paymentMethod || 'cash_on_delivery',
-          totalAmount: totalamt,
+          totalAmount: totalOrderAmount,
           shippingAddressId: shippingAddrs.id,
           coupounId: coupuon?.id ?? null,
           isCoupuonApplied: !!coupuon,
@@ -233,6 +236,9 @@ export class RazorpayService {
         message: 'Order created successfully with Cash on Delivery',
         order: completeOrder,
         paymentMethod: 'cash_on_delivery',
+        orderAmount,
+        shippingCost,
+        totalOrderAmount,
       };
     }
 
@@ -293,7 +299,7 @@ export class RazorpayService {
         await this.firebaseSender.sendPushMultiple(
           adminTokens.map(a => a.fcmToken),
           'New Order Placed',
-          `Order ${order.orderNumber} placed for ₹${totalamt}`,
+          `Order ${order.orderNumber} placed for ₹${totalOrderAmount}`,
         );
       } catch (err) {
         console.error('Notification failed:', err);
@@ -302,7 +308,7 @@ export class RazorpayService {
 
     // 9️⃣ Razorpay flow
     const options = {
-      amount: Math.round(totalamt * 100),
+      amount: Math.round(totalOrderAmount * 100),
       currency: currency || 'INR',
       receipt: order.orderNumber,
     };

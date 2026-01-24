@@ -500,6 +500,74 @@ export class UsersService {
     });
   }
 
+  // 🔹 Admin: Get customer count with optional status filter
+  async getAdminCustomerCount(
+    query: AdminCustomerFilterDto,
+  ): Promise<{ total: number }> {
+    const { search, fromDate, toDate, status } = query;
+
+    // Build where clause (same as listing API)
+    const where: any = {
+      role: 'CUSTOMER',
+    };
+
+    // Date range filter
+    if (fromDate || toDate) {
+      where.createdAt = {};
+      if (fromDate) {
+        where.createdAt.gte = new Date(fromDate);
+      }
+      if (toDate) {
+        where.createdAt.lte = new Date(toDate);
+      }
+    }
+
+    // Search filter
+    if (search) {
+      const searchLower = search.toLowerCase();
+      where.OR = [
+        {
+          email: {
+            contains: searchLower,
+          },
+        },
+        {
+          CustomerProfile: {
+            name: {
+              contains: search,
+            },
+          },
+        },
+      ];
+    }
+
+    // Fetch users (status is computed, so cannot filter in DB directly)
+    const users = await this.prisma.user.findMany({
+      where,
+      include: {
+        CustomerProfile: {
+          include: {
+            orders: {
+              select: { id: true },
+            },
+          },
+        },
+      },
+    });
+
+    // Compute status and apply status filter
+    const filteredUsers = users.filter((user) => {
+      const orders = user.CustomerProfile?.orders || [];
+      const customerStatus = orders.length > 0 ? 'active' : 'inactive';
+
+      return status ? customerStatus === status : true;
+    });
+
+    return {
+      total: filteredUsers.length,
+    };
+  }
+
 
 }
 
