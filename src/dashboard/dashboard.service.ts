@@ -15,6 +15,7 @@ import {
     TopProductsResponseDto,
     TopProductItemDto,
 } from './dto/top-products-response.dto';
+import { PaymentStatus } from '@prisma/client';
 
 @Injectable()
 export class DashboardService {
@@ -58,13 +59,17 @@ export class DashboardService {
             },
         });
 
-        // 5️⃣ Total Revenue
+        // 5️⃣ Total Revenue (only completed payments)
         const revenueResult = await this.prisma.order.aggregate({
-            where: hasDateFilter ? { createdAt: createdAtFilter } : undefined,
+            where: {
+                paymentStatus: PaymentStatus.completed,
+                ...(hasDateFilter && { createdAt: createdAtFilter }),
+            },
             _sum: {
                 totalAmount: true,
             },
         });
+
 
         const totalRevenue = Number(revenueResult._sum.totalAmount ?? 0);
 
