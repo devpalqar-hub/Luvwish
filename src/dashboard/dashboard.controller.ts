@@ -37,6 +37,6 @@ export class DashboardController {
 
   @Get('total')
   async getTotalRevenue() {
-    return await this.dashboardService.getTotalRevenue();
+    return await this.dashboardService.getTotalRevenueFromPayments();
   }
 }
