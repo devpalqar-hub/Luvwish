@@ -197,9 +197,10 @@ export class RazorpayService {
           where: { customerProfileId: customerProfile.id },
         });
       }
-
+      console.log("created createdOrder", createdOrder)
       return createdOrder;
     });
+
 
     // 8️⃣ COD flow
     if (isCOD) {
