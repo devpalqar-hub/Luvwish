@@ -88,6 +88,7 @@ export class OrdersService {
           // 🚫 omit shippingAddressId
           shippingAddress: true, // ✅ include full address object
           tracking: true,
+          coupun: true,
           items: {
             select: {
               id: true,
@@ -129,6 +130,7 @@ export class OrdersService {
       where: { id },
       include: {
         items: true,
+        coupun: true,
         shippingAddress: true,
       },
     });
@@ -157,6 +159,7 @@ export class OrdersService {
         customerProfileId: true,
         shippingAddress: true,
         tracking: true,
+        coupun: true,
         items: {
           select: {
             id: true,
@@ -365,6 +368,7 @@ export class OrdersService {
           CustomerProfile: { select: { id: true, name: true } },
           shippingAddress: true,
           tracking: true,
+          coupun: true,
           items: {
             select: {
               id: true,
