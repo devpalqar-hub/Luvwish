@@ -291,18 +291,20 @@ export class DashboardService {
         };
     }
 
-    async getTotalRevenue() {
-        const result = await this.prisma.order.aggregate({
+
+    async getTotalRevenueFromPayments() {
+        const result = await this.prisma.payment.aggregate({
             _sum: {
-                totalAmount: true,
+                amount: true,
             },
             where: {
-                paymentStatus: 'completed',
+                status: 'completed',
             },
         });
 
         return {
-            totalRevenue: result._sum.totalAmount ?? 0,
+            totalRevenue: result._sum.amount ?? 0,
         };
     }
+}
 }

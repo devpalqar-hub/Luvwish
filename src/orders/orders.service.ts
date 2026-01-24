@@ -701,20 +701,5 @@ export class OrdersService {
     );
   }
 
-  async getTotalRevenue() {
-    const result = await this.prisma.order.aggregate({
-      _sum: {
-        totalAmount: true,
-      },
-      where: {
-        paymentStatus: 'completed',
-      },
-    });
-
-    return {
-      totalRevenue: result._sum.totalAmount ?? 0,
-    };
-  }
-
 
 }
