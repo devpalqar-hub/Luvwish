@@ -184,6 +184,7 @@ export class RazorpayService {
           shippingAddressId: shippingAddrs.id,
           coupounId: coupuon?.id ?? null,
           isCoupuonApplied: !!coupuon,
+          shippingCost: shippingCost,
           items: {
             create: orderItemsData,
           },
@@ -251,6 +252,7 @@ export class RazorpayService {
             orderNumber: true,
             totalAmount: true,
             paymentMethod: true,
+            shippingCost: true,
             createdAt: true,
             CustomerProfile: {
               select: {
