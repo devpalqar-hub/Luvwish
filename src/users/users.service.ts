@@ -327,34 +327,30 @@ export class UsersService {
       },
     });
 
-    // Transform and filter by status
     let transformedData: AdminCustomerItemDto[] = allUsers.map((user) => {
       const customerProfile = user.CustomerProfile;
       const orders = customerProfile?.orders || [];
-      const numberOfOrders = orders.length;
-      const totalAmountSpent = orders.reduce(
-        (sum, order) => sum + Number(order.totalAmount),
-        0,
-      );
-
-      // Determine customer status (active if they have orders, otherwise inactive)
-      const customerStatus = numberOfOrders > 0 ? 'active' : 'inactive';
 
       return {
         id: user.id,
         customerName: customerProfile?.name || null,
         email: user.email,
         phoneNumber: customerProfile?.phone || null,
-        numberOfOrders,
-        totalAmountSpent,
+        numberOfOrders: orders.length,
+        totalAmountSpent: orders.reduce(
+          (sum, order) => sum + Number(order.totalAmount),
+          0,
+        ),
         joinedDate: user.createdAt,
-        status: customerStatus,
+        status: user.isActive ? 'active' : 'inactive',
       };
     });
 
     // Apply status filter if provided
     if (status) {
-      transformedData = transformedData.filter((item) => item.status === status);
+      transformedData = transformedData.filter(
+        (item) => item.status === status,
+      );
     }
 
     // Get total count after status filter
