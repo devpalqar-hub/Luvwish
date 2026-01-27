@@ -34,4 +34,10 @@ export class SearchFilterDto extends PaginationDto {
   @Transform(({ value }) => value === 'true' || value === true)
   @IsBoolean()
   isStock?: boolean;
+
+
+  @IsOptional()
+  @IsBoolean()
+  @Transform(({ value }) => value === 'true' || value === true)
+  isActive?: boolean;
 }

@@ -97,13 +97,13 @@ model CustomerProfile {
   user           User    @relation(fields: [userId], references: [id])
   fcmToken       String?
 
-  addresses    Address[]
-  reviews      Review[]
-  couponUsages CouponUsage[]
-  orders       Order[]
-  cart         CartItem[]
-  BankDetails  BankDetails[]
-  Wishlist     Wishlist[]
+  addresses        Address[]
+  reviews          Review[]
+  couponUsages     CouponUsage[]
+  orders           Order[]
+  cart             CartItem[]
+  BankDetails      BankDetails[]
+  Wishlist         Wishlist[]
   whatsappSessions WhatsAppSession[]
 
   @@map("CustomerProfile")
@@ -182,6 +182,7 @@ model Product {
   stockCount      Int      @default(0)
   isStock         Boolean  @default(true)
   isFeatured      Boolean  @default(false)
+  isActive        Boolean  @default(true)
   variationTitle  String?
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
@@ -495,16 +496,16 @@ enum WhatsAppSessionState {
 }
 
 model WhatsAppSession {
-  id                String                @id @default(uuid())
-  phoneNumber       String                @unique
+  id                String               @id @default(uuid())
+  phoneNumber       String               @unique
   customerProfileId String?
-  state             WhatsAppSessionState  @default(IDLE)
+  state             WhatsAppSessionState @default(IDLE)
   contextData       Json? // Store current context (selected product, category, etc.)
-  lastMessageAt     DateTime              @default(now())
-  createdAt         DateTime              @default(now())
-  updatedAt         DateTime              @updatedAt
+  lastMessageAt     DateTime             @default(now())
+  createdAt         DateTime             @default(now())
+  updatedAt         DateTime             @updatedAt
 
-  customerProfile CustomerProfile? @relation(fields: [customerProfileId], references: [id])
+  customerProfile CustomerProfile?  @relation(fields: [customerProfileId], references: [id])
   messages        WhatsAppMessage[]
 
   @@map("whatsapp_sessions")
@@ -516,14 +517,14 @@ enum WhatsAppMessageDirection {
 }
 
 model WhatsAppMessage {
-  id          String                    @id @default(uuid())
+  id          String                   @id @default(uuid())
   sessionId   String
-  messageId   String                    @unique // WhatsApp message ID
+  messageId   String                   @unique // WhatsApp message ID
   direction   WhatsAppMessageDirection
-  content     String                    @db.Text
-  messageType String                    @default("text") // text, image, interactive
+  content     String                   @db.Text
+  messageType String                   @default("text") // text, image, interactive
   metadata    Json? // Additional message metadata
-  createdAt   DateTime                  @default(now())
+  createdAt   DateTime                 @default(now())
 
   session WhatsAppSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
 

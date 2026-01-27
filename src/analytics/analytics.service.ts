@@ -5,7 +5,7 @@ import { SalesProgressResponseDto } from './dto/sales-progress-response.dto';
 
 @Injectable()
 export class AnalyticsService {
-  constructor(private prisma: PrismaService) {}
+  constructor(private prisma: PrismaService) { }
 
   async getSalesProgress(period: SalesPeriod): Promise<SalesProgressResponseDto> {
     const now = new Date();
@@ -42,7 +42,6 @@ export class AnalyticsService {
           gte: startDate,
           lte: now,
         },
-        paymentStatus: 'completed',
       },
       select: {
         createdAt: true,
