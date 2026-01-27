@@ -9,6 +9,7 @@ import {
 } from 'class-validator';
 import { Type } from 'class-transformer';
 
+
 export class CreateProductImageDto {
   @IsString()
   url: string;
@@ -92,4 +93,11 @@ export class CreateProductDto {
   @ValidateNested({ each: true })
   @Type(() => CreateProductVariationDto)
   variations?: CreateProductVariationDto[];
+
+  @IsOptional()
+  productMetas?: string | {
+    type: 'SPEC' | 'INFO';
+    title: string;
+    value: string;
+  }[];
 }

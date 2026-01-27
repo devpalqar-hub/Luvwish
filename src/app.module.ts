@@ -30,6 +30,9 @@ import { DeliveryChargesModule } from './deliverycharges/delivery-charges.module
 import { FirebaseModule } from './firebase/firebase.module';
 import { MailModule } from './mail/mail.module';
 import { WhatsAppModule } from './whatsapp/whatsapp.module';
+import { EnquiryModule } from './enquiry-forms/enquiry.module';
+import { LeadsModule } from './leads/leads.module';
+import { LeadLogsModule } from './lead-log/lead-logs.module';
 
 @Module({
   imports: [
@@ -66,6 +69,9 @@ import { WhatsAppModule } from './whatsapp/whatsapp.module';
     BannersModule,
     AnalyticsModule,
     WhatsAppModule,
+    EnquiryModule,
+    LeadsModule,
+    LeadLogsModule,
   ],
   providers: [RazorpayService],
   controllers: [RazorpayController],

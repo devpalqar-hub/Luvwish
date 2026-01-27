@@ -6,9 +6,29 @@ import {
     ValidateNested,
     IsArray,
     IsInt,
+    IsEnum,
 } from 'class-validator';
 import { Type } from 'class-transformer';
 import { UpdateProductVariationDto } from './update-product-variation.dto';
+
+
+export class UpdateProductMetaDto {
+    @IsString()
+    id: string;
+
+    @IsOptional()
+    @IsEnum(['SPEC', 'INFO'])
+    type?: 'SPEC' | 'INFO';
+
+    @IsOptional()
+    @IsString()
+    title?: string;
+
+    @IsOptional()
+    @IsString()
+    value?: string;
+}
+
 
 export class UpdateProductDto {
     @IsOptional()
@@ -53,4 +73,11 @@ export class UpdateProductDto {
     @ValidateNested({ each: true })
     @Type(() => UpdateProductVariationDto)
     variations?: UpdateProductVariationDto[];
+
+    /* product metas */
+    @IsOptional()
+    @IsArray()
+    @ValidateNested({ each: true })
+    @Type(() => UpdateProductMetaDto)
+    productMetas?: UpdateProductMetaDto[];
 }

@@ -49,3 +49,44 @@ export function generateSKU(
   // Final SKU format: PROD-VAR-YYMMDD-XXXX
   return `${productCode}-${variationCode}-${timestamp}-${randomStr}`;
 }
+
+
+/**
+ * Builds a human-readable sentence describing a lead status transition.
+ *
+ * Example:
+ *  buildLeadStatusChangeMessage(LeadStatus.NEW, LeadStatus.CONTACTED)
+ *  → "The lead status changed from New to Contacted"
+ */
+export function buildLeadStatusChangeMessage<T extends string>(
+  fromStatus: T | null | undefined,
+  toStatus: T,
+): string {
+  // ✅ Lead creation case
+  if (!fromStatus) {
+    return 'Lead has been created';
+  }
+
+  // No status change
+  if (fromStatus === toStatus) {
+    return `The lead status remains ${formatEnumValue(fromStatus)}`;
+  }
+
+  // Status changed
+  return `The lead status changed from ${formatEnumValue(
+    fromStatus,
+  )} to ${formatEnumValue(toStatus)}`;
+}
+
+/**
+ * Converts ENUM_LIKE_VALUE → "Enum Like Value"
+ */
+function formatEnumValue(value: string): string {
+  return value
+    .toLowerCase()
+    .split('_')
+    .map(
+      (word) => word.charAt(0).toUpperCase() + word.slice(1),
+    )
+    .join(' ');
+}

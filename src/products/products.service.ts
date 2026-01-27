@@ -37,7 +37,7 @@ export class ProductsService {
     createProductDto: CreateProductDto,
     imageFiles?: Express.Multer.File[],
   ) {
-    const { images, variations, ...productData } = createProductDto;
+    const { images, variations, productMetas, ...productData } = createProductDto;
 
     // Verify subCategoryId exists
     if (productData.subCategoryId) {
@@ -146,10 +146,73 @@ export class ProductsService {
         );
       }
     }
+    // -------------------------------------
+    // PARSE PRODUCT METAS (JSON OR ARRAY)
+    // -------------------------------------
+    let parsedProductMetas:
+      | {
+        type: 'SPEC' | 'INFO';
+        title: string;
+        value: string;
+      }[]
+      | undefined;
+
+    if (productMetas) {
+      try {
+        parsedProductMetas =
+          typeof productMetas === 'string'
+            ? JSON.parse(productMetas)
+            : productMetas;
+
+        if (!Array.isArray(parsedProductMetas)) {
+          throw new Error();
+        }
+
+        parsedProductMetas.forEach((meta, index) => {
+          if (!['SPEC', 'INFO'].includes(meta.type)) {
+            throw new BadRequestException(
+              `Invalid productMetas[${index}].type`,
+            );
+          }
+          if (!meta.title || !meta.value) {
+            throw new BadRequestException(
+              `productMetas[${index}] must have title and value`,
+            );
+          }
+        });
+      } catch {
+        throw new BadRequestException('Invalid productMetas JSON format');
+      }
+    }
+
+
 
     return this.prisma.product.create({
       data: {
         ...productData,
+
+        actualPrice: Number(productData.actualPrice),
+        discountedPrice: Number(productData.discountedPrice),
+        stockCount: Number(productData.stockCount),
+
+        description: productData.description,
+
+        // ------------------
+        // PRODUCT METAS
+        // ------------------
+        productMetas: parsedProductMetas?.length
+          ? {
+            create: parsedProductMetas.map((meta) => ({
+              type: meta.type,
+              title: meta.title,
+              value: meta.value,
+            })),
+          }
+          : undefined,
+
+        // ------------------
+        // IMAGES
+        // ------------------
         images: allImages.length
           ? {
             create: allImages.map((img) => ({
@@ -160,6 +223,10 @@ export class ProductsService {
             })),
           }
           : undefined,
+
+        // ------------------
+        // VARIATIONS
+        // ------------------
         variations: processedVariations?.length
           ? {
             create: processedVariations.map((variation) => ({
@@ -175,12 +242,13 @@ export class ProductsService {
       },
       include: {
         images: true,
+        productMetas: true,
+        variations: true,
         subCategory: {
           include: {
             category: true,
           },
         },
-        variations: true,
       },
     });
   }
@@ -281,6 +349,7 @@ export class ProductsService {
             },
           },
           variations: true,
+          productMetas: true,
         },
         orderBy: { createdAt: 'desc' },
         skip,
@@ -346,6 +415,7 @@ export class ProductsService {
           },
         },
         variations: true,
+        productMetas: true,
         reviews: {
           include: {
             images: true,
@@ -423,6 +493,8 @@ export class ProductsService {
       reviewStats,
     };
   }
+
+
   async updateProduct(
     productId: string,
     dto: UpdateProductDto,
@@ -489,6 +561,29 @@ export class ProductsService {
           });
         }
       }
+
+      if (dto.productMetas?.length) {
+        for (const meta of dto.productMetas) {
+          const existingMeta = await tx.productMeta.findUnique({
+            where: { id: meta.id },
+          });
+
+          if (!existingMeta || existingMeta.productId !== productId) {
+            throw new BadRequestException(
+              `Invalid productMeta ${meta.id}`,
+            );
+          }
+
+          await tx.productMeta.update({
+            where: { id: meta.id },
+            data: {
+              ...(meta.type !== undefined && { type: meta.type }),
+              ...(meta.title !== undefined && { title: meta.title }),
+              ...(meta.value !== undefined && { value: meta.value }),
+            },
+          });
+        }
+      }
     });
 
     const fullProduct = await this.prisma.product.findUnique({
@@ -497,6 +592,7 @@ export class ProductsService {
         subCategory: { select: { id: true, name: true, slug: true } },
         variations: { orderBy: { createdAt: 'asc' } },
         images: { orderBy: { sortOrder: 'asc' } }, // still fetched, just not updated
+        productMetas: true
       },
     });
 
@@ -1096,5 +1192,15 @@ export class ProductsService {
     });
   }
 
-}
+  // 🔹 Delete product
+  async removePdtMeta(id: string) {
+    if (!(await this.prisma.productMeta.findUnique({ where: { id } }))) {
+      throw new NotFoundException(`ProductMeta with ID ${id} not found`);
+    }
+    await this.prisma.productMeta.delete({ where: { id } });
 
+    return { message: "Product Info Deleted Successfully" }
+  }
+
+
+}

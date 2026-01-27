@@ -38,6 +38,26 @@ enum CoupounValueType {
   amount
 }
 
+enum EnquiryPurpose {
+  PURCHASE
+  ENQUIRY
+  CUSTOMER_SUPPORT
+}
+
+enum LeadStatus {
+  NEW
+  CONTACTED
+  IN_PROGRESS
+  QUALIFIED
+  CONVERTED
+  LOST
+}
+
+enum ProductMetaType {
+  SPEC // table rows
+  INFO // accordion/meta sections
+}
+
 enum Roles {
   SUPER_ADMIN // full system control
   ADMIN // manage store operations
@@ -97,13 +117,13 @@ model CustomerProfile {
   user           User    @relation(fields: [userId], references: [id])
   fcmToken       String?
 
-  addresses    Address[]
-  reviews      Review[]
-  couponUsages CouponUsage[]
-  orders       Order[]
-  cart         CartItem[]
-  BankDetails  BankDetails[]
-  Wishlist     Wishlist[]
+  addresses        Address[]
+  reviews          Review[]
+  couponUsages     CouponUsage[]
+  orders           Order[]
+  cart             CartItem[]
+  BankDetails      BankDetails[]
+  Wishlist         Wishlist[]
   whatsappSessions WhatsAppSession[]
 
   @@map("CustomerProfile")
@@ -186,13 +206,14 @@ model Product {
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
-  subCategory SubCategory?       @relation(fields: [subCategoryId], references: [id], onDelete: SetNull)
-  images      ProductImage[]
-  variations  ProductVariation[]
-  cartItems   CartItem[]
-  orderItems  OrderItem[]
-  reviews     Review[]
-  Wishlist    Wishlist[]
+  subCategory  SubCategory?       @relation(fields: [subCategoryId], references: [id], onDelete: SetNull)
+  images       ProductImage[]
+  variations   ProductVariation[]
+  cartItems    CartItem[]
+  orderItems   OrderItem[]
+  reviews      Review[]
+  Wishlist     Wishlist[]
+  productMetas ProductMeta[]
 
   @@map("products")
 }
@@ -208,6 +229,23 @@ model ProductImage {
   product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
 
   @@map("product_images")
+}
+
+model ProductMeta {
+  id        String @id @default(uuid())
+  productId String
+
+  type  ProductMetaType
+  title String // "Brand Name", "Marketed By"
+  value String          @db.Text
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@index([productId, type])
+  @@map("product_meta")
 }
 
 model ProductVariation {
@@ -495,16 +533,16 @@ enum WhatsAppSessionState {
 }
 
 model WhatsAppSession {
-  id                String                @id @default(uuid())
-  phoneNumber       String                @unique
+  id                String               @id @default(uuid())
+  phoneNumber       String               @unique
   customerProfileId String?
-  state             WhatsAppSessionState  @default(IDLE)
+  state             WhatsAppSessionState @default(IDLE)
   contextData       Json? // Store current context (selected product, category, etc.)
-  lastMessageAt     DateTime              @default(now())
-  createdAt         DateTime              @default(now())
-  updatedAt         DateTime              @updatedAt
+  lastMessageAt     DateTime             @default(now())
+  createdAt         DateTime             @default(now())
+  updatedAt         DateTime             @updatedAt
 
-  customerProfile CustomerProfile? @relation(fields: [customerProfileId], references: [id])
+  customerProfile CustomerProfile?  @relation(fields: [customerProfileId], references: [id])
   messages        WhatsAppMessage[]
 
   @@map("whatsapp_sessions")
@@ -516,16 +554,67 @@ enum WhatsAppMessageDirection {
 }
 
 model WhatsAppMessage {
-  id          String                    @id @default(uuid())
+  id          String                   @id @default(uuid())
   sessionId   String
-  messageId   String                    @unique // WhatsApp message ID
+  messageId   String                   @unique // WhatsApp message ID
   direction   WhatsAppMessageDirection
-  content     String                    @db.Text
-  messageType String                    @default("text") // text, image, interactive
+  content     String                   @db.Text
+  messageType String                   @default("text") // text, image, interactive
   metadata    Json? // Additional message metadata
-  createdAt   DateTime                  @default(now())
+  createdAt   DateTime                 @default(now())
 
   session WhatsAppSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
 
   @@map("whatsapp_messages")
+}
+
+// Enquiry Form
+model EnquiryForm {
+  id              String         @id @default(uuid())
+  name            String
+  email           String
+  phone           String
+  purpose         EnquiryPurpose @default(PURCHASE)
+  additionalNotes String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Leads {
+  id              String     @id @default(uuid())
+  name            String
+  email           String
+  phone           String
+  status          LeadStatus @default(NEW)
+  additionalNotes String?
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  // Relations
+  logs LeadLogs[]
+
+  @@index([email])
+  @@index([phone])
+  @@index([status])
+}
+
+model LeadLogs {
+  id              String  @id @default(uuid())
+  action          String
+  description     String? // Human-readable message
+  additionalNotes String?
+
+  // Relations
+  leadId String
+  lead   Leads  @relation(fields: [leadId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  @@index([leadId])
+  @@index([action])
 }
