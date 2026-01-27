@@ -425,6 +425,8 @@ export class ProductsService {
       reviewStats,
     };
   }
+
+
   async updateProduct(
     productId: string,
     dto: UpdateProductDto,
@@ -450,7 +452,7 @@ export class ProductsService {
       if (dto.variationTitle !== undefined) updateData.variationTitle = dto.variationTitle;
 
       // ✅ Correct boolean handling
-      if (dto.isActive !== undefined) updateData.isStock = dto.isActive;
+      if (dto.isActive !== undefined) updateData.isActive = dto.isActive;
       if (dto.isFeatured !== undefined) updateData.isFeatured = dto.isFeatured;
 
       if (dto.subCategoryId !== undefined) {
