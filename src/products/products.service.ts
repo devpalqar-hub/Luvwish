@@ -210,12 +210,14 @@ export class ProductsService {
       subCategoryId,
       isFeatured,
       isStock,
+      isActive
     } = query;
 
     const skip = (page - 1) * limit;
 
     const where: any = {
       AND: [
+        { isActive: isActive ?? true },
         {
           subCategory: {
             is: {
@@ -435,7 +437,7 @@ export class ProductsService {
       throw new NotFoundException('Product not found');
     }
 
-    console.log('DTO BOOLS:', dto.isStock, dto.isFeatured);
+    console.log('DTO BOOLS:', dto.isActive, dto.isFeatured);
 
     await this.prisma.$transaction(async (tx) => {
       const updateData: any = {};
@@ -448,7 +450,7 @@ export class ProductsService {
       if (dto.variationTitle !== undefined) updateData.variationTitle = dto.variationTitle;
 
       // ✅ Correct boolean handling
-      if (dto.isStock !== undefined) updateData.isStock = dto.isStock;
+      if (dto.isActive !== undefined) updateData.isStock = dto.isActive;
       if (dto.isFeatured !== undefined) updateData.isFeatured = dto.isFeatured;
 
       if (dto.subCategoryId !== undefined) {

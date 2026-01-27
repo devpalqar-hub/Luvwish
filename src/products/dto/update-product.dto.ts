@@ -41,7 +41,7 @@ export class UpdateProductDto {
 
     @IsOptional()
     @IsBoolean()
-    isStock?: boolean;
+    isActive?: boolean;
 
     @IsOptional()
     @IsBoolean()
