@@ -15,7 +15,7 @@ import {
     TopProductsResponseDto,
     TopProductItemDto,
 } from './dto/top-products-response.dto';
-import { PaymentStatus } from '@prisma/client';
+import { PaymentStatus, Roles } from '@prisma/client';
 
 @Injectable()
 export class DashboardService {
@@ -41,9 +41,8 @@ export class DashboardService {
         // 3️⃣ Total Active Customers
         const totalCustomers = await this.prisma.user.count({
             where: {
-                role: 'CUSTOMER',
+                role: Roles.CUSTOMER,
                 isActive: true,
-                ...(hasDateFilter && { createdAt: createdAtFilter }),
             },
         });
 
