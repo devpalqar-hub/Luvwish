@@ -22,16 +22,16 @@ export class UsersController {
   // @UseGuards(JwtAuthGuard, RolesGuard)
   // @Roles('ADMIN', 'SUPER_ADMIN')
   @Get('admin/customers/count')
-  async getCustomerCount(
-    @Query() query: AdminCustomerFilterDto,
-  ): Promise<{ total: number }> {
-    return this.usersService.getAdminCustomerCount(query);
+  async getRoleCounts(
+    @Query('isActive') isActive?: string,
+  ) {
+    return this.usersService.getUserRoleCounts(isActive);
   }
 
 
   /* ==========================
     GET ALL USERS
- =========================== */
+  =========================== */
   @Get()
   @Roles('ADMIN', 'SUPER_ADMIN')
   getUsers() {

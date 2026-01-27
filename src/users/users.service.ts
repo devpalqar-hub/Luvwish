@@ -15,6 +15,7 @@ import {
   AdminCustomerItemDto,
 } from './dto/admin-customer-response.dto';
 import { UpdateUserStatusDto } from './dto/update-user-status.dto';
+import { Prisma, Roles } from '@prisma/client';
 
 @Injectable()
 export class UsersService {
@@ -496,71 +497,30 @@ export class UsersService {
     });
   }
 
-  // 🔹 Admin: Get customer count with optional status filter
-  async getAdminCustomerCount(
-    query: AdminCustomerFilterDto,
-  ): Promise<{ total: number }> {
-    const { search, fromDate, toDate, status } = query;
 
-    // Build where clause (same as listing API)
-    const where: any = {
-      role: 'CUSTOMER',
-    };
+  async getUserRoleCounts(isActive?: string) {
+    const where: Prisma.UserWhereInput = {};
 
-    // Date range filter
-    if (fromDate || toDate) {
-      where.createdAt = {};
-      if (fromDate) {
-        where.createdAt.gte = new Date(fromDate);
-      }
-      if (toDate) {
-        where.createdAt.lte = new Date(toDate);
-      }
+    // optional filter
+    if (isActive !== undefined) {
+      where.isActive = isActive === 'true';
     }
 
-    // Search filter
-    if (search) {
-      const searchLower = search.toLowerCase();
-      where.OR = [
-        {
-          email: {
-            contains: searchLower,
-          },
-        },
-        {
-          CustomerProfile: {
-            name: {
-              contains: search,
-            },
-          },
-        },
-      ];
-    }
-
-    // Fetch users (status is computed, so cannot filter in DB directly)
-    const users = await this.prisma.user.findMany({
+    const grouped = await this.prisma.user.groupBy({
+      by: ['role'],
       where,
-      include: {
-        CustomerProfile: {
-          include: {
-            orders: {
-              select: { id: true },
-            },
-          },
-        },
+      _count: {
+        role: true,
       },
     });
 
-    // Compute status and apply status filter
-    const filteredUsers = users.filter((user) => {
-      const orders = user.CustomerProfile?.orders || [];
-      const customerStatus = orders.length > 0 ? 'active' : 'inactive';
-
-      return status ? customerStatus === status : true;
-    });
-
+    // normalize response
     return {
-      total: filteredUsers.length,
+      success: true,
+      data: grouped.map((item) => ({
+        role: item.role,
+        count: item._count.role,
+      })),
     };
   }
 
