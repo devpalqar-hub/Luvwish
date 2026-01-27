@@ -642,7 +642,7 @@ export class ProductsService {
     if (!(await this.prisma.product.findUnique({ where: { id } }))) {
       throw new NotFoundException(`Product with ID ${id} not found`);
     }
-    return this.prisma.product.delete({ where: { id } });
+    return this.prisma.product.update({ where: { id }, data: { isActive: false } });
   }
 
   async getRelatedProducts(productId: string, customerProfileId?: string) {
