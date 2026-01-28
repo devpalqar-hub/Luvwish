@@ -39,5 +39,7 @@ export class CreatePaymentIntentDto {
   @IsOptional()
   couponName: string;
 
-
+  @IsOptional()
+  @IsUUID()
+  fatoorahPaymentId?: string;
 }

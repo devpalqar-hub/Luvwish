@@ -1,6 +1,7 @@
 import { Module, DynamicModule } from '@nestjs/common';
 import { FirebaseModule } from 'src/firebase/firebase.module';
 import { MailModule } from 'src/mail/mail.module';
+import { MyFatoorahService } from './myfatoorah.service';
 const Razorpay = require('razorpay');
 
 export interface RazorpayModuleOptions {
@@ -23,7 +24,7 @@ export class RazorpayModule {
 
     return {
       module: RazorpayModule,
-      providers: [razorpayProvider],
+      providers: [razorpayProvider, MyFatoorahService],
       exports: [razorpayProvider],
       imports: [MailModule, FirebaseModule]
     };
