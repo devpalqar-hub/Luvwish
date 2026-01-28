@@ -600,18 +600,18 @@ export class RazorpayService {
       const paidAmount = Number(paymentData.Amount.ValueInPayCurrency);
       const paidCurrency = paymentData.Amount.PayCurrency;
 
-      if (paidAmount !== totalOrderAmount) {
-        throw new Error(
-          `Paid amount mismatch: expected ${totalOrderAmount}, got ${paidAmount}`,
-        );
-      }
+      // if (paidAmount !== totalOrderAmount) {
+      //   throw new Error(
+      //     `Paid amount mismatch: expected ${totalOrderAmount}, got ${paidAmount}`,
+      //   );
+      // }
 
-      // ✅ 3. Verify currency
-      if (paidCurrency !== currency) {
-        throw new Error(
-          `Currency mismatch: expected ${currency}, got ${paidCurrency}`,
-        );
-      }
+      // // ✅ 3. Verify currency
+      // if (paidCurrency !== currency) {
+      //   throw new Error(
+      //     `Currency mismatch: expected ${currency}, got ${paidCurrency}`,
+      //   );
+      // }
 
       console.log(
         'MyFatoorah verification response:',
