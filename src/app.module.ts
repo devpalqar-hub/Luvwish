@@ -30,6 +30,7 @@ import { DeliveryChargesModule } from './deliverycharges/delivery-charges.module
 import { FirebaseModule } from './firebase/firebase.module';
 import { MailModule } from './mail/mail.module';
 import { WhatsAppModule } from './whatsapp/whatsapp.module';
+import { MyFatoorahService } from './razorpay/myfatoorah.service';
 
 @Module({
   imports: [
@@ -67,7 +68,7 @@ import { WhatsAppModule } from './whatsapp/whatsapp.module';
     AnalyticsModule,
     WhatsAppModule,
   ],
-  providers: [RazorpayService],
+  providers: [RazorpayService, MyFatoorahService],
   controllers: [RazorpayController],
 })
 export class AppModule { }
