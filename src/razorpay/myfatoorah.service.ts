@@ -5,9 +5,8 @@ export class MyFatoorahService {
     private apiKey = process.env.MYFATOORAH_API_KEY!;
 
     async verifyPayment(paymentId: string) {
-        const response = await axios.post(
-            `${this.baseUrl}/v2/GetPaymentStatus`,
-            { Key: paymentId, KeyType: 'PaymentId' },
+        const response = await axios.get(
+            `${this.baseUrl}/v3/payments/${paymentId}`,
             {
                 headers: {
                     Authorization: `Bearer ${this.apiKey}`,
