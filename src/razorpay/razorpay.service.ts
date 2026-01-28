@@ -645,11 +645,11 @@ export class RazorpayService {
   //       data: {
   //         customerProfileId: customerProfile.id,
   //         orderNumber: `ORD-${Date.now()}`,
-  //         status: isCOD ? 'confirmed' : 'confirmed',
+  //         status: OrderStatus.confirmed,
   //         paymentStatus: isCOD
   //           ? PaymentStatus.pending
   //           : PaymentStatus.completed,
-  //         paymentMethod: paymentMethod || 'cash_on_delivery',
+  //         paymentMethod: paymentMethod ?? PaymentMethod.cash_on_delivery,
   //         totalAmount: totalOrderAmount,
   //         shippingAddressId: shippingAddrs.id,
   //         coupounId: coupuon?.id ?? null,
@@ -1121,18 +1121,24 @@ export class RazorpayService {
           ? 'Order created successfully with Cash on Delivery'
           : 'Order created successfully',
 
-        order: {
-          ...completeOrder,
-          paymentGateway: isCOD ? null : 'myfatoorah',
-          paymentReference: isCOD ? null : fatoorahPaymentId,
-        },
+        // 🔒 ORDER IS 100% UNCHANGED
+        order: completeOrder,
 
         paymentMethod: completeOrder.paymentMethod,
         orderAmount,
         shippingCost,
         totalOrderAmount,
+
+        // 🆕 ADDITIVE FIELDS (SAFE FOR NON-COD)
+        ...(isCOD
+          ? {}
+          : {
+            paymentGateway: 'myfatoorah',
+            paymentReference: fatoorahPaymentId,
+          }),
       },
     };
+
   }
 
 
