@@ -98,9 +98,9 @@ export class OrdersService {
               product: {
                 include: {
                   images: true, // ✅ include product images
-                  variations: true
                 },
               },
+              productVariation: true,
               Review: {
                 select: {
                   id: true,
@@ -170,9 +170,9 @@ export class OrdersService {
               include: {
                 images: true, // ✅ include product images
                 reviews: true,
-                variations: true
               },
             },
+            productVariation: true
           },
         },
       },
