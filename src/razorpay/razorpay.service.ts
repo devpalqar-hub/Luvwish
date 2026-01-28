@@ -1115,28 +1115,22 @@ export class RazorpayService {
     // 🔟 FINAL RESPONSE (UNCHANGED STRUCTURE)
     // --------------------------------------------------
     return {
-      success: true,
-      data: {
-        message: isCOD
-          ? 'Order created successfully with Cash on Delivery'
-          : 'Order created successfully',
+      message: isCOD
+        ? 'Order created successfully with Cash on Delivery'
+        : 'Order created successfully',
 
-        // 🔒 ORDER IS 100% UNCHANGED
-        order: completeOrder,
+      order: completeOrder,
+      paymentMethod: completeOrder.paymentMethod,
+      orderAmount,
+      shippingCost,
+      totalOrderAmount,
 
-        paymentMethod: completeOrder.paymentMethod,
-        orderAmount,
-        shippingCost,
-        totalOrderAmount,
-
-        // 🆕 ADDITIVE FIELDS (SAFE FOR NON-COD)
-        ...(isCOD
-          ? {}
-          : {
-            paymentGateway: 'myfatoorah',
-            paymentReference: fatoorahPaymentId,
-          }),
-      },
+      ...(isCOD
+        ? {}
+        : {
+          paymentGateway: 'myfatoorah',
+          paymentReference: fatoorahPaymentId,
+        }),
     };
 
   }
