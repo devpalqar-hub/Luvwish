@@ -577,31 +577,42 @@ export class RazorpayService {
       if (!fatoorahPaymentId) {
         throw new Error('Payment ID is required for online payment');
       }
-
       const paymentResult = await this.myFatoorahService.verifyPayment(
         fatoorahPaymentId,
       );
 
       const paymentData = paymentResult.Data;
 
-      const transaction = paymentData.Transactions?.[0];
+      console.log(
+        'MyFatoorah verification response:',
+        JSON.stringify(paymentData, null, 2),
+      );
 
-      if (!transaction || transaction.TransactionStatus !== 'SUCCESS') {
+      // ✅ 1. Verify payment status
+      if (
+        paymentData?.Invoice?.Status !== 'PAID' ||
+        paymentData?.Transaction?.Status !== 'SUCCESS'
+      ) {
         throw new Error('Payment not completed');
       }
 
-
-      const paidAmount = Number(transaction.PaidAmount);
-      const paidCurrency = transaction.PaidCurrency;
-
+      // ✅ 2. Verify amount
+      const paidAmount = Number(paymentData.Amount.ValueInPayCurrency);
+      const paidCurrency = paymentData.Amount.PayCurrency;
 
       if (paidAmount !== totalOrderAmount) {
-        throw new Error('Paid amount mismatch');
+        throw new Error(
+          `Paid amount mismatch: expected ${totalOrderAmount}, got ${paidAmount}`,
+        );
       }
 
+      // ✅ 3. Verify currency
       if (paidCurrency !== currency) {
-        throw new Error('Currency mismatch');
+        throw new Error(
+          `Currency mismatch: expected ${currency}, got ${paidCurrency}`,
+        );
       }
+
       console.log(
         'MyFatoorah verification response:',
         JSON.stringify(paymentResult, null, 2),
