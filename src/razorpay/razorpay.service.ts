@@ -584,12 +584,16 @@ export class RazorpayService {
 
       const paymentData = paymentResult.Data;
 
-      if (!paymentData || paymentData.InvoiceStatus !== 'Paid') {
+      const transaction = paymentData.Transactions?.[0];
+
+      if (!transaction || transaction.TransactionStatus !== 'SUCCESS') {
         throw new Error('Payment not completed');
       }
 
-      const paidAmount = Number(paymentData.InvoiceValue);
-      const paidCurrency = paymentData.InvoiceCurrency;
+
+      const paidAmount = Number(transaction.PaidAmount);
+      const paidCurrency = transaction.PaidCurrency;
+
 
       if (paidAmount !== totalOrderAmount) {
         throw new Error('Paid amount mismatch');
@@ -598,6 +602,11 @@ export class RazorpayService {
       if (paidCurrency !== currency) {
         throw new Error('Currency mismatch');
       }
+      console.log(
+        'MyFatoorah verification response:',
+        JSON.stringify(paymentResult, null, 2),
+      );
+
     }
 
 
