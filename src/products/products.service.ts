@@ -186,16 +186,19 @@ export class ProductsService {
       },
     });
 
-    const adminTokens = await this.prisma.deviceToken.findMany({
+
+    const adminTokens = await this.prisma.adminProfile.findMany({
       where: {
-        isActive: true,
-        adminId: { not: null },
+        fcmToken: { not: null },
       },
       select: {
-        token: true,
+        fcmToken: true,
       },
     });
-    const tokens = adminTokens.map(t => t.token);
+    console.log("tokens", adminTokens)
+    const tokens = adminTokens
+      .map(a => a.fcmToken)
+      .filter(Boolean);
 
 
     const title = '🆕 New Product Added';
@@ -203,15 +206,17 @@ export class ProductsService {
     // 🔔 SEND ADMIN NOTIFICATION (NON-BLOCKING)
     (async () => {
       try {
-        const adminTokens = await this.prisma.deviceToken.findMany({
+        const adminTokens = await this.prisma.adminProfile.findMany({
           where: {
-            isActive: true,
-            adminId: { not: null },
+            fcmToken: { not: null },
           },
-          select: { token: true },
+          select: {
+            fcmToken: true,
+          },
         });
-
-        const tokens = adminTokens.map(t => t.token);
+        const tokens = adminTokens
+          .map(a => a.fcmToken)
+          .filter(Boolean);
 
         if (tokens.length > 0) {
           await this.firebaseSender.sendPushMultiple(
