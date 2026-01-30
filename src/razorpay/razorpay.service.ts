@@ -1035,6 +1035,7 @@ export class RazorpayService {
     // 7️⃣ CREATE ORDER (TRANSACTION)
     // --------------------------------------------------
     const order = await this.prisma.$transaction(async (tx) => {
+      // 1️⃣ Reduce stock
       for (const item of orderItemsData) {
         await tx.product.updateMany({
           where: { id: item.productId, stockCount: { gte: item.quantity } },
@@ -1042,7 +1043,8 @@ export class RazorpayService {
         });
       }
 
-      return tx.order.create({
+      // 2️⃣ Create order
+      const order = await tx.order.create({
         data: {
           customerProfileId: customerProfile.id,
           orderNumber: `ORD-${Date.now()}`,
@@ -1060,6 +1062,15 @@ export class RazorpayService {
           items: { create: orderItemsData },
         },
       });
+
+      // 3️⃣ Clear cart AFTER successful order creation
+      if (useCart) {
+        await tx.cartItem.deleteMany({
+          where: { customerProfileId: customerProfile.id },
+        });
+      }
+
+      return order;
     });
 
     // --------------------------------------------------
