@@ -3,6 +3,7 @@ import { Controller, Post, Body, UseGuards, Request, HttpCode } from '@nestjs/co
 import { RazorpayService } from './razorpay.service';
 import { CreatePaymentIntentDto } from './dto/checkout.dto';
 import { JwtAuthGuard } from 'src/common/guards/jwt-auth.guard';
+import { CreatePaymentDto } from './dto/create-payment.dto';
 
 @Controller('payments')
 export class RazorpayController {
@@ -36,4 +37,9 @@ export class RazorpayController {
     );
   }
 
+
+  @Post('myfatoorah')
+  async createPayment(@Body() dto: CreatePaymentDto) {
+    return this.razorpayService.createPayment(dto);
+  }
 }
