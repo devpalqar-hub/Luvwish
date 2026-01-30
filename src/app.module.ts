@@ -31,6 +31,7 @@ import { FirebaseModule } from './firebase/firebase.module';
 import { MailModule } from './mail/mail.module';
 import { WhatsAppModule } from './whatsapp/whatsapp.module';
 import { MyFatoorahService } from './razorpay/myfatoorah.service';
+import { HttpModule, HttpService } from '@nestjs/axios';
 
 @Module({
   imports: [
@@ -41,6 +42,7 @@ import { MyFatoorahService } from './razorpay/myfatoorah.service';
     PrismaModule,
     AuthModule,
     UsersModule,
+    HttpModule,
     ResponseModule,
     ScheduleModule.forRoot(),
     ProductsModule,

@@ -1,5 +1,5 @@
 // src/payment/payment.service.ts
-import { Injectable, Inject } from '@nestjs/common';
+import { Injectable, Inject, HttpException, HttpStatus } from '@nestjs/common';
 import Razorpay from 'razorpay';
 import { CreatePaymentIntentDto } from './dto/checkout.dto';
 import { PrismaService } from '../prisma/prisma.service';
@@ -8,15 +8,20 @@ import { CoupounValueType, OrderStatus, PaymentMethod, PaymentStatus } from '@pr
 import { MailService } from 'src/mail/mail.service';
 import { FirebaseSender } from 'src/firebase/firebase.sender';
 import { MyFatoorahService } from './myfatoorah.service';
+import { CreatePaymentDto } from './dto/create-payment.dto';
+import { firstValueFrom } from 'rxjs';
+import { HttpService } from '@nestjs/axios';
 
 @Injectable()
 export class RazorpayService {
+  private readonly baseUrl = 'https://apitest.myfatoorah.com/v3/payments';
   constructor(
     @Inject('RAZORPAY_CLIENT') private readonly razorpayClient: Razorpay,
     private prisma: PrismaService,
     private readonly emailService: MailService,
     private readonly firebaseSender: FirebaseSender,
-    private readonly myFatoorahService: MyFatoorahService
+    private readonly myFatoorahService: MyFatoorahService,
+    private readonly httpService: HttpService,
   ) { }
 
   // async createOrder(dto: CreatePaymentIntentDto, customerProfileId: string) {
@@ -1215,6 +1220,26 @@ export class RazorpayService {
     }
 
     return { success: true, order };
+  }
+
+  async createPayment(data: CreatePaymentDto) {
+    try {
+      const response = await firstValueFrom(
+        this.httpService.post(this.baseUrl, data, {
+          headers: {
+            Authorization: `Bearer ${process.env.MYFATOORAH_API_KEY}`,
+            'Content-Type': 'application/json',
+          },
+        }),
+      );
+
+      return response.data;
+    } catch (error) {
+      throw new HttpException(
+        error.response?.data || 'Payment gateway error',
+        error.response?.status || HttpStatus.BAD_REQUEST,
+      );
+    }
   }
 
   // Add more methods for payment verification, refunds, etc.
