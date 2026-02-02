@@ -8,5 +8,6 @@ import { LeadsModule } from 'src/leads/leads.module';
     imports: [PrismaModule, LeadsModule],
     controllers: [EnquiryController],
     providers: [EnquiryService],
+    exports: [EnquiryService],
 })
 export class EnquiryModule { }

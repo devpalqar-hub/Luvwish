@@ -16,7 +16,10 @@ import { RazorpayModule } from 'src/razorpay/razorpay.module';
 import { AddressModule } from 'src/address/address.module';
 
 @Module({
-  imports: [EnquiryModule, RazorpayModule, AddressModule],
+  imports: [EnquiryModule, AddressModule, RazorpayModule.forRoot({
+    key_id: process.env.RAZORPAY_KEY_ID!,
+    key_secret: process.env.RAZORPAY_KEY_SECRET!,
+  }),],
   controllers: [WhatsAppController],
   providers: [
     WhatsAppService,
