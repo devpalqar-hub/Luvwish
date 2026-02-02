@@ -1,5 +1,6 @@
-import { IsEnum, IsOptional, IsString } from 'class-validator';
+import { IsEnum, IsInt, IsOptional, IsString, Min } from 'class-validator';
 import { LeadStatus } from '@prisma/client';
+import { Type } from 'class-transformer';
 
 export class LeadFilterDto {
     @IsOptional()
@@ -9,4 +10,16 @@ export class LeadFilterDto {
     @IsOptional()
     @IsEnum(LeadStatus)
     status?: LeadStatus;
+
+    @IsOptional()
+    @Type(() => Number)
+    @IsInt()
+    @Min(1)
+    page?: number;
+
+    @IsOptional()
+    @Type(() => Number)
+    @IsInt()
+    @Min(1)
+    limit?: number;
 }

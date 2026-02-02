@@ -11,8 +11,12 @@ import { OrdersService } from '../orders/orders.service';
 import { S3Service } from '../s3/s3.service';
 import { MailService } from '../mail/mail.service';
 import { FirebaseSender } from '../firebase/firebase.sender';
+import { EnquiryModule } from 'src/enquiry-forms/enquiry.module';
+import { RazorpayModule } from 'src/razorpay/razorpay.module';
+import { AddressModule } from 'src/address/address.module';
 
 @Module({
+  imports: [EnquiryModule, RazorpayModule, AddressModule],
   controllers: [WhatsAppController],
   providers: [
     WhatsAppService,
@@ -28,4 +32,4 @@ import { FirebaseSender } from '../firebase/firebase.sender';
   ],
   exports: [WhatsAppService],
 })
-export class WhatsAppModule {}
+export class WhatsAppModule { }

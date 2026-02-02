@@ -5,6 +5,11 @@ import { ProductsService } from '../products/products.service';
 import { CartService } from '../cart/cart.service';
 import { OrdersService } from '../orders/orders.service';
 import { SessionState, SessionContext } from './interfaces/whatsapp-message.interface';
+import { EnquiryService } from 'src/enquiry-forms/enquiry.service';
+import { CreatePaymentIntentDto } from 'src/razorpay/dto/checkout.dto';
+import { PaymentMethod } from '@prisma/client';
+import { RazorpayService } from 'src/razorpay/razorpay.service';
+import { AddressService } from 'src/address/address.service';
 
 @Injectable()
 export class WhatsAppMessageHandler {
@@ -16,7 +21,10 @@ export class WhatsAppMessageHandler {
     private readonly productsService: ProductsService,
     private readonly cartService: CartService,
     private readonly ordersService: OrdersService,
-  ) {}
+    private readonly enquiryService: EnquiryService,
+    private readonly razorpayservice: RazorpayService,
+    private readonly addressService: AddressService,
+  ) { }
 
   async handleIncomingMessage(phoneNumber: string, messageText: string, messageId: string) {
     try {
@@ -108,104 +116,86 @@ export class WhatsAppMessageHandler {
       case 'CONFIRMING_ORDER':
         return this.handleOrderConfirmation(session, messageText, phoneNumber);
 
+      case 'ENQUIRY_NAME':
+      case 'ENQUIRY_EMAIL':
+      case 'ENQUIRY_PHONE':
+      case 'ENQUIRY_PURPOSE':
+      case 'ENQUIRY_NOTES':
+        return this.handleEnquiryFlow(session, messageText, phoneNumber);
+
       default:
         return this.showMainMenu(phoneNumber);
     }
   }
-
   private async processButtonClick(session: any, buttonId: string, phoneNumber: string) {
-    // Handle full button IDs and split IDs
+    const [action, ...params] = buttonId.split('_');
+
     switch (buttonId) {
-      case 'browse_categories':
-        await this.showCategories(phoneNumber);
-        break;
+      case 'purchase':
+        return this.startPurchaseFlow(session, phoneNumber);
 
-      case 'search_products':
-        await this.startProductSearch(session, phoneNumber);
-        break;
+      case 'viewcart':
+        return this.showCart(session, phoneNumber);
 
-      case 'view_cart':
-        await this.showCart(session, phoneNumber);
-        break;
+      case 'purchase_now':
+        return this.startAddressSelection(session, phoneNumber);
 
       default:
-        // Handle split button IDs (e.g., 'category_123', 'product_456')
-        const [action, ...params] = buttonId.split('_');
-
         switch (action) {
-          case 'maincategory':
-            await this.showSubCategories(session, params[0], phoneNumber);
-            break;
-
-          case 'category':
-            await this.selectCategory(session, params[0], phoneNumber);
-            break;
-
-          case 'subcategory':
-            await this.selectCategory(session, params[0], phoneNumber);
-            break;
-
-          case 'product':
-            // Handle both 'product_id' and 'product_id_variations' formats
-            const productId = params[0];
-            await this.selectProduct(session, productId, phoneNumber);
-            break;
-
-          case 'variation':
-            await this.selectVariation(session, params[0], phoneNumber);
-            break;
-
           case 'addcart':
-            await this.addToCart(session, params[0], params[1], phoneNumber);
-            break;
-
-          case 'viewcart':
-            await this.showCart(session, phoneNumber);
-            break;
-
-          case 'checkout':
-            await this.startCheckout(session, phoneNumber);
-            break;
+            return this.addToCart(session, params[0], '', phoneNumber);
 
           case 'remove':
-            await this.removeFromCart(session, params[0], phoneNumber);
-            break;
+            return this.removeFromCart(session, params[0], phoneNumber);
 
-          case 'confirm':
-            await this.confirmOrder(session, phoneNumber);
-            break;
+          case 'selectaddress':
+            return this.confirmPurchase(session, params[0], phoneNumber);
 
-          case 'cancel':
-            await this.showMainMenu(phoneNumber);
-            break;
-
-          default:
-            await this.whatsappService.sendTextMessage(
-              phoneNumber,
-              'Invalid option. Please try again.',
-            );
+          case 'newaddress':
+            return this.startAddressCreation(session, phoneNumber);
         }
     }
   }
 
-  // ==================== MAIN MENU ====================
 
+
+  // private async showMainMenu(phoneNumber: string) {
+  //   await this.whatsappService.sendInteractiveMessage(
+  //     phoneNumber,
+  //     '🛍️ *Welcome to Aviar Biotech!*\n\nHow can I help you today?',
+  //     [
+  //       { id: 'Purchase', title: '📂 Browse Categories' },
+  //       { id: 'search_products', title: '🔍 Search Products' },
+  //       { id: 'view_cart', title: '🛒 View Cart' },
+  //     ],
+  //     '🏪 Aviar BioTech Shopping',
+  //     'Reply with a button or type "cart" anytime',
+  //   );
+
+  //   const session = await this.whatsappService.getOrCreateSession(phoneNumber);
+  //   await this.whatsappService.updateSessionState(session.id, 'IDLE', {});
+  // }
+
+
+
+  // ==================== MAIN MENU ====================
   private async showMainMenu(phoneNumber: string) {
     await this.whatsappService.sendInteractiveMessage(
       phoneNumber,
-      '🛍️ *Welcome to Luvwish!*\n\nHow can I help you today?',
+      '🛍️ *Welcome to Aviar Biotech!*\n\nHow can I help you today?',
       [
-        { id: 'browse_categories', title: '📂 Browse Categories' },
-        { id: 'search_products', title: '🔍 Search Products' },
-        { id: 'view_cart', title: '🛒 View Cart' },
+        { id: 'purchase', title: '🛒 Purchase Products' },
+        { id: 'enquiry', title: '🔍 Product Enquiry' },
+        { id: 'view_product', title: '📦 View Products' },
       ],
-      '🏪 Luvwish Shopping',
+      '🏪 Aviar BioTech Shopping',
       'Reply with a button or type "cart" anytime',
     );
 
     const session = await this.whatsappService.getOrCreateSession(phoneNumber);
     await this.whatsappService.updateSessionState(session.id, 'IDLE', {});
   }
+
 
   // ==================== CATEGORIES ====================
 
@@ -1147,4 +1137,413 @@ export class WhatsAppMessageHandler {
 
     return user;
   }
+
+  //------------------------------------------
+  // Added by Devanand
+  //------------------------------------------
+  private async startEnquiry(session: any, phoneNumber: string) {
+    await this.whatsappService.sendTextMessage(
+      phoneNumber,
+      '📝 *Product Enquiry*\n\nPlease enter your *Full Name*:',
+    );
+
+    await this.whatsappService.updateSessionState(session.id, 'ENQUIRY_NAME', {
+      enquiryData: {},
+    });
+  }
+  private async handleEnquiryFlow(
+    session: any,
+    text: string,
+    phoneNumber: string,
+  ) {
+    const context = session.contextData || {};
+    const enquiryData = context.enquiryData || {};
+
+    switch (session.state) {
+
+      case 'ENQUIRY_NAME':
+        enquiryData.name = text.trim();
+
+        await this.whatsappService.sendTextMessage(
+          phoneNumber,
+          '📧 Please enter your *Email Address*:'
+        );
+
+        return this.whatsappService.updateSessionState(
+          session.id,
+          'ENQUIRY_EMAIL',
+          { enquiryData },
+        );
+
+      case 'ENQUIRY_EMAIL':
+        enquiryData.email = text.trim();
+
+        await this.whatsappService.sendTextMessage(
+          phoneNumber,
+          '📞 Please enter your *Phone Number*:'
+        );
+
+        return this.whatsappService.updateSessionState(
+          session.id,
+          'ENQUIRY_PHONE',
+          { enquiryData },
+        );
+
+      case 'ENQUIRY_PHONE':
+        enquiryData.phone = text.trim();
+
+        await this.whatsappService.sendListMessage(
+          phoneNumber,
+          '📌 Select Enquiry Purpose:',
+          'Select Purpose',
+          [{
+            title: 'Purpose',
+            rows: [
+              { id: 'purpose_PRODUCT', title: 'Product Information' },
+              { id: 'purpose_BULK', title: 'Bulk Purchase' },
+              { id: 'purpose_SUPPORT', title: 'Support' },
+              { id: 'purpose_OTHER', title: 'Other' },
+            ],
+          }],
+        );
+
+        return this.whatsappService.updateSessionState(
+          session.id,
+          'ENQUIRY_PURPOSE',
+          { enquiryData },
+        );
+
+      case 'ENQUIRY_NOTES':
+        if (text.toLowerCase() !== 'skip') {
+          enquiryData.additionalNotes = text.trim();
+        }
+
+        // ✅ FINAL STEP — API CALL
+        await this.enquiryService.create({
+          name: enquiryData.name,
+          email: enquiryData.email,
+          phone: enquiryData.phone,
+          purpose: enquiryData.purpose,
+          additionalNotes: enquiryData.additionalNotes,
+        });
+
+        await this.whatsappService.sendTextMessage(
+          phoneNumber,
+          '✅ *Enquiry Submitted Successfully!*\n\nOur team will contact you shortly.',
+        );
+
+        await this.whatsappService.updateSessionState(session.id, 'IDLE', {});
+        return this.showMainMenu(phoneNumber);
+
+      default:
+        return this.showMainMenu(phoneNumber);
+    }
+  }
+
+  private async handleEnquiryPurpose(
+    session: any,
+    purpose: string,
+    phoneNumber: string,
+  ) {
+    const context = session.contextData;
+    context.enquiryData.purpose = purpose;
+
+    await this.whatsappService.sendTextMessage(
+      phoneNumber,
+      '📝 Any additional notes? (Optional — type "skip" to continue)',
+    );
+
+    await this.whatsappService.updateSessionState(
+      session.id,
+      'ENQUIRY_NOTES',
+      context,
+    );
+  }
+
+
+  private async startViewProducts(session: any, phoneNumber: string) {
+    const result = await this.productsService.findAll(
+      {
+        limit: 5, page: 1,
+        skip: 0
+      },
+    );
+
+    if (!result.data || result.data.length === 0) {
+      await this.whatsappService.sendTextMessage(
+        phoneNumber,
+        '📦 No products available at the moment.',
+      );
+      return this.showMainMenu(phoneNumber);
+    }
+
+    await this.displayViewOnlyProducts(result.data, phoneNumber);
+
+    await this.whatsappService.updateSessionState(
+      session.id,
+      'VIEWING_PRODUCTS_ONLY',
+      {},
+    );
+  }
+
+  private async displayViewOnlyProducts(products: any[], phoneNumber: string) {
+    for (const product of products) {
+      let message = `*${product.name}*\n\n`;
+
+      if (product.description) {
+        message += `${product.description.substring(0, 200)}...\n\n`;
+      }
+
+      message += `💰 Price: ₹${product.discountedPrice}\n`;
+
+      if (product.subCategory?.category) {
+        message += `📂 Category: ${product.subCategory.category.name}\n`;
+      }
+
+      if (product.images?.length) {
+        await this.whatsappService.sendImageMessage(
+          phoneNumber,
+          product.images[0].url,
+          message,
+        );
+      } else {
+        await this.whatsappService.sendTextMessage(phoneNumber, message);
+      }
+
+      await this.whatsappService.sendInteractiveMessage(
+        phoneNumber,
+        'Options:',
+        [
+          {
+            id: `viewproduct_${product.id}`,
+            title: '🔍 View Details',
+          },
+          {
+            id: 'menu',
+            title: '🔙 Back to Menu',
+          },
+        ],
+      );
+    }
+  }
+
+  private async viewSingleProduct(productId: string, phoneNumber: string) {
+    const product = await this.prisma.product.findUnique({
+      where: { id: productId },
+      include: {
+        images: true,
+        subCategory: {
+          include: { category: true },
+        },
+        productMetas: true,
+      },
+    });
+
+    if (!product) {
+      return this.whatsappService.sendTextMessage(
+        phoneNumber,
+        '❌ Product not found.',
+      );
+    }
+
+    let message = `*${product.name}*\n\n`;
+    message += `${product.description || ''}\n\n`;
+    message += `💰 Price: ₹${product.discountedPrice}\n`;
+    message += `📂 Category: ${product.subCategory?.category?.name}\n`;
+
+    if (product.productMetas?.length) {
+      message += '\n📌 *Specifications:*\n';
+      product.productMetas.forEach((m) => {
+        message += `• ${m.title}: ${m.value}\n`;
+      });
+    }
+
+    if (product.images?.length) {
+      await this.whatsappService.sendImageMessage(
+        phoneNumber,
+        product.images[0].url,
+        message,
+      );
+    } else {
+      await this.whatsappService.sendTextMessage(phoneNumber, message);
+    }
+
+    await this.whatsappService.sendInteractiveMessage(
+      phoneNumber,
+      'What next?',
+      [
+        { id: 'menu', title: '🏠 Main Menu' },
+        { id: 'enquiry', title: '📝 Enquiry' },
+      ],
+    );
+  }
+
+  private async startPurchaseFlow(session: any, phoneNumber: string) {
+    const products = await this.productsService.findAll(
+      { limit: 5, page: 1, skip: 0 },
+    );
+
+    if (!products.data.length) {
+      await this.whatsappService.sendTextMessage(
+        phoneNumber,
+        '🛒 No products available right now.',
+      );
+      return this.showMainMenu(phoneNumber);
+    }
+
+    await this.displayPurchasableProducts(products.data, phoneNumber);
+
+    await this.whatsappService.updateSessionState(
+      session.id,
+      'PURCHASE_BROWSING',
+      {},
+    );
+  }
+
+  private async displayPurchasableProducts(products: any[], phoneNumber: string) {
+    for (const product of products) {
+      let message = `*${product.name}*\n\n`;
+      message += `💰 ₹${product.discountedPrice}\n`;
+      message += `📦 Stock: ${product.stockCount}\n`;
+
+      if (product.images?.length) {
+        await this.whatsappService.sendImageMessage(
+          phoneNumber,
+          product.images[0].url,
+          message,
+        );
+      } else {
+        await this.whatsappService.sendTextMessage(phoneNumber, message);
+      }
+
+      await this.whatsappService.sendInteractiveMessage(
+        phoneNumber,
+        'Choose an action:',
+        [
+          { id: `addcart_${product.id}_`, title: '➕ Add to Cart' },
+          { id: 'viewcart', title: '🛒 View Cart' },
+          { id: 'purchase_now', title: '✅ Purchase' },
+        ],
+      );
+    }
+  }
+
+
+  private async startAddressSelection(session: any, phoneNumber: string) {
+    const addresses = await this.prisma.address.findMany({
+      where: { customerProfileId: session.customerProfile.id },
+    });
+
+    if (!addresses.length) {
+      return this.startAddressCreation(session, phoneNumber);
+    }
+
+    await this.whatsappService.sendListMessage(
+      phoneNumber,
+      '📍 Select a delivery address:',
+      'Choose Address',
+      [{
+        title: 'Saved Addresses',
+        rows: addresses.map(a => ({
+          id: `selectaddress_${a.id}`,
+          title: a.name,
+          description: `${a.city}, ${a.state} - ${a.postalCode}`,
+        })),
+      }],
+    );
+
+    await this.whatsappService.sendInteractiveMessage(
+      phoneNumber,
+      'Or add a new address:',
+      [{ id: 'newaddress', title: '➕ Add New Address' }],
+    );
+
+    await this.whatsappService.updateSessionState(
+      session.id,
+      'PURCHASE_ADDRESS_SELECT',
+      {},
+    );
+  }
+
+  private async startAddressCreation(session: any, phoneNumber: string) {
+    await this.whatsappService.sendTextMessage(
+      phoneNumber,
+      '📍 Enter Full Name:',
+    );
+
+    await this.whatsappService.updateSessionState(
+      session.id,
+      'PURCHASE_ADDRESS_CREATE',
+      { step: 1, address: {} },
+    );
+  }
+
+  private async handleAddressCreation(
+    session: any,
+    text: string,
+    phoneNumber: string,
+  ) {
+    const ctx = session.contextData;
+
+    switch (ctx.step) {
+      case 1:
+        ctx.address.name = text;
+        ctx.step = 2;
+        return this.whatsappService.sendTextMessage(phoneNumber, 'Address:');
+
+      case 2:
+        ctx.address.address = text;
+        ctx.step = 3;
+        return this.whatsappService.sendTextMessage(phoneNumber, 'City:');
+
+      case 3:
+        ctx.address.city = text;
+        ctx.step = 4;
+        return this.whatsappService.sendTextMessage(phoneNumber, 'State:');
+
+      case 4:
+        ctx.address.state = text;
+        ctx.step = 5;
+        return this.whatsappService.sendTextMessage(phoneNumber, 'Postal Code:');
+
+      case 5:
+        ctx.address.postalCode = text;
+        ctx.address.country = 'India';
+
+        const address = await this.addressService.create(
+          ctx.address,
+          session.customerProfile.userId,
+        );
+
+        return this.confirmPurchase(session, address.id, phoneNumber);
+    }
+  }
+
+  private async confirmPurchase(
+    session: any,
+    addressId: string,
+    phoneNumber: string,
+  ) {
+    const dto: CreatePaymentIntentDto = {
+      useCart: true,
+      ShippingAddressId: addressId,
+      paymentMethod: PaymentMethod.cash_on_delivery,
+      couponName: ''
+    };
+
+    const result = await this.razorpayservice.createOrder(
+      dto,
+      session.customerProfile.userId,
+    );
+
+    await this.whatsappService.sendTextMessage(
+      phoneNumber,
+      `🎉 *Order Confirmed!*\n\n🧾 Order ID: ${result.order.orderNumber}\n💰 Total: ₹${result.totalOrderAmount}`,
+    );
+
+    await this.whatsappService.updateSessionState(session.id, 'IDLE', {});
+    await this.showMainMenu(phoneNumber);
+  }
+
+
 }

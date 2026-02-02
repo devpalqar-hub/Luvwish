@@ -4,6 +4,7 @@ import { CreateLeadDto } from './dto/create-lead.dto';
 import { UpdateLeadDto } from './dto/update-lead.dto';
 import { LeadFilterDto } from './dto/lead-filter.dto';
 import { buildLeadStatusChangeMessage } from 'src/common/utility/utils';
+import { paginate } from 'src/common/utility/pagination.util';
 
 @Injectable()
 export class LeadsService {
@@ -16,25 +17,31 @@ export class LeadsService {
     }
 
     async findAll(filter: LeadFilterDto) {
-        const { search, status } = filter;
+        const { search, status, page = 1, limit = 10 } = filter;
 
-        return this.prisma.leads.findMany({
-            where: {
-                status,
-                deletedAt: null,
-                OR: search
-                    ? [
-                        { name: { contains: search } },
-                        { email: { contains: search } },
-                        { phone: { contains: search } },
-                    ]
-                    : undefined,
-            },
+        const where = {
+            status,
+            deletedAt: null,
+            OR: search
+                ? [
+                    { name: { contains: search } },
+                    { email: { contains: search } },
+                    { phone: { contains: search } },
+                ]
+                : undefined,
+        };
+
+        return paginate({
+            prismaModel: this.prisma.leads,
+            page,
+            limit,
+            where,
             orderBy: {
                 createdAt: 'desc',
             },
         });
     }
+
 
     async findOne(id: string) {
         const lead = await this.prisma.leads.findUnique({
