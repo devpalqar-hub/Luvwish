@@ -100,6 +100,7 @@ export class OrdersService {
                   images: true, // ✅ include product images
                 },
               },
+              productVariation: true,
               Review: {
                 select: {
                   id: true,
@@ -129,7 +130,7 @@ export class OrdersService {
     const order = await this.prisma.order.findUnique({
       where: { id },
       include: {
-        items: true,
+        items: { include: { product: true, productVariation: true } },
         coupun: true,
         shippingAddress: true,
       },
@@ -168,9 +169,10 @@ export class OrdersService {
             product: {
               include: {
                 images: true, // ✅ include product images
-                reviews: true
+                reviews: true,
               },
             },
+            productVariation: true
           },
         },
       },

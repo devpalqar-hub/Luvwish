@@ -1,8 +1,9 @@
 // src/payment/payment.controller.ts
-import { Controller, Post, Body, UseGuards, Request } from '@nestjs/common';
+import { Controller, Post, Body, UseGuards, Request, HttpCode } from '@nestjs/common';
 import { RazorpayService } from './razorpay.service';
 import { CreatePaymentIntentDto } from './dto/checkout.dto';
 import { JwtAuthGuard } from 'src/common/guards/jwt-auth.guard';
+import { CreatePaymentDto } from './dto/create-payment.dto';
 
 @Controller('payments')
 export class RazorpayController {
@@ -14,6 +15,14 @@ export class RazorpayController {
     const user = req.user.id;
     return this.razorpayService.createOrder(dto, user);
   }
+
+  // @Post('webhook/myfatoorah')
+  // @HttpCode(200) // MUST return 200
+  // async handleMyFatoorahWebhook(@Body() payload: any) {
+  //   // Never trust payload alone – verify using API
+  //   await this.razorpayService.processMyFatoorahWebhook(payload);
+  //   return { received: true };
+  // }
 
   @Post('verify-payment')
   async verifyPayment(@Body() body: {
@@ -28,4 +37,9 @@ export class RazorpayController {
     );
   }
 
+
+  @Post('myfatoorah')
+  async createPayment(@Body() dto: CreatePaymentDto) {
+    return this.razorpayService.createPayment(dto);
+  }
 }

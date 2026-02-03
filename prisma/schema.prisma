@@ -30,6 +30,7 @@ enum PaymentMethod {
   paypal
   stripe
   bank_transfer
+  myfatoorah
   cash_on_delivery
 }
 

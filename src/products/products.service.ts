@@ -24,12 +24,14 @@ import {
 import { generateSKU } from '../common/utility/utils';
 import { UpdateProductVariationDto } from './dto/update-product-variation.dto';
 import { Prisma } from '@prisma/client';
+import { FirebaseSender } from 'src/firebase/firebase.sender';
 
 @Injectable()
 export class ProductsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly s3Service: S3Service,
+    private readonly firebaseSender: FirebaseSender,
   ) { }
 
   // 🔹 Create product with file upload and product data
@@ -147,7 +149,7 @@ export class ProductsService {
       }
     }
 
-    return this.prisma.product.create({
+    const createdProduct = await this.prisma.product.create({
       data: {
         ...productData,
         images: allImages.length
@@ -183,6 +185,53 @@ export class ProductsService {
         variations: true,
       },
     });
+
+
+    const adminTokens = await this.prisma.adminProfile.findMany({
+      where: {
+        fcmToken: { not: null },
+      },
+      select: {
+        fcmToken: true,
+      },
+    });
+    console.log("tokens", adminTokens)
+    const tokens = adminTokens
+      .map(a => a.fcmToken)
+      .filter(Boolean);
+
+
+    const title = '🆕 New Product Added';
+    const body = `${createdProduct.name} has been added to the catalog`;
+    // 🔔 SEND ADMIN NOTIFICATION (NON-BLOCKING)
+    (async () => {
+      try {
+        const adminTokens = await this.prisma.adminProfile.findMany({
+          where: {
+            fcmToken: { not: null },
+          },
+          select: {
+            fcmToken: true,
+          },
+        });
+        const tokens = adminTokens
+          .map(a => a.fcmToken)
+          .filter(Boolean);
+
+        if (tokens.length > 0) {
+          await this.firebaseSender.sendPushMultiple(
+            tokens,
+            '🆕 New Product Added',
+            `${createdProduct.name} was successfully added`,
+          );
+        }
+      } catch (error) {
+        // ❗ Do NOT throw — product is already created
+        console.error('Admin notification failed:', error);
+      }
+    })();
+    return createdProduct;
+
   }
 
   // 🔹 Create product with image URLs only (backward compatibility)
@@ -750,6 +799,7 @@ export class ProductsService {
 
     const where: Prisma.ProductWhereInput = {
       isFeatured: true,
+      isActive: true,
       subCategory: {
         isActive: true,
         category: {

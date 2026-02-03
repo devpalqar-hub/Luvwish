@@ -6,7 +6,9 @@ export enum SupportedCurrency {
   INR = 'inr',
   EUR = 'eur',
   QAR = 'qar',
+  KWD = 'KWD', // ✅ Kuwaiti Dinar
 }
+
 
 
 export class CreatePaymentIntentDto {
@@ -29,7 +31,7 @@ export class CreatePaymentIntentDto {
   // ✅ Optional + Default Qatar Riyal
   @IsOptional()
   @IsEnum(SupportedCurrency)
-  currency?: SupportedCurrency = SupportedCurrency.QAR;
+  currency?: SupportedCurrency = SupportedCurrency.KWD;
 
   @IsOptional()
   @IsEnum(PaymentMethod)
@@ -39,5 +41,8 @@ export class CreatePaymentIntentDto {
   @IsOptional()
   couponName: string;
 
+  @IsOptional()
+  @IsString()
+  fatoorahPaymentId?: string;
 
 }

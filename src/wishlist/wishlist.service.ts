@@ -30,10 +30,6 @@ export class WishlistService {
       const variation = await this.prisma.productVariation.findFirst({
         where: {
           id: productVariationId,
-          isAvailable: true,
-          product: {
-            isStock: true,
-          },
         },
         include: { product: true },
       });
@@ -71,7 +67,6 @@ export class WishlistService {
     const product = await this.prisma.product.findFirst({
       where: {
         id: productId,
-        isStock: true,
         variations: {
           none: {}, // 🚨 prevents base product wishlist if variations exist
         },
