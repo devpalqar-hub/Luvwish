@@ -1049,9 +1049,7 @@ export class RazorpayService {
           customerProfileId: customerProfile.id,
           orderNumber: `ORD-${Date.now()}`,
           status: OrderStatus.confirmed,
-          paymentStatus: isCOD
-            ? PaymentStatus.pending
-            : PaymentStatus.completed,
+          paymentStatus: PaymentStatus.completed,
           paymentMethod: paymentMethod ?? PaymentMethod.cash_on_delivery,
           totalAmount: totalOrderAmount,
           shippingAddressId: shippingAddrs.id,
@@ -1112,11 +1110,77 @@ export class RazorpayService {
     // --------------------------------------------------
     (async () => {
       try {
-        const admins = await this.prisma.adminProfile.findMany({
-          where: { fcmToken: { not: null } },
-          select: { fcmToken: true },
+        const orderForMail = await this.prisma.order.findUnique({
+          where: { id: order.id },
+          select: {
+            orderNumber: true,
+            totalAmount: true,
+            paymentMethod: true,
+            shippingCost: true,
+            createdAt: true,
+            CustomerProfile: {
+              select: {
+                name: true,
+                phone: true,
+                user: { select: { email: true } },
+              },
+            },
+            items: {
+              select: {
+                quantity: true,
+                discountedPrice: true,
+                product: { select: { name: true } },
+              },
+            },
+          },
+        });
+        const adminsEmail = await this.prisma.adminProfile.findMany({
+          select: { fcmToken: true, user: { select: { email: true } } },
         });
 
+        // 🔹 Collect & dedupe admin emails
+        const adminEmails = [
+          ...new Set(
+            adminsEmail
+              .map((a) => a.user?.email)
+              .filter((email): email is string => Boolean(email)),
+          ),
+        ];
+
+        // 🔹 Fallback (optional but safe)
+        if (!adminEmails.length && process.env.ADMIN_EMAIL) {
+          adminEmails.push(process.env.ADMIN_EMAIL);
+        }
+
+
+        console.log(adminEmails)
+        await this.emailService.sendMail({
+          to: adminEmails,
+          subject: `🛒 New Order Placed – ${orderForMail.orderNumber}`,
+          template: 'admin-order-placed',
+          context: {
+            orderNumber: orderForMail.orderNumber,
+            totalAmount: orderForMail.totalAmount,
+            paymentMethod: orderForMail.paymentMethod,
+            createdAt: orderForMail.createdAt,
+            customer: {
+              name: orderForMail.CustomerProfile?.name,
+              email: orderForMail.CustomerProfile?.user?.email,
+              phone: orderForMail.CustomerProfile?.phone,
+            },
+            items: orderForMail.items.map(item => ({
+              name: item.product.name,
+              quantity: item.quantity,
+              price: item.discountedPrice,
+            })),
+          },
+        });
+
+
+        const admins = await this.prisma.adminProfile.findMany({
+          where: { fcmToken: { not: null } },
+          select: { fcmToken: true, user: { select: { email: true } } },
+        });
         await this.firebaseSender.sendPushMultiple(
           admins.map(a => a.fcmToken),
           'New Order Placed',

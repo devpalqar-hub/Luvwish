@@ -15,7 +15,7 @@ import {
     TopProductsResponseDto,
     TopProductItemDto,
 } from './dto/top-products-response.dto';
-import { PaymentStatus, Roles } from '@prisma/client';
+import { OrderStatus, PaymentStatus, Roles } from '@prisma/client';
 
 @Injectable()
 export class DashboardService {
@@ -302,6 +302,7 @@ export class DashboardService {
             },
             where: {
                 paymentStatus: 'completed',
+                status: { notIn: [OrderStatus.cancelled, OrderStatus.refunded] },
             },
         });
 
