@@ -25,6 +25,7 @@ import { SendOtpDto } from './dto/send-otp.dto';
 import { VerifyOtpDto } from './dto/verify-otp.dto';
 import { CompleteRegistrationDto } from './dto/complete-registration.dto';
 import { MailService } from 'src/mail/mail.service';
+import { generate6DigitOtp } from 'src/common/utility/utils';
 
 @Injectable()
 export class AuthService {
@@ -512,7 +513,7 @@ export class AuthService {
     const { email } = dto;
 
     // Use default OTP
-    const otp = '759409';
+    const otp = generate6DigitOtp();
     const expiry = new Date();
     expiry.setMinutes(expiry.getMinutes() + 15);
 
