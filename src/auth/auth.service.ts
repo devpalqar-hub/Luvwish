@@ -521,6 +521,11 @@ export class AuthService {
     const existingUser = await this.prisma.user.findUnique({
       where: { email },
     });
+    if (existingUser && existingUser.isActive === false) {
+      throw new ForbiddenException('User account is disabled');
+    }
+
+    // Create or update OTP
 
     if (existingUser) {
       // User exists - update or create OTP for login

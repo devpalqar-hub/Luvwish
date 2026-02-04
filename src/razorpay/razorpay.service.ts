@@ -833,10 +833,15 @@ export class RazorpayService {
     // --------------------------------------------------
     const customerProfile = await this.prisma.customerProfile.findUnique({
       where: { userId: customerProfileId },
+      include: { user: true },
     });
 
     if (!customerProfile) {
       throw new Error('Customer profile not found');
+    }
+
+    if (customerProfile.user.isActive === false) {
+      throw new HttpException('User account is deactivated', HttpStatus.FORBIDDEN);
     }
 
     // --------------------------------------------------
