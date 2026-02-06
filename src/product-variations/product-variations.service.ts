@@ -6,7 +6,7 @@ import { generateSKU } from '../common/utility/utils';
 
 @Injectable()
 export class ProductVariationsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly prisma: PrismaService) { }
 
   async create(createProductVariationDto: CreateProductVariationDto) {
     const { productId, ...variationData } = createProductVariationDto;
@@ -24,12 +24,12 @@ export class ProductVariationsService {
     let sku = variationData.sku;
     if (!sku) {
       sku = generateSKU(product.name, createProductVariationDto.variationName);
-      
+
       // Ensure generated SKU is unique
       let existingVariation = await this.prisma.productVariation.findUnique({
         where: { sku },
       });
-      
+
       // If collision, regenerate with retry logic
       let retryCount = 0;
       while (existingVariation && retryCount < 5) {
@@ -39,7 +39,7 @@ export class ProductVariationsService {
         });
         retryCount++;
       }
-      
+
       if (existingVariation) {
         throw new ConflictException('Unable to generate unique SKU. Please try again.');
       }
