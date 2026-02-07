@@ -32,12 +32,24 @@ export class WishlistController {
     return this.wishlistService.getWishlist(profile_id, pagination);
   }
 
+
   @UseGuards(JwtAuthGuard)
   @Delete()
-  removeFromWishlist(@Query('id') id: string, @Request() req) {
-    const profile_id = req.user.id;
-    return this.wishlistService.removeFromWishlist(id, profile_id);
+  removeFromWishlist(
+    @Request() req,
+    @Query('id') id?: string,
+    @Query('productId') productId?: string,
+
+  ) {
+    const userId = req.user.id;
+
+    return this.wishlistService.removeFromWishlist(
+      id,
+      userId,
+      productId,
+    );
   }
+
 
   @Delete()
   clearWishlist(@Request() req) {
