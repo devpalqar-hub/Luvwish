@@ -131,22 +131,53 @@ export class WishlistService {
     );
   }
 
-
-  async removeFromWishlist(id: string, userId: string) {
+  async removeFromWishlist(
+    id: string | null,
+    userId: string,
+    productId?: string,
+  ) {
     const customerProfile = await this.prisma.customerProfile.findUnique({
       where: { userId },
     });
+
     if (!customerProfile) {
       throw new NotFoundException('Customer profile not found');
     }
 
-    const item = await this.prisma.wishlist.findFirst({
-      where: { id, customerProfileId: customerProfile.id }, // ✅ correct query
-    });
-    if (!item) throw new NotFoundException('Wishlist item not found');
+    // ---------------------------------------------------
+    // Resolve wishlist item
+    // ---------------------------------------------------
+    let item;
 
+    // ✅ Existing behaviour (priority)
+    if (id) {
+      item = await this.prisma.wishlist.findFirst({
+        where: {
+          id,
+          customerProfileId: customerProfile.id,
+        },
+      });
+    }
+
+    // ✅ Optional removal using productId
+    if (!item && productId) {
+      item = await this.prisma.wishlist.findFirst({
+        where: {
+          customerProfileId: customerProfile.id,
+          productId,
+        },
+      });
+    }
+
+    if (!item) {
+      throw new NotFoundException('Wishlist item not found');
+    }
+
+    // ---------------------------------------------------
+    // Delete
+    // ---------------------------------------------------
     return this.prisma.wishlist.delete({
-      where: { id }, // ✅ id is unique, safe to delete directly
+      where: { id: item.id },
     });
   }
 
