@@ -17,7 +17,9 @@ import {
 import { WhatsAppService } from './whatsapp.service';
 import { WhatsAppMessageHandler } from './whatsapp-message.handler';
 import { CreateWhatsAppSettingsDto, UpdateWhatsAppSettingsDto } from './dto/whatsapp-settings.dto';
+import { ApiTags } from '@nestjs/swagger';
 
+@ApiTags('WhatsApp')
 @Controller('whatsapp')
 export class WhatsAppController {
   private readonly logger = new Logger(WhatsAppController.name);

@@ -15,7 +15,9 @@ import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { Roles } from '../common/decorators/roles.decorator';
 import { UploadResponseDto } from './dto/upload-response.dto';
+import { ApiTags } from '@nestjs/swagger';
 
+@ApiTags('S3')
 @Controller('s3')
 export class S3Controller {
   constructor(private readonly s3Service: S3Service) {}

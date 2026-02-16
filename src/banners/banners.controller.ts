@@ -20,9 +20,11 @@ import { RolesGuard } from '../common/guards/roles.guard';
 import { Roles } from '../common/decorators/roles.decorator';
 import { FileInterceptor, FilesInterceptor } from '@nestjs/platform-express';
 import { S3Service } from 'src/s3/s3.service';
+import { ApiTags } from '@nestjs/swagger';
 const maxSize = 10 * 1024 * 1024; // 50MB per media
 const maxSizeGallery = 50 * 1024 * 1024; // 50 MB
 
+@ApiTags('Banners')
 @Controller('banners')
 export class BannersController {
   constructor(private readonly bannersService: BannersService,
