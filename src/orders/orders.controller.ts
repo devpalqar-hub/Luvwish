@@ -12,6 +12,7 @@ import {
   ParseUUIDPipe,
   Res,
 } from '@nestjs/common';
+import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Response } from 'express';
 import { OrdersService } from './orders.service';
 import { CreateOrderDto } from './dto/create-orders.dto';
@@ -23,6 +24,8 @@ import { RolesGuard } from 'src/common/guards/roles.guard';
 import { Roles } from 'src/common/decorators/roles.decorator';
 import { UpdateOrderStatusDto } from './dto/update-order-status.dto';
 import { get } from 'http';
+
+@ApiTags('Orders')
 @Controller('orders')
 export class OrdersController {
   constructor(private readonly ordersService: OrdersService) { }
@@ -85,13 +88,33 @@ export class OrdersController {
   }
 
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('ADMIN', 'DELIVERY')
+  @Roles('ADMIN', 'SUPER_ADMIN', 'ORDER_MANAGER')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Update order status (Admin only)' })
   @Patch(':id/status')
   updateOrderStatus(
     @Param('id', new ParseUUIDPipe()) id: string,
     @Body() dto: UpdateOrderStatusDto,
   ) {
     return this.ordersService.updateOrderStatus(id, dto);
+  }
+
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('DELIVERY')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Update order status (Delivery Partner - only assigned orders)' })
+  @Patch('delivery/:orderId/status')
+  updateOrderStatusByDeliveryPartner(
+    @Param('orderId', new ParseUUIDPipe()) orderId: string,
+    @Request() req,
+    @Body() dto: UpdateOrderStatusDto,
+  ) {
+    const deliveryPartnerId = req.user.id || req.user.sub;
+    return this.ordersService.updateOrderStatusByDeliveryPartner(
+      orderId,
+      deliveryPartnerId,
+      dto,
+    );
   }
 
   @Get('admin/get-all')
@@ -148,14 +171,32 @@ export class OrdersController {
       'Content-Type',
       'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
     );
-    res.setHeader(
-      'Content-Disposition',
-      'attachment; filename=orders.xlsx',
-    );
-
-    res.send(fileBuffer);
   }
 
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('DELIVERY')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Get orders assigned to logged-in delivery partner' })
+  @Get('delivery-partner/my-orders')
+  async getMyDeliveryOrders(@Request() req, @Query() query: PaginationDto) {
+    const deliveryPartnerId = req.user.id || req.user.sub;
+    return this.ordersService.findOrdersByDeliveryPartner(
+      deliveryPartnerId,
+      Object.assign(query, { status: query.status }),
+    );
+  }
+
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('ADMIN', 'SUPER_ADMIN', 'ORDER_MANAGER')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Manually assign or reassign a delivery partner to an order' })
+  @Patch(':orderId/assign-delivery-partner')
+  async assignDeliveryPartner(
+    @Param('orderId') orderId: string,
+    @Body('deliveryPartnerId') deliveryPartnerId: string,
+  ) {
+    return this.ordersService.assignDeliveryPartner(orderId, deliveryPartnerId);
+  }
 
   @Get('check/delivery')
   async checkDeliverable(@Query('postalCode') postalCode: string) {
@@ -174,5 +215,5 @@ export class OrdersController {
   }
 
 
-
 }
+
