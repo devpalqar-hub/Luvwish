@@ -197,14 +197,6 @@ export class OrdersController {
   ) {
     return this.ordersService.assignDeliveryPartner(orderId, deliveryPartnerId);
   }
-    res.setHeader(
-      'Content-Disposition',
-      'attachment; filename=orders.xlsx',
-    );
-
-    res.send(fileBuffer);
-  }
-
 
   @Get('check/delivery')
   async checkDeliverable(@Query('postalCode') postalCode: string) {
@@ -223,5 +215,5 @@ export class OrdersController {
   }
 
 
-
 }
+

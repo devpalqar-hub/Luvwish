@@ -29,7 +29,7 @@
     "@nestjs/platform-express": "10.4.22",
     "@nestjs/platform-socket.io": "10.4.22",
     "@nestjs/schedule": "3.0.4",
-    "@nestjs/swagger": "7.4.2",
+    "@nestjs/swagger": "^7.4.2",
     "@nestjs/throttler": "5.1.2",
     "@nestjs/websockets": "^10.4.22",
     "@prisma/client": "^6.16.2",
