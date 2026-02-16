@@ -21,11 +21,52 @@ export class OrdersService {
     private readonly firebaseSender: FirebaseSender
   ) { }
 
+  /**
+   * Get next delivery partner in round-robin rotation
+   */
+  private async getNextDeliveryPartner(): Promise<string | null> {
+    // Get all active delivery partners
+    const deliveryPartners = await this.prisma.user.findMany({
+      where: {
+        role: 'DELIVERY',
+        isActive: true,
+      },
+      select: {
+        id: true,
+        email: true,
+        deliveryOrders: {
+          select: {
+            id: true,
+          },
+        },
+      },
+      orderBy: {
+        createdAt: 'asc', // Oldest partners first
+      },
+    });
+
+    if (deliveryPartners.length === 0) {
+      return null; // No delivery partners available
+    }
+
+    // Find the partner with least assigned orders (round-robin)
+    const partnerWithLeastOrders = deliveryPartners.reduce((min, partner) => {
+      return partner.deliveryOrders.length < min.deliveryOrders.length ? partner : min;
+    });
+
+    return partnerWithLeastOrders.id;
+  }
+
   async create(createOrderDto: CreateOrderDto) {
     const { items, ...orderData } = createOrderDto;
-    return this.prisma.order.create({
+
+    // Get next delivery partner in rotation
+    const deliveryPartnerId = await this.getNextDeliveryPartner();
+
+    const order = await this.prisma.order.create({
       data: {
         ...orderData,
+        deliveryPartnerId,
         items: {
           create: items.map((item) => ({
             productId: item.productId,
@@ -38,8 +79,35 @@ export class OrdersService {
       include: {
         items: true,
         shippingAddress: true,
+        deliveryPartner: {
+          select: {
+            id: true,
+            email: true,
+            AdminProfile: {
+              select: {
+                name: true,
+                fcmToken: true,
+              },
+            },
+          },
+        },
       },
     });
+
+    // Send push notification to assigned delivery partner
+    if (order.deliveryPartner?.AdminProfile?.fcmToken) {
+      try {
+        await this.firebaseSender.sendPush(
+          order.deliveryPartner.AdminProfile.fcmToken,
+          'New Order Assigned',
+          `Order #${order.orderNumber} has been assigned to you. Total: ${order.totalAmount}`,
+        );
+      } catch (error) {
+        console.error('Failed to send push notification to delivery partner:', error);
+      }
+    }
+
+    return order;
   }
 
   async findAll(
@@ -89,6 +157,18 @@ export class OrdersService {
           shippingAddress: true, // ✅ include full address object
           tracking: true,
           coupun: true,
+          deliveryPartner: {
+            select: {
+              id: true,
+              email: true,
+              AdminProfile: {
+                select: {
+                  name: true,
+                  phone: true,
+                },
+              },
+            },
+          },
           items: {
             select: {
               id: true,
@@ -133,6 +213,18 @@ export class OrdersService {
         items: { include: { product: true, productVariation: true } },
         coupun: true,
         shippingAddress: true,
+        deliveryPartner: {
+          select: {
+            id: true,
+            email: true,
+            AdminProfile: {
+              select: {
+                name: true,
+                phone: true,
+              },
+            },
+          },
+        },
       },
     });
     if (!order) throw new NotFoundException(`Order with id ${id} not found`);
@@ -161,6 +253,18 @@ export class OrdersService {
         shippingAddress: true,
         tracking: true,
         coupun: true,
+        deliveryPartner: {
+          select: {
+            id: true,
+            email: true,
+            AdminProfile: {
+              select: {
+                name: true,
+                phone: true,
+              },
+            },
+          },
+        },
         items: {
           select: {
             id: true,
@@ -313,6 +417,106 @@ export class OrdersService {
     };
   }
 
+  /**
+   * Update order status by delivery partner (only for their assigned orders)
+   */
+  async updateOrderStatusByDeliveryPartner(
+    orderId: string,
+    deliveryPartnerId: string,
+    dto: UpdateOrderStatusDto,
+  ) {
+    // 1️⃣ Ensure order exists and is assigned to this delivery partner
+    const existing = await this.prisma.order.findFirst({
+      where: {
+        id: orderId,
+        deliveryPartnerId: deliveryPartnerId,
+      },
+      select: {
+        id: true,
+        orderNumber: true,
+        status: true,
+        paymentStatus: true,
+        deliveryPartnerId: true,
+        CustomerProfile: {
+          select: {
+            name: true,
+            fcmToken: true,
+            user: {
+              select: { email: true },
+            },
+          },
+        },
+        deliveryPartner: {
+          select: {
+            AdminProfile: {
+              select: {
+                name: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    if (!existing) {
+      throw new NotFoundException(
+        'Order not found or not assigned to you',
+      );
+    }
+
+    const statusChanged = dto.status && dto.status !== existing.status;
+    const paymentStatusChanged =
+      dto.paymentStatus && dto.paymentStatus !== existing.paymentStatus;
+
+    // 2️⃣ Update order
+    const updated = await this.prisma.order.update({
+      where: { id: orderId },
+      data: {
+        ...(dto.status && { status: dto.status }),
+        ...(dto.paymentStatus && { paymentStatus: dto.paymentStatus }),
+      },
+    });
+
+    // 3️⃣ Send notifications to customer
+    if (
+      (statusChanged || paymentStatusChanged) &&
+      existing.CustomerProfile?.user?.email
+    ) {
+      const deliveryPartnerName =
+        existing.deliveryPartner?.AdminProfile?.name || 'Delivery Partner';
+
+      await this.emailService.sendMail({
+        to: existing.CustomerProfile.user.email,
+        subject: `Order Update – ${existing.orderNumber}`,
+        template: 'order-status-update',
+        context: {
+          customerName: existing.CustomerProfile.name,
+          orderNumber: existing.orderNumber,
+          deliveryPartnerName,
+          oldStatus: statusChanged ? existing.status : null,
+          newStatus: statusChanged ? dto.status : null,
+          oldPaymentStatus: paymentStatusChanged
+            ? existing.paymentStatus
+            : null,
+          newPaymentStatus: paymentStatusChanged ? dto.paymentStatus : null,
+        },
+      });
+
+      if (existing.CustomerProfile.fcmToken) {
+        await this.firebaseSender.sendPush(
+          existing.CustomerProfile.fcmToken,
+          'Order Status Updated',
+          `Your order ${existing.orderNumber} is now ${dto.status || existing.status}`,
+        );
+      }
+    }
+
+    return {
+      message: 'Order status updated successfully',
+      data: updated,
+    };
+  }
+
 
 
   async adminFindAll(
@@ -371,6 +575,18 @@ export class OrdersService {
           shippingAddress: true,
           tracking: true,
           coupun: true,
+          deliveryPartner: {
+            select: {
+              id: true,
+              email: true,
+              AdminProfile: {
+                select: {
+                  name: true,
+                  phone: true,
+                },
+              },
+            },
+          },
           items: {
             select: {
               id: true,
@@ -383,6 +599,75 @@ export class OrdersService {
                   images: true, // ✅ include product images
                 },
               },
+            },
+          },
+        },
+      }),
+      this.prisma.order.count({ where: whereClause }),
+    ]);
+
+    return new PaginationResponseDto(data, total, page, limit);
+  }
+
+  /**
+   * Get orders assigned to a specific delivery partner
+   */
+  async findOrdersByDeliveryPartner(
+    deliveryPartnerId: string,
+    pagination: PaginationDto & {
+      status?: string;
+    },
+  ) {
+    const page = Number(pagination.page) || 1;
+    const limit = Number(pagination.limit) || 10;
+    const skip = (page - 1) * limit;
+
+    const whereClause: any = { deliveryPartnerId };
+
+    if (pagination.status) {
+      whereClause.status = pagination.status;
+    }
+
+    const [data, total] = await this.prisma.$transaction([
+      this.prisma.order.findMany({
+        where: whereClause,
+        skip,
+        take: limit,
+        orderBy: { createdAt: 'desc' },
+        select: {
+          id: true,
+          orderNumber: true,
+          status: true,
+          paymentStatus: true,
+          paymentMethod: true,
+          totalAmount: true,
+          shippingCost: true,
+          taxAmount: true,
+          discountAmount: true,
+          notes: true,
+          createdAt: true,
+          updatedAt: true,
+          CustomerProfile: {
+            select: {
+              id: true,
+              name: true,
+              phone: true,
+            },
+          },
+          shippingAddress: true,
+          tracking: true,
+          items: {
+            select: {
+              id: true,
+              quantity: true,
+              product: {
+                select: {
+                  id: true,
+                  name: true,
+                  images: true,
+                },
+              },
+              productVariation: true,
             },
           },
         },
@@ -703,5 +988,80 @@ export class OrdersService {
     );
   }
 
+  /**
+   * Manually assign or reassign a delivery partner to an order
+   */
+  async assignDeliveryPartner(orderId: string, deliveryPartnerId: string) {
+    // Verify order exists
+    const order = await this.prisma.order.findUnique({
+      where: { id: orderId },
+      select: { id: true, orderNumber: true, totalAmount: true, deliveryPartnerId: true },
+    });
+
+    if (!order) {
+      throw new NotFoundException('Order not found');
+    }
+
+    // Verify delivery partner exists and is active
+    const deliveryPartner = await this.prisma.user.findFirst({
+      where: {
+        id: deliveryPartnerId,
+        role: 'DELIVERY',
+        isActive: true,
+      },
+      select: {
+        id: true,
+        email: true,
+        AdminProfile: {
+          select: {
+            name: true,
+            fcmToken: true,
+          },
+        },
+      },
+    });
+
+    if (!deliveryPartner) {
+      throw new NotFoundException('Delivery partner not found or inactive');
+    }
+
+    // Update order with new delivery partner
+    const updatedOrder = await this.prisma.order.update({
+      where: { id: orderId },
+      data: { deliveryPartnerId },
+      include: {
+        deliveryPartner: {
+          select: {
+            id: true,
+            email: true,
+            AdminProfile: {
+              select: {
+                name: true,
+                phone: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    // Send push notification to newly assigned delivery partner
+    if (deliveryPartner?.AdminProfile?.fcmToken) {
+      try {
+        await this.firebaseSender.sendPush(
+          deliveryPartner.AdminProfile.fcmToken,
+          'Order Assigned',
+          `Order #${order.orderNumber} has been assigned to you. Total: ${order.totalAmount}`,
+        );
+      } catch (error) {
+        console.error('Failed to send push notification:', error);
+      }
+    }
+
+    return {
+      message: 'Delivery partner assigned successfully',
+      data: updatedOrder,
+    };
+  }
 
 }
