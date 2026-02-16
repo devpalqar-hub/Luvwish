@@ -5,7 +5,9 @@ import { RolesGuard } from '../common/guards/roles.guard';
 import { Roles } from '../common/decorators/roles.decorator';
 import { AdminCustomerFilterDto } from './dto/admin-customer-filter.dto';
 import { UpdateUserStatusDto } from './dto/update-user-status.dto';
+import { ApiTags } from '@nestjs/swagger';
 
+@ApiTags('Users')
 @Controller('users')
 export class UsersController {
   constructor(private readonly usersService: UsersService) { }

@@ -6,7 +6,9 @@ import { Roles } from '../common/decorators/roles.decorator';
 import { DashboardFilterDto } from './dto/dashboard-filter.dto';
 import { RecentOrdersFilterDto } from './dto/recent-orders-filter.dto';
 import { TopProductsFilterDto } from './dto/top-products-filter.dto';
+import { ApiTags } from '@nestjs/swagger';
 
+@ApiTags('Dashboard')
 @Controller('dashboard')
 export class DashboardController {
   constructor(private readonly dashboardService: DashboardService) { }

@@ -13,7 +13,9 @@ import { WishlistService } from './wishlist.service';
 import { CreateWishlistDto } from './dto/wishlist.dto';
 import { PaginationDto } from 'src/pagination/dto/pagination.dto';
 import { JwtAuthGuard } from 'src/common/guards/jwt-auth.guard';
+import { ApiTags } from '@nestjs/swagger';
 
+@ApiTags('Wishlist')
 @Controller('wishlist')
 export class WishlistController {
   constructor(private readonly wishlistService: WishlistService) { }

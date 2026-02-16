@@ -5,7 +5,9 @@ import { UpdateTrackingDetailDto } from './dto/update-tracking-detail.dto';
 import { JwtAuthGuard } from 'src/common/guards/jwt-auth.guard';
 import { RolesGuard } from 'src/common/guards/roles.guard';
 import { Roles } from 'src/common/decorators/roles.decorator';
+import { ApiTags } from '@nestjs/swagger';
 
+@ApiTags('Tracking Details')
 @Controller('tracking-details')
 export class TrackingDetailController {
     constructor(private readonly trackingDetailService: TrackingDetailService) { }

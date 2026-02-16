@@ -7,7 +7,9 @@ import { MarkHelpfulDto } from './dto/mark-helpful.dto';
 import { JwtAuthGuard } from 'src/common/guards/jwt-auth.guard';
 import { RolesGuard } from 'src/common/decorators/roles.guard';
 import { Roles } from 'src/common/decorators/roles.decorator';
+import { ApiTags } from '@nestjs/swagger';
 
+@ApiTags('Reviews')
 @Controller('reviews')
 export class ReviewController {
     constructor(private readonly reviewService: ReviewService) { }

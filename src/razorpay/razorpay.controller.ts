@@ -4,7 +4,9 @@ import { RazorpayService } from './razorpay.service';
 import { CreatePaymentIntentDto } from './dto/checkout.dto';
 import { JwtAuthGuard } from 'src/common/guards/jwt-auth.guard';
 import { CreatePaymentDto } from './dto/create-payment.dto';
+import { ApiTags } from '@nestjs/swagger';
 
+@ApiTags('Payments')
 @Controller('payments')
 export class RazorpayController {
   constructor(private readonly razorpayService: RazorpayService) { }
