@@ -14,9 +14,12 @@ const prisma = new PrismaClient();
 
 async function main() {
 
-    console.log('🌱 Seeding delivery partner test data...');
+    console.log('🌱 Running conflict-safe delivery analytics seed...');
 
     const password = await bcrypt.hash('123456', 10);
+
+    // Unique suffix for every seed run
+    const seedTag = Date.now();
 
     /*
     --------------------------------------------------
@@ -26,7 +29,7 @@ async function main() {
 
     const admin = await prisma.user.create({
         data: {
-            email: 'admin@test.com',
+            email: `admin-${seedTag}@test.com`,
             role: Roles.ADMIN,
             password
         }
@@ -34,7 +37,7 @@ async function main() {
 
     const delivery1 = await prisma.user.create({
         data: {
-            email: 'delivery1@test.com',
+            email: `delivery-a-${seedTag}@test.com`,
             role: Roles.DELIVERY,
             password
         }
@@ -42,7 +45,7 @@ async function main() {
 
     const delivery2 = await prisma.user.create({
         data: {
-            email: 'delivery2@test.com',
+            email: `delivery-b-${seedTag}@test.com`,
             role: Roles.DELIVERY,
             password
         }
@@ -50,20 +53,20 @@ async function main() {
 
     /*
     --------------------------------------------------
-    CUSTOMERS
+    CUSTOMER
     --------------------------------------------------
     */
 
-    const customer1 = await prisma.user.create({
+    const customer = await prisma.user.create({
         data: {
-            email: 'customer1@test.com',
+            email: `customer-${seedTag}@test.com`,
             role: Roles.CUSTOMER,
             password,
             CustomerProfile: {
                 create: {
-                    name: 'Customer One',
-                    phone: '9999999991',
-                    city: 'Kollam',
+                    name: 'Ajay Kumar',
+                    phone: '9998887770',
+                    city: 'Kochi',
                     state: 'Kerala',
                     country: 'India'
                 }
@@ -72,58 +75,75 @@ async function main() {
         include: { CustomerProfile: true }
     });
 
-    const address1 = await prisma.address.create({
+    const address = await prisma.address.create({
         data: {
             name: 'Home',
-            address: 'Beach Road',
-            city: 'Kollam',
+            address: 'Marine Drive',
+            city: 'Kochi',
             state: 'Kerala',
-            postalCode: '691001',
+            postalCode: '682031',
             country: 'India',
-            customerProfileId: customer1.CustomerProfile!.id
+            customerProfileId: customer.CustomerProfile!.id
         }
     });
 
     /*
     --------------------------------------------------
-    PRODUCT DATA
+    CATEGORY / SUBCATEGORY
     --------------------------------------------------
     */
 
     const category = await prisma.category.create({
         data: {
-            name: 'Groceries',
-            slug: 'groceries'
+            name: `Clothing-${seedTag}`,
+            slug: `clothing-${seedTag}`
         }
     });
 
     const subCategory = await prisma.subCategory.create({
         data: {
-            name: 'Snacks',
-            slug: 'snacks',
+            name: `Menswear-${seedTag}`,
+            slug: `menswear-${seedTag}`,
             categoryId: category.id
         }
     });
 
-    const product = await prisma.product.create({
+    /*
+    --------------------------------------------------
+    PRODUCTS
+    --------------------------------------------------
+    */
+
+    const tshirt = await prisma.product.create({
         data: {
-            name: 'Chocolate Cookies',
-            actualPrice: 200,
-            discountedPrice: 150,
+            name: `Cotton T-Shirt ${seedTag}`,
+            actualPrice: 899,
+            discountedPrice: 699,
             stockCount: 100,
+            subCategoryId: subCategory.id
+        }
+    });
+
+    const hoodie = await prisma.product.create({
+        data: {
+            name: `Winter Hoodie ${seedTag}`,
+            actualPrice: 1999,
+            discountedPrice: 1499,
+            stockCount: 80,
             subCategoryId: subCategory.id
         }
     });
 
     /*
     --------------------------------------------------
-    ORDER CREATION HELPER
+    ORDER HELPER
     --------------------------------------------------
     */
 
     async function createOrder(
-        orderNumber: string,
-        deliveryPartnerId: string,
+        index: number,
+        partnerId: string,
+        productId: string,
         orderStatus: OrderStatus,
         trackingStatus: TrackingStatus,
         daysAgo: number
@@ -132,30 +152,32 @@ async function main() {
         const createdDate = new Date();
         createdDate.setDate(createdDate.getDate() - daysAgo);
 
+        const orderNumber = `ORD-${seedTag}-${index}`;
+
         const order = await prisma.order.create({
             data: {
                 orderNumber,
                 status: orderStatus,
                 paymentStatus: PaymentStatus.completed,
                 paymentMethod: PaymentMethod.cash_on_delivery,
-                totalAmount: 150,
-                customerProfileId: customer1.CustomerProfile!.id,
-                shippingAddressId: address1.id,
-                deliveryPartnerId,
+                totalAmount: 699,
+                customerProfileId: customer.CustomerProfile!.id,
+                shippingAddressId: address.id,
+                deliveryPartnerId: partnerId,
                 createdAt: createdDate,
 
                 items: {
                     create: [{
-                        productId: product.id,
+                        productId,
                         quantity: 1,
-                        actualPrice: 200,
-                        discountedPrice: 150
+                        actualPrice: 899,
+                        discountedPrice: 699
                     }]
                 },
 
                 Payment: {
                     create: [{
-                        amount: 150,
+                        amount: 699,
                         method: PaymentMethod.cash_on_delivery,
                         status: PaymentStatus.completed
                     }]
@@ -166,7 +188,7 @@ async function main() {
         await prisma.trackingDetail.create({
             data: {
                 orderId: order.id,
-                carrier: 'Internal',
+                carrier: 'Internal Logistics',
                 trackingNumber: `TRK-${orderNumber}`,
                 status: trackingStatus,
                 lastUpdatedAt: new Date()
@@ -178,29 +200,32 @@ async function main() {
 
     /*
     --------------------------------------------------
-    ORDERS FOR DELIVERY PARTNER 1
+    ORDERS
     --------------------------------------------------
     */
 
     const deliveredOrder = await createOrder(
-        'ORD-1001',
+        1,
         delivery1.id,
+        tshirt.id,
         OrderStatus.delivered,
         TrackingStatus.delivered,
         2
     );
 
     await createOrder(
-        'ORD-1002',
+        2,
         delivery1.id,
+        hoodie.id,
         OrderStatus.shipped,
         TrackingStatus.in_transit,
         1
     );
 
     await createOrder(
-        'ORD-1003',
-        delivery1.id,
+        3,
+        delivery2.id,
+        tshirt.id,
         OrderStatus.processing,
         TrackingStatus.out_for_delivery,
         0
@@ -208,44 +233,22 @@ async function main() {
 
     /*
     --------------------------------------------------
-    ORDERS FOR DELIVERY PARTNER 2
-    --------------------------------------------------
-    */
-
-    await createOrder(
-        'ORD-2001',
-        delivery2.id,
-        OrderStatus.delivered,
-        TrackingStatus.delivered,
-        3
-    );
-
-    await createOrder(
-        'ORD-2002',
-        delivery2.id,
-        OrderStatus.shipped,
-        TrackingStatus.in_transit,
-        0
-    );
-
-    /*
-    --------------------------------------------------
-    RETURNS
+    RETURN
     --------------------------------------------------
     */
 
     await prisma.return.create({
         data: {
             orderId: deliveredOrder.id,
-            customerProfileId: customer1.CustomerProfile!.id,
+            customerProfileId: customer.CustomerProfile!.id,
             deliveryPartnerId: delivery1.id,
             status: ReturnStatus.picked_up,
-            reason: 'Damaged product',
-            refundAmount: 150
+            reason: 'Size issue',
+            refundAmount: 699
         }
     });
 
-    console.log('✅ Delivery partner seed completed successfully');
+    console.log('✅ Conflict-safe seed completed successfully');
 }
 
 main()
