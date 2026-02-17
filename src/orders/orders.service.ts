@@ -375,7 +375,7 @@ export class OrdersService {
       dto.paymentStatus && dto.paymentStatus !== existing.paymentStatus;
 
     // 2️⃣ Update order
-    const updated = await this.prisma.order.update({
+    const updated = await this.prisma.trackingDetail.update({
       where: { id },
       data: {
         ...(dto.status && { status: dto.status }),
@@ -469,7 +469,7 @@ export class OrdersService {
       dto.paymentStatus && dto.paymentStatus !== existing.paymentStatus;
 
     // 2️⃣ Update order
-    const updated = await this.prisma.order.update({
+    const updated = await this.prisma.trackingDetail.update({
       where: { id: orderId },
       data: {
         ...(dto.status && { status: dto.status }),
