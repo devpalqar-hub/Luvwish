@@ -14,6 +14,7 @@ import { OrderAggregatesFilterDto } from './dto/order-aggregates-filter.dto';
 import * as ExcelJS from 'exceljs';
 import { MailService } from 'src/mail/mail.service';
 import { FirebaseSender } from 'src/firebase/firebase.sender';
+import { BulkUpdateOrderStatusDto } from './dto/update-bulk-orders.dto';
 
 @Injectable()
 export class OrdersService {
@@ -1061,6 +1062,121 @@ export class OrdersService {
     return {
       message: 'Delivery partner assigned successfully',
       data: updatedOrder,
+    };
+  }
+
+
+  async bulkUpdateOrderStatusByDeliveryPartner(
+    deliveryPartnerId: string,
+    dto: BulkUpdateOrderStatusDto,
+  ) {
+    const { orderIds, status, paymentStatus } = dto;
+
+    // 1️⃣ Fetch orders with tracking
+    const orders = await this.prisma.order.findMany({
+      where: {
+        id: { in: orderIds },
+        deliveryPartnerId,
+      },
+      include: {
+        tracking: true,
+        CustomerProfile: {
+          select: {
+            name: true,
+            fcmToken: true,
+            user: { select: { email: true } },
+          },
+        },
+        deliveryPartner: {
+          select: {
+            AdminProfile: { select: { name: true } },
+          },
+        },
+      },
+    });
+
+    if (orders.length !== orderIds.length) {
+      throw new NotFoundException(
+        'Some orders not found or not assigned to you',
+      );
+    }
+
+    // 2️⃣ Ensure all orders have tracking
+    if (orders.some(o => !o.tracking)) {
+      throw new BadRequestException(
+        'Some orders do not have tracking details',
+      );
+    }
+
+    // 3️⃣ Validate all have same tracking status
+    const currentStatus = orders[0].tracking.status;
+
+    const invalid = orders.some(
+      o => o.tracking.status !== currentStatus,
+    );
+
+    if (invalid) {
+      throw new BadRequestException(
+        'All selected orders must have same tracking status',
+      );
+    }
+
+    // 4️⃣ Transactional update
+    await this.prisma.$transaction([
+      this.prisma.trackingDetail.updateMany({
+        where: {
+          orderId: { in: orderIds },
+        },
+        data: {
+          status,
+          lastUpdatedAt: new Date(),
+        },
+      }),
+      this.prisma.order.updateMany({
+        where: {
+          id: { in: orderIds },
+        },
+        data: {
+          paymentStatus,
+        },
+      }),
+    ]);
+
+    // 5️⃣ Notifications (non-blocking loop)
+    for (const order of orders) {
+      const deliveryPartnerName =
+        order.deliveryPartner?.AdminProfile?.name ||
+        'Delivery Partner';
+
+      if (order.CustomerProfile?.user?.email) {
+        await this.emailService.sendMail({
+          to: order.CustomerProfile.user.email,
+          subject: `Order Update – ${order.orderNumber}`,
+          template: 'order-status-update',
+          context: {
+            customerName: order.CustomerProfile.name,
+            orderNumber: order.orderNumber,
+            deliveryPartnerName,
+            oldStatus: order.tracking.status,
+            newStatus: status,
+            oldPaymentStatus: order.paymentStatus,
+            newPaymentStatus: paymentStatus,
+          },
+        });
+      }
+
+      if (order.CustomerProfile?.fcmToken) {
+        await this.firebaseSender.sendPush(
+          order.CustomerProfile.fcmToken,
+          'Order Status Updated',
+          `Your order ${order.orderNumber} is now ${status}`,
+        );
+      }
+    }
+
+    return {
+      message: 'Orders updated successfully',
+      updatedCount: orderIds.length,
     };
   }
 

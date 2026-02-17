@@ -4,9 +4,12 @@ import { UpdateTrackingStatusDto } from './dto/update-tracking-status.dto';
 import { TrackingStatus } from '@prisma/client';
 import { FirebaseSender } from 'src/firebase/firebase.sender';
 import { MailService } from 'src/mail/mail.service';
+import { Logger } from '@nestjs/common';
+
 
 @Injectable()
 export class TrackingService {
+  private readonly logger = new Logger(TrackingService.name);
   constructor(private prisma: PrismaService, private readonly emailService: MailService,
     private readonly firebaseSender: FirebaseSender) { }
 
@@ -131,29 +134,36 @@ export class TrackingService {
     await this.syncOrderStatus(orderId, dto.status);
 
     // 📧📲 Notify customer ONLY if tracking status changed
-    if (
-      dto.status !== previousStatus &&
-      tracking.order?.CustomerProfile?.user?.email
-    ) {
-      await this.emailService.sendMail({
-        to: tracking.order.CustomerProfile.user.email,
-        subject: `Order Tracking Update – ${tracking.order.orderNumber}`,
-        template: 'order-tracking-update',
-        context: {
-          customerName: tracking.order.CustomerProfile.name,
-          orderNumber: tracking.order.orderNumber,
-          oldStatus: previousStatus,
-          newStatus: dto.status,
-          notes: dto.notes || null,
-        },
-      });
+    try {
+      if (tracking.order.CustomerProfile?.user?.email) {
+        await this.emailService.sendMail({
+          to: tracking.order.CustomerProfile.user.email,
+          subject: `Order Tracking Update – ${tracking.order.orderNumber}`,
+          template: 'order-tracking-update',
+          context: {
+            customerName: tracking.order.CustomerProfile.name,
+            orderNumber: tracking.order.orderNumber,
+            oldStatus: previousStatus,
+            newStatus: dto.status,
+            notes: dto.notes || null,
+          },
+        });
+      }
 
-      await this.firebaseSender.sendPush(
-        tracking.order.CustomerProfile.fcmToken,
-        'Order Tracking Updated',
-        `Your order ${tracking.order.orderNumber} is now ${dto.status}`,
+      if (tracking.order.CustomerProfile?.fcmToken) {
+        await this.firebaseSender.sendPush(
+          tracking.order.CustomerProfile.fcmToken,
+          'Order Tracking Updated',
+          `Your order ${tracking.order.orderNumber} is now ${dto.status}`,
+        );
+      }
+    } catch (err) {
+      this.logger.warn(
+        `Notification failed for order ${tracking.order.orderNumber}`,
+        err,
       );
     }
+
 
     return {
       message: 'Tracking status updated successfully',
