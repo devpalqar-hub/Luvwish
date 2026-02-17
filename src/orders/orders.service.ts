@@ -991,7 +991,7 @@ export class OrdersService {
   /**
    * Manually assign or reassign a delivery partner to an order
    */
-  async assignDeliveryPartner(orderId: string, deliveryPartnerId: string) {
+  async assignDeliveryPartner(orderId: string, deliveryPartnerId: string, notes: string) {
     // Verify order exists
     const order = await this.prisma.order.findUnique({
       where: { id: orderId },
@@ -1028,7 +1028,7 @@ export class OrdersService {
     // Update order with new delivery partner
     const updatedOrder = await this.prisma.order.update({
       where: { id: orderId },
-      data: { deliveryPartnerId },
+      data: { deliveryPartnerId, notes: notes },
       include: {
         deliveryPartner: {
           select: {
