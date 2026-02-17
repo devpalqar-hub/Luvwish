@@ -14,4 +14,9 @@ export class CreateDeliveryPartnerDto {
   @IsString()
   @MinLength(6)
   password: string;
+
+
+  @ApiProperty({ example: '123598239509', description: 'Delivery partner phone number' })
+  @IsString()
+  phone: string;
 }

@@ -91,6 +91,7 @@ model User {
   resetOtpExpiresAt DateTime? @default(now()) // set to current time
   isActive          Boolean   @default(true)
   name              String? //it is deliveryagents name
+  phone             String?
 
   CustomerProfile CustomerProfile?
   AdminProfile    AdminProfile?
