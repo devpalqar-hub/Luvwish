@@ -12,7 +12,7 @@ import {
   ParseUUIDPipe,
   Res,
 } from '@nestjs/common';
-import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiBody, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Response } from 'express';
 import { OrdersService } from './orders.service';
 import { CreateOrderDto } from './dto/create-orders.dto';
@@ -190,6 +190,19 @@ export class OrdersController {
   @Roles('ADMIN', 'SUPER_ADMIN', 'ORDER_MANAGER', 'DELIVERY')
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Manually assign or reassign a delivery partner to an order' })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        deliveryPartnerId: {
+          type: 'string',
+          example: 'clx9a2k3f0001abc123xyz',
+          description: 'Delivery partner ID to assign to the order',
+        },
+      },
+      required: ['deliveryPartnerId'],
+    },
+  })
   @Patch(':orderId/assign-delivery-partner')
   async assignDeliveryPartner(
     @Param('orderId') orderId: string,
