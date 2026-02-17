@@ -469,14 +469,24 @@ export class OrdersService {
     const paymentStatusChanged =
       dto.paymentStatus && dto.paymentStatus !== existing.paymentStatus;
 
-    // 2️⃣ Update order
+    // update tracking status
     const updated = await this.prisma.trackingDetail.update({
       where: { id: orderId },
       data: {
         ...(dto.status && { status: dto.status }),
-        ...(dto.paymentStatus && { paymentStatus: dto.paymentStatus }),
       },
     });
+
+    // update payment status separately (belongs to Order)
+    if (dto.paymentStatus) {
+      await this.prisma.order.update({
+        where: { id: orderId },
+        data: {
+          paymentStatus: dto.paymentStatus,
+        },
+      });
+    }
+
 
     // 3️⃣ Send notifications to customer
     if (
