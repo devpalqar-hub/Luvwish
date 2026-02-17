@@ -11,7 +11,7 @@ import * as bcrypt from 'bcrypt';
 
 @Injectable()
 export class DeliveryPartnersService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly prisma: PrismaService) { }
 
   async create(dto: CreateDeliveryPartnerDto) {
     const existingUser = await this.prisma.user.findUnique({
@@ -255,6 +255,21 @@ export class DeliveryPartnersService {
       },
     });
 
+    // Get total returned orders count
+    const returnedOrdersCount = await this.prisma.return.count({
+      where: {
+        deliveryPartnerId: partnerId,
+        ...(Object.keys(dateFilter).length > 0 && {
+          createdAt: dateFilter,
+        }),
+      },
+    });
+
+    const pendingOrders = orders.filter(
+      (order) => order.status === 'pending',
+    ).length;
+
+
     // Calculate statistics
     const totalOrders = orders.length;
     const totalRevenue = orders.reduce(
@@ -316,6 +331,8 @@ export class DeliveryPartnersService {
         totalRevenue,
         totalItems,
         completedOrders,
+        pendingOrders,
+        returnedOrdersCount,
         completedRevenue,
         averageOrderValue: totalOrders > 0 ? totalRevenue / totalOrders : 0,
       },
