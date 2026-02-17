@@ -9,11 +9,11 @@ async function main() {
     // 1. Find existing delivery partner
     // ------------------------------------------------------------------
     const deliveryPartner = await prisma.user.findUnique({
-        where: { email: 'reema@delivery.com' },
+        where: { email: 'newemail@example.com' },
     });
 
     if (!deliveryPartner) {
-        throw new Error('Delivery partner reema@delivery.com not found');
+        throw new Error('Delivery partner newemail@example.com not found');
     }
 
     // ------------------------------------------------------------------
