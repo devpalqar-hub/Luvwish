@@ -90,13 +90,14 @@ model User {
   resetOtp          String?   @default("0") // string default
   resetOtpExpiresAt DateTime? @default(now()) // set to current time
   isActive          Boolean   @default(true)
+  name              String? //it is deliveryagents name
 
-  CustomerProfile   CustomerProfile?
-  AdminProfile      AdminProfile?
-  UserOtp           UserOtp[]
-  DeviceToken       DeviceToken[]
-  deliveryOrders    Order[]           @relation("DeliveryPartner")
-  deliveryReturns   Return[]          @relation("DeliveryPartnerReturns")
+  CustomerProfile CustomerProfile?
+  AdminProfile    AdminProfile?
+  UserOtp         UserOtp[]
+  DeviceToken     DeviceToken[]
+  deliveryOrders  Order[]          @relation("DeliveryPartner")
+  deliveryReturns Return[]         @relation("DeliveryPartnerReturns")
 
   @@map("users")
 }
@@ -288,9 +289,9 @@ model Order {
   createdAt DateTime        @default(now())
   updatedAt DateTime        @updatedAt
 
-  coupun            Coupon?         @relation(fields: [coupounId], references: [id])
-  isCoupuonApplied  Boolean         @default(false)
-  deliveryPartner   User?           @relation("DeliveryPartner", fields: [deliveryPartnerId], references: [id], onDelete: SetNull)
+  coupun           Coupon? @relation(fields: [coupounId], references: [id])
+  isCoupuonApplied Boolean @default(false)
+  deliveryPartner  User?   @relation("DeliveryPartner", fields: [deliveryPartnerId], references: [id], onDelete: SetNull)
 
   items             OrderItem[]
   shippingAddress   Address?        @relation("ShippingAddress", fields: [shippingAddressId], references: [id])
@@ -509,10 +510,10 @@ model Return {
   createdAt         DateTime     @default(now())
   updatedAt         DateTime     @updatedAt
 
-  order             Order            @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  customerProfile   CustomerProfile  @relation(fields: [customerProfileId], references: [id])
-  deliveryPartner   User?            @relation("DeliveryPartnerReturns", fields: [deliveryPartnerId], references: [id], onDelete: SetNull)
-  returnItems       ReturnItem[]
+  order           Order           @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  customerProfile CustomerProfile @relation(fields: [customerProfileId], references: [id])
+  deliveryPartner User?           @relation("DeliveryPartnerReturns", fields: [deliveryPartnerId], references: [id], onDelete: SetNull)
+  returnItems     ReturnItem[]
 
   @@map("returns")
 }
