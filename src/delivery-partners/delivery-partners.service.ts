@@ -27,6 +27,8 @@ export class DeliveryPartnersService {
     const user = await this.prisma.user.create({
       data: {
         email: dto.email,
+        name: dto.name,
+        phone: dto.phone,
         password: hashedPassword,
         role: 'DELIVERY',
         AdminProfile: {
