@@ -469,13 +469,21 @@ export class OrdersService {
     const paymentStatusChanged =
       dto.paymentStatus && dto.paymentStatus !== existing.paymentStatus;
 
-    // update tracking status
+    const tracking = await this.prisma.trackingDetail.findUnique({
+      where: { orderId },
+    });
+
+    if (!tracking) {
+      throw new NotFoundException('Tracking details not found for this order');
+    }
+
     const updated = await this.prisma.trackingDetail.update({
-      where: { id: orderId },
+      where: { orderId },
       data: {
         ...(dto.status && { status: dto.status }),
       },
     });
+
 
     // update payment status separately (belongs to Order)
     if (dto.paymentStatus) {

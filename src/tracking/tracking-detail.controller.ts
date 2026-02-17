@@ -13,8 +13,8 @@ export class TrackingDetailController {
     constructor(private readonly trackingDetailService: TrackingDetailService) { }
 
     // 🔹 Create
-    @UseGuards(JwtAuthGuard, RolesGuard)
-    @Roles('ADMIN')
+    // @UseGuards(JwtAuthGuard, RolesGuard)
+    // @Roles('ADMIN')
     @Post()
     create(@Body() dto: CreateTrackingDetailDto) {
         return this.trackingDetailService.create(dto);
