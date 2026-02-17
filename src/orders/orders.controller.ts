@@ -199,6 +199,11 @@ export class OrdersController {
           example: 'clx9a2k3f0001abc123xyz',
           description: 'Delivery partner ID to assign to the order',
         },
+        notes: {
+          type: 'string',
+          example: 'delivery partner changed due to traffic issues',
+          description: 'Optional notes for the delivery partner',
+        },
       },
       required: ['deliveryPartnerId'],
     },
@@ -207,8 +212,9 @@ export class OrdersController {
   async assignDeliveryPartner(
     @Param('orderId') orderId: string,
     @Body('deliveryPartnerId') deliveryPartnerId: string,
+    @Body('notes') notes: string
   ) {
-    return this.ordersService.assignDeliveryPartner(orderId, deliveryPartnerId);
+    return this.ordersService.assignDeliveryPartner(orderId, deliveryPartnerId, notes);
   }
 
   @Get('check/delivery')
