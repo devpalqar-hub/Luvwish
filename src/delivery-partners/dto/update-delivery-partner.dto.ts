@@ -17,4 +17,10 @@ export class UpdateDeliveryPartnerDto {
   @IsString()
   @MinLength(6)
   password?: string;
+
+
+  @ApiPropertyOptional({ example: 'https://example.com/profile.jpg', description: 'Delivery partner profile picture URL' })
+  @IsOptional()
+  @IsString()
+  profilePicture?: string;
 }
