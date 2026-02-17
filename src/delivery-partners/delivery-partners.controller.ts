@@ -34,7 +34,7 @@ export class DeliveryPartnersController {
   }
 
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('ADMIN', 'SUPER_ADMIN')
+  @Roles('ADMIN', 'SUPER_ADMIN', 'DELIVERY')
   @Get()
   @ApiOperation({ summary: 'List delivery partners' })
   findAll() {
@@ -107,7 +107,7 @@ export class DeliveryPartnersController {
 
 
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('ADMIN', 'SUPER_ADMIN')
+  @Roles('ADMIN', 'SUPER_ADMIN', 'DELIVERY')
   @Delete(':id')
   @ApiOperation({ summary: 'Delete delivery partner' })
   remove(@Param('id') id: string) {
