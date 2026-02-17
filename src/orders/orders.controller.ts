@@ -187,7 +187,7 @@ export class OrdersController {
   }
 
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('ADMIN', 'SUPER_ADMIN', 'ORDER_MANAGER')
+  @Roles('ADMIN', 'SUPER_ADMIN', 'ORDER_MANAGER', 'DELIVERY')
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Manually assign or reassign a delivery partner to an order' })
   @Patch(':orderId/assign-delivery-partner')
