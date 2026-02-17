@@ -24,6 +24,7 @@ import { RolesGuard } from 'src/common/guards/roles.guard';
 import { Roles } from 'src/common/decorators/roles.decorator';
 import { UpdateOrderStatusDto } from './dto/update-order-status.dto';
 import { get } from 'http';
+import { BulkUpdateOrderStatusDto } from './dto/update-bulk-orders.dto';
 
 @ApiTags('Orders')
 @Controller('orders')
@@ -232,6 +233,28 @@ export class OrdersController {
     await this.ordersService.testPush(token);
     return { message: 'Push sent' };
   }
+
+
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('DELIVERY')
+  @ApiBearerAuth()
+  @ApiOperation({
+    summary: 'Bulk update order status (Delivery Partner)',
+  })
+  @ApiBody({ type: BulkUpdateOrderStatusDto })
+  @Patch('delivery/bulk/status')
+  bulkUpdateOrderStatusByDeliveryPartner(
+    @Request() req,
+    @Body() dto: BulkUpdateOrderStatusDto,
+  ) {
+    const deliveryPartnerId = req.user.id || req.user.sub;
+
+    return this.ordersService.bulkUpdateOrderStatusByDeliveryPartner(
+      deliveryPartnerId,
+      dto,
+    );
+  }
+
 
 
 }
