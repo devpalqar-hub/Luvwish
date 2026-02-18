@@ -1,12 +1,12 @@
 import { IsEnum, IsOptional, IsString } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { ReturnStatus } from '@prisma/client';
+import { ReturnPaymentMethod, ReturnStatus } from '@prisma/client';
 
 export class UpdateReturnStatusDto {
-  @ApiProperty({ 
+  @ApiProperty({
     enum: ReturnStatus,
     example: 'picked_up',
-    description: 'New return status' 
+    description: 'New return status'
   })
   @IsEnum(ReturnStatus)
   status: ReturnStatus;
@@ -15,4 +15,12 @@ export class UpdateReturnStatusDto {
   @IsOptional()
   @IsString()
   adminNotes?: string;
+
+  @ApiProperty({
+    enum: ReturnPaymentMethod,
+    example: 'cash',
+    description: 'How the customer will be refunded (e.g., cash or online)'
+  })
+  @IsEnum(ReturnPaymentMethod)
+  returnPaymentMethod: ReturnPaymentMethod;
 }

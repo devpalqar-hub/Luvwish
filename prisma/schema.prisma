@@ -39,6 +39,11 @@ enum CoupounValueType {
   amount
 }
 
+enum ReturnPaymentMethod {
+  cash
+  online
+}
+
 enum Roles {
   SUPER_ADMIN // full system control
   ADMIN // manage store operations
@@ -496,19 +501,20 @@ model DeviceToken {
 }
 
 model Return {
-  id                String       @id @default(uuid())
-  orderId           String
-  customerProfileId String
-  deliveryPartnerId String?
-  status            ReturnStatus @default(pending)
-  returnType        String       @default("full") // full or partial
-  reason            String       @db.Text
-  refundAmount      Decimal      @db.Decimal(10, 2)
-  returnFee         Decimal      @default(0) @db.Decimal(10, 2)
-  refundMethod      RefundMethod @default(original_payment)
-  adminNotes        String?      @db.Text
-  createdAt         DateTime     @default(now())
-  updatedAt         DateTime     @updatedAt
+  id                  String              @id @default(uuid())
+  orderId             String
+  customerProfileId   String
+  deliveryPartnerId   String?
+  status              ReturnStatus        @default(pending)
+  returnPaymentMethod ReturnPaymentMethod?
+  returnType          String              @default("full") // full or partial
+  reason              String              @db.Text
+  refundAmount        Decimal             @db.Decimal(10, 2)
+  returnFee           Decimal             @default(0) @db.Decimal(10, 2)
+  refundMethod        RefundMethod        @default(original_payment)
+  adminNotes          String?             @db.Text
+  createdAt           DateTime            @default(now())
+  updatedAt           DateTime            @updatedAt
 
   order           Order           @relation(fields: [orderId], references: [id], onDelete: Cascade)
   customerProfile CustomerProfile @relation(fields: [customerProfileId], references: [id])

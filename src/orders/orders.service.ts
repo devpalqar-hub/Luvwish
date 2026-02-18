@@ -671,6 +671,7 @@ export class OrdersService {
               id: true,
               name: true,
               phone: true,
+              user: { select: { email: true } },
             },
           },
           shippingAddress: true,
