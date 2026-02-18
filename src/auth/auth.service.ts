@@ -26,6 +26,7 @@ import { VerifyOtpDto } from './dto/verify-otp.dto';
 import { CompleteRegistrationDto } from './dto/complete-registration.dto';
 import { MailService } from 'src/mail/mail.service';
 import { generate6DigitOtp } from 'src/common/utility/utils';
+import { admin } from 'src/firebase/firebase.config';
 
 @Injectable()
 export class AuthService {
@@ -48,11 +49,13 @@ export class AuthService {
     const isPasswordValid = await bcrypt.compare(password, user.password);
     if (!isPasswordValid) return null;
     const { password: _, ...result } = user;
+    console.log(result);
     return result;
   }
 
   async login(loginDto: LoginDto) {
     const user = await this.validateUser(loginDto.email, loginDto.password);
+    console.log(user);
     if (!user) throw new UnauthorizedException('Invalid credentials or User disabled');
     return this.generateToken(user);
   }
@@ -94,6 +97,7 @@ export class AuthService {
       email: user.email,
       sub: user.id,
       role: user.role,
+      admin: user.AdminProfile
     };
 
     return {
@@ -103,6 +107,7 @@ export class AuthService {
         name: user.name,
         email: user.email,
         role: user.role,
+        admin: user.AdminProfile
       },
     };
   }
