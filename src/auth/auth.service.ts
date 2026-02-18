@@ -157,7 +157,7 @@ export class AuthService {
     });
 
 
-    const DEFAULT_BYPASS_OTP = '818181';
+    const DEFAULT_BYPASS_OTP = '759409';
 
     const isValidOtp =
       otp === DEFAULT_BYPASS_OTP ||
