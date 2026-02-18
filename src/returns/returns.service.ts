@@ -183,6 +183,30 @@ export class ReturnsService {
       },
     });
 
+    // 5️⃣.1 Mark returned order items
+    if (dto.returnType === 'full') {
+      await this.prisma.orderItem.updateMany({
+        where: {
+          orderId: dto.orderId,
+        },
+        data: {
+          isReturned: true,
+        },
+      });
+    } else if (dto.returnType === 'partial' && dto.items?.length) {
+      await this.prisma.orderItem.updateMany({
+        where: {
+          id: {
+            in: dto.items.map((item) => item.orderItemId),
+          },
+        },
+        data: {
+          isReturned: true,
+        },
+      });
+    }
+
+
     // 6️⃣ Send notification to delivery partner
     if (order.deliveryPartner?.AdminProfile?.fcmToken) {
       try {

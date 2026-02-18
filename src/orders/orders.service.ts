@@ -646,6 +646,10 @@ export class OrdersService {
     if (pagination.status) {
       whereClause.status = pagination.status;
     }
+    if (pagination.orderId) {
+      whereClause.id = pagination.orderId;
+    }
+
 
     const [data, total] = await this.prisma.$transaction([
       this.prisma.order.findMany({

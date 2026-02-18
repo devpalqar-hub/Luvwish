@@ -1,4 +1,4 @@
-import { IsOptional, IsPositive, Min, IsString } from 'class-validator';
+import { IsOptional, IsPositive, Min, IsString, IsUUID } from 'class-validator';
 import { Type } from 'class-transformer';
 
 export class PaginationDto {
@@ -17,6 +17,10 @@ export class PaginationDto {
   @IsOptional()
   @IsString()
   status?: string;
+
+  @IsOptional()
+  @IsUUID()
+  orderId?: string;
 
   get skip(): number {
     return (this.page - 1) * this.limit;
