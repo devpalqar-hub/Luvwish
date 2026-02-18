@@ -183,6 +183,7 @@ export class TrackingService {
       out_for_delivery: 'shipped',
       delivered: 'delivered',
       failed_delivery: 'shipped',
+      return_processing: 'return_processing',
       returned: 'cancelled',
     };
 
