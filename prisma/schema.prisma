@@ -104,6 +104,8 @@ model User {
   deliveryOrders  Order[]          @relation("DeliveryPartner")
   deliveryReturns Return[]         @relation("DeliveryPartnerReturns")
 
+  lastAssignedDeliveryTime DateTime?
+
   @@map("users")
 }
 
@@ -315,6 +317,7 @@ model OrderItem {
   productVariationId String?
   variationDetails   Json?
   quantity           Int
+  isReturned         Boolean @default(false)
   discountedPrice    Decimal @db.Decimal(10, 2)
   actualPrice        Decimal @db.Decimal(10, 2)
 
@@ -501,20 +504,20 @@ model DeviceToken {
 }
 
 model Return {
-  id                  String              @id @default(uuid())
+  id                  String               @id @default(uuid())
   orderId             String
   customerProfileId   String
   deliveryPartnerId   String?
-  status              ReturnStatus        @default(pending)
+  status              ReturnStatus         @default(pending)
   returnPaymentMethod ReturnPaymentMethod?
-  returnType          String              @default("full") // full or partial
-  reason              String              @db.Text
-  refundAmount        Decimal             @db.Decimal(10, 2)
-  returnFee           Decimal             @default(0) @db.Decimal(10, 2)
-  refundMethod        RefundMethod        @default(original_payment)
-  adminNotes          String?             @db.Text
-  createdAt           DateTime            @default(now())
-  updatedAt           DateTime            @updatedAt
+  returnType          String               @default("full") // full or partial
+  reason              String               @db.Text
+  refundAmount        Decimal              @db.Decimal(10, 2)
+  returnFee           Decimal              @default(0) @db.Decimal(10, 2)
+  refundMethod        RefundMethod         @default(original_payment)
+  adminNotes          String?              @db.Text
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime             @updatedAt
 
   order           Order           @relation(fields: [orderId], references: [id], onDelete: Cascade)
   customerProfile CustomerProfile @relation(fields: [customerProfileId], references: [id])

@@ -166,8 +166,12 @@ export class OrdersController {
     const deliveryPartnerId = req.user.id || req.user.sub;
     return this.ordersService.findOrdersByDeliveryPartner(
       deliveryPartnerId,
-      Object.assign(query, { status: query.status }),
+      Object.assign(query, {
+        status: query.status,
+        orderId: query.orderId,
+      }),
     );
+
   }
 
   @UseGuards(JwtAuthGuard, RolesGuard)

@@ -4,7 +4,7 @@ import Razorpay from 'razorpay';
 import { CreatePaymentIntentDto } from './dto/checkout.dto';
 import { PrismaService } from '../prisma/prisma.service';
 import * as crypto from 'crypto';
-import { CoupounValueType, OrderStatus, PaymentMethod, PaymentStatus } from '@prisma/client';
+import { CoupounValueType, OrderStatus, PaymentMethod, PaymentStatus, Roles } from '@prisma/client';
 import { MailService } from 'src/mail/mail.service';
 import { FirebaseSender } from 'src/firebase/firebase.sender';
 import { MyFatoorahService } from './myfatoorah.service';
@@ -1047,6 +1047,44 @@ export class RazorpayService {
           data: { stockCount: { decrement: item.quantity } },
         });
       }
+      // --------------------------------------------------
+      // 🚚 AUTO ASSIGN DELIVERY PARTNER
+      // --------------------------------------------------
+
+      // 1️⃣ Check if any delivery partner has null assignment time
+      const deliveryPartnerWithNull = await tx.user.findFirst({
+        where: {
+          role: Roles.DELIVERY,
+          isActive: true,
+          lastAssignedDeliveryTime: null,
+        },
+        orderBy: {
+          createdAt: 'asc',
+        },
+        select: { id: true },
+      });
+
+      let selectedDeliveryPartnerId: string | null = null;
+
+      if (deliveryPartnerWithNull) {
+        // First round
+        selectedDeliveryPartnerId = deliveryPartnerWithNull.id;
+      } else {
+        // Normal circular assignment
+        const deliveryPartner = await tx.user.findFirst({
+          where: {
+            role: Roles.DELIVERY,
+            isActive: true,
+          },
+          orderBy: {
+            lastAssignedDeliveryTime: 'asc',
+          },
+          select: { id: true },
+        });
+
+        selectedDeliveryPartnerId = deliveryPartner?.id ?? null;
+      }
+
 
       // 2️⃣ Create order
       const order = await tx.order.create({
@@ -1062,9 +1100,19 @@ export class RazorpayService {
           isCoupuonApplied: !!coupuon,
           shippingCost,
           razorpay_id: fatoorahPaymentId ?? null,
+          deliveryPartnerId: selectedDeliveryPartnerId,
           items: { create: orderItemsData },
         },
       });
+
+      if (selectedDeliveryPartnerId) {
+        await tx.user.update({
+          where: { id: selectedDeliveryPartnerId },
+          data: {
+            lastAssignedDeliveryTime: new Date(),
+          },
+        });
+      }
 
       // 3️⃣ Clear cart AFTER successful order creation
       if (useCart) {
