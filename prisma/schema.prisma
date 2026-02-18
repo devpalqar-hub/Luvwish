@@ -61,6 +61,7 @@ enum TrackingStatus {
   out_for_delivery
   delivered
   failed_delivery
+  return_processing
   returned
 }
 

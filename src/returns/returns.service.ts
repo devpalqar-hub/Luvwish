@@ -17,7 +17,7 @@ export class ReturnsService {
     private readonly prisma: PrismaService,
     private readonly firebaseSender: FirebaseSender,
     private readonly emailService: MailService,
-  ) {}
+  ) { }
 
   /**
    * Create a new return request
@@ -126,17 +126,17 @@ export class ReturnsService {
         reason: dto.reason,
         refundAmount,
         returnFee,
-        refundMethod: dto.refundMethod,
+        // refundMethod: dto.refundMethod,
         status: 'pending',
         returnItems:
           dto.returnType === 'partial' && dto.items
             ? {
-                create: dto.items.map((item) => ({
-                  orderItemId: item.orderItemId,
-                  quantity: item.quantity,
-                  reason: item.reason,
-                })),
-              }
+              create: dto.items.map((item) => ({
+                orderItemId: item.orderItemId,
+                quantity: item.quantity,
+                reason: item.reason,
+              })),
+            }
             : undefined,
       },
       include: {
@@ -156,6 +156,23 @@ export class ReturnsService {
         },
       },
     });
+
+    try {
+      // Update tracking status to return_processing
+      await this.prisma.trackingDetail.update({
+        where: {
+          orderId: dto.orderId,
+        },
+        data: {
+          status: 'return_processing',
+          lastUpdatedAt: new Date(),
+        },
+      });
+    } catch (error) {
+      console.error('Failed to update tracking status:', error);
+      throw new NotFoundException('Tracking details not found for this order');
+    }
+
 
     // 6️⃣ Send notification to delivery partner
     if (order.deliveryPartner?.AdminProfile?.fcmToken) {
