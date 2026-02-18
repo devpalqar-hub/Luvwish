@@ -469,4 +469,81 @@ export class DeliveryPartnersService {
       orders,
     };
   }
+
+  async getDeliveryPartnerActions(deliveryPartnerId: string) {
+    const [orders, returns] = await this.prisma.$transaction([
+      // Orders requiring delivery action
+      this.prisma.order.findMany({
+        where: {
+          deliveryPartnerId,
+          tracking: {
+            status: {
+              in: [
+                'ready_to_ship',
+                'shipped',
+                'in_transit',
+                'out_for_delivery',
+                'failed_delivery',
+              ],
+            },
+          },
+        },
+        orderBy: { createdAt: 'desc' },
+        select: {
+          id: true,
+          orderNumber: true,
+          status: true,
+          createdAt: true,
+          tracking: {
+            select: {
+              status: true,
+              lastUpdatedAt: true,
+            },
+          },
+          shippingAddress: true,
+          CustomerProfile: {
+            select: {
+              name: true,
+              phone: true,
+            },
+          },
+        },
+      }),
+
+      // Return actions for delivery agent
+      this.prisma.return.findMany({
+        where: {
+          deliveryPartnerId,
+          status: {
+            in: ['approved', 'picked_up', 'returned'],
+          },
+        },
+        orderBy: { createdAt: 'desc' },
+        select: {
+          id: true,
+          status: true,
+          createdAt: true,
+          refundAmount: true,
+          order: {
+            select: {
+              id: true,
+              orderNumber: true,
+            },
+          },
+          customerProfile: {
+            select: {
+              name: true,
+              phone: true,
+            },
+          },
+        },
+      }),
+    ]);
+
+    return {
+      orders,
+      returns,
+    };
+  }
+
 }

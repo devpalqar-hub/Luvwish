@@ -87,6 +87,17 @@ export class DeliveryPartnersController {
     );
   }
 
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('DELIVERY')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Get delivery agent actions' })
+  @Get('my/actions')
+  async getDeliveryActions(@Request() req) {
+    const deliveryPartnerId = req.user.id || req.user.sub;
+    return this.deliveryPartnersService.getDeliveryPartnerActions(deliveryPartnerId);
+  }
+
+
 
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('ADMIN', 'SUPER_ADMIN')
