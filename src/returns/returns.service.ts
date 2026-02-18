@@ -86,14 +86,22 @@ export class ReturnsService {
       );
     }
 
-    // // 3️⃣ Check if return already exists
-    // const existingReturn = await this.prisma.return.findFirst({
-    //   where: { orderId: dto.orderId },
-    // });
+    // 3️⃣ Check if any order items already have returns
+    for (const orderItem of order.items) {
+      const existingReturnItem = await this.prisma.returnItem.findFirst({
+        where: {
+          orderItemId: orderItem.id,
+        },
+        select: { id: true },
+      });
 
-    // if (existingReturn) {
-    //   throw new BadRequestException('Return request already exists for this order');
-    // }
+      if (existingReturnItem) {
+        throw new BadRequestException(
+          `Return already exists for item ${orderItem.product.name}`,
+        );
+      }
+    }
+
 
     // 4️⃣ Calculate refund amount
     let refundAmount = 0;
