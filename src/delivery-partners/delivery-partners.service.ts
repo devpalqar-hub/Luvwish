@@ -273,7 +273,7 @@ export class DeliveryPartnersService {
     });
 
     const pendingOrders = orders.filter(
-      (order) => order.tracking?.status === 'order_placed',
+      (order) => order.tracking?.status === 'out_for_delivery',
     ).length;
 
 
