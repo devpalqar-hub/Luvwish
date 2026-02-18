@@ -176,6 +176,7 @@ export class OrdersService {
               quantity: true,
               discountedPrice: false,
               actualPrice: false,
+              isReturned: true,
               product: {
                 include: {
                   images: true, // ✅ include product images
@@ -271,6 +272,7 @@ export class OrdersService {
             id: true,
             quantity: true,
             Review: true,
+            isReturned: true,
             product: {
               include: {
                 images: true, // ✅ include product images
@@ -610,10 +612,12 @@ export class OrdersService {
             select: {
               id: true,
               quantity: true,
+              isReturned: true,
               product: {
                 select: {
                   id: true,
                   name: true,
+
                   actualPrice: true,
                   images: true, // ✅ include product images
                 },
@@ -684,6 +688,7 @@ export class OrdersService {
             select: {
               id: true,
               quantity: true,
+              isReturned: true,
               product: {
                 select: {
                   id: true,
