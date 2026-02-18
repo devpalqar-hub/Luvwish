@@ -249,6 +249,11 @@ export class DeliveryPartnersService {
         paymentStatus: true,
         totalAmount: true,
         createdAt: true,
+        tracking: {
+          select: {
+            status: true,
+          },
+        },
         items: {
           select: {
             quantity: true,
@@ -268,7 +273,7 @@ export class DeliveryPartnersService {
     });
 
     const pendingOrders = orders.filter(
-      (order) => order.status === 'pending',
+      (order) => order.tracking?.status === 'order_placed',
     ).length;
 
 
@@ -292,17 +297,20 @@ export class DeliveryPartnersService {
 
     // Group by payment status
     const ordersByPaymentStatus = orders.reduce((acc, order) => {
-      acc[order.paymentStatus] = (acc[order.paymentStatus] || 0) + 1;
+      acc[order.paymentStatus] =
+        (acc[order.paymentStatus] || 0) + 1;
       return acc;
     }, {} as Record<string, number>);
 
-    // Calculate completed orders (delivered status)
+    // Calculate completed orders (delivered status from tracking)
     const completedOrders = orders.filter(
-      (order) => order.status === 'delivered',
+      (order) => order.tracking?.status === 'delivered',
     ).length;
+
     const completedRevenue = orders
-      .filter((order) => order.status === 'delivered')
+      .filter((order) => order.tracking?.status === 'delivered')
       .reduce((sum, order) => sum + Number(order.totalAmount), 0);
+
 
     // Recent orders (last 10)
     const recentOrders = orders
