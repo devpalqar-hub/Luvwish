@@ -39,11 +39,11 @@ export class CreateReturnDto {
   @Type(() => ReturnItemDto)
   items?: ReturnItemDto[];
 
-  @ApiProperty({ 
-    example: 'original_payment', 
-    enum: RefundMethod,
-    description: 'Preferred refund method' 
-  })
-  @IsEnum(RefundMethod)
-  refundMethod: RefundMethod;
+  // @ApiProperty({ 
+  //   example: 'original_payment', 
+  //   enum: RefundMethod,
+  //   description: 'Preferred refund method' 
+  // })
+  // @IsEnum(RefundMethod)
+  // refundMethod: RefundMethod;
 }
