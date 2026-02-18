@@ -28,7 +28,6 @@ export class ReturnsService {
       where: {
         id: dto.orderId,
         customerProfileId,
-        status: 'delivered', // Only delivered orders can be returned
       },
       include: {
         items: {
@@ -58,8 +57,18 @@ export class ReturnsService {
             },
           },
         },
+        tracking: {
+          select: {
+            status: true,
+          },
+        },
       },
     });
+    if (order.tracking.status !== 'delivered') {
+      throw new BadRequestException(
+        'Order must be delivered before it can be returned',
+      );
+    }
 
     if (!order) {
       throw new NotFoundException(
@@ -285,6 +294,7 @@ export class ReturnsService {
         status: dto.status,
         adminNotes: dto.adminNotes || returnRequest.adminNotes,
         updatedAt: new Date(),
+        returnPaymentMethod: dto.returnPaymentMethod,
       },
     });
 

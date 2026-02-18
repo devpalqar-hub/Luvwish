@@ -100,23 +100,6 @@ export class OrdersController {
     return this.ordersService.updateOrderStatus(id, dto);
   }
 
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('DELIVERY')
-  @ApiBearerAuth()
-  @ApiOperation({ summary: 'Update order status (Delivery Partner - only assigned orders)' })
-  @Patch('delivery/:orderId/status')
-  updateOrderStatusByDeliveryPartner(
-    @Param('orderId', new ParseUUIDPipe()) orderId: string,
-    @Request() req,
-    @Body() dto: UpdateOrderStatusDto,
-  ) {
-    const deliveryPartnerId = req.user.id || req.user.sub;
-    return this.ordersService.updateOrderStatusByDeliveryPartner(
-      orderId,
-      deliveryPartnerId,
-      dto,
-    );
-  }
 
   @Get('admin/get-all')
   async findAllbyAdmin(
@@ -247,9 +230,30 @@ export class OrdersController {
     @Request() req,
     @Body() dto: BulkUpdateOrderStatusDto,
   ) {
+    console.log("hieee")
+    console.log(dto, "Received bulk update request from delivery partner");
     const deliveryPartnerId = req.user.id || req.user.sub;
 
     return this.ordersService.bulkUpdateOrderStatusByDeliveryPartner(
+      deliveryPartnerId,
+      dto,
+    );
+  }
+
+
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('DELIVERY')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Update order status (Delivery Partner - only assigned orders)' })
+  @Patch('delivery/:orderId/status')
+  updateOrderStatusByDeliveryPartner(
+    @Param('orderId', new ParseUUIDPipe()) orderId: string,
+    @Request() req,
+    @Body() dto: UpdateOrderStatusDto,
+  ) {
+    const deliveryPartnerId = req.user.id || req.user.sub;
+    return this.ordersService.updateOrderStatusByDeliveryPartner(
+      orderId,
       deliveryPartnerId,
       dto,
     );
