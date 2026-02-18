@@ -86,14 +86,14 @@ export class ReturnsService {
       );
     }
 
-    // 3️⃣ Check if return already exists
-    const existingReturn = await this.prisma.return.findFirst({
-      where: { orderId: dto.orderId },
-    });
+    // // 3️⃣ Check if return already exists
+    // const existingReturn = await this.prisma.return.findFirst({
+    //   where: { orderId: dto.orderId },
+    // });
 
-    if (existingReturn) {
-      throw new BadRequestException('Return request already exists for this order');
-    }
+    // if (existingReturn) {
+    //   throw new BadRequestException('Return request already exists for this order');
+    // }
 
     // 4️⃣ Calculate refund amount
     let refundAmount = 0;
@@ -138,15 +138,24 @@ export class ReturnsService {
         // refundMethod: dto.refundMethod,
         status: 'pending',
         returnItems:
-          dto.returnType === 'partial' && dto.items
+          dto.returnType === 'full'
             ? {
-              create: dto.items.map((item) => ({
-                orderItemId: item.orderItemId,
+              create: order.items.map((item) => ({
+                orderItemId: item.id,
                 quantity: item.quantity,
-                reason: item.reason,
+                reason: dto.reason,
               })),
             }
-            : undefined,
+            : dto.returnType === 'partial' && dto.items
+              ? {
+                create: dto.items.map((item) => ({
+                  orderItemId: item.orderItemId,
+                  quantity: item.quantity,
+                  reason: item.reason,
+                })),
+              }
+              : undefined,
+
       },
       include: {
         returnItems: {
@@ -165,23 +174,6 @@ export class ReturnsService {
         },
       },
     });
-
-    try {
-      // Update tracking status to return_processing
-      await this.prisma.trackingDetail.update({
-        where: {
-          orderId: dto.orderId,
-        },
-        data: {
-          status: 'return_processing',
-          lastUpdatedAt: new Date(),
-        },
-      });
-    } catch (error) {
-      console.error('Failed to update tracking status:', error);
-      throw new NotFoundException('Tracking details not found for this order');
-    }
-
 
     // 6️⃣ Send notification to delivery partner
     if (order.deliveryPartner?.AdminProfile?.fcmToken) {
