@@ -1257,6 +1257,17 @@ export class RazorpayService {
           adminEmails.push(process.env.ADMIN_EMAIL);
         }
 
+        const PaymentMethodLabel: Record<PaymentMethod, string> = {
+          credit_card: 'Credit Card',
+          debit_card: 'Debit Card',
+          paypal: 'PayPal',
+          stripe: 'Stripe',
+          bank_transfer: 'Bank Transfer',
+          myfatoorah: 'MyFatoorah',
+          cash_on_delivery: 'Cash on Delivery',
+        };
+
+
 
         console.log(adminEmails)
         await this.emailService.sendMail({
@@ -1266,7 +1277,7 @@ export class RazorpayService {
           context: {
             orderNumber: orderForMail.orderNumber,
             totalAmount: orderForMail.totalAmount,
-            paymentMethod: orderForMail.paymentMethod,
+            paymentMethod: PaymentMethodLabel[orderForMail.paymentMethod],
             createdAt: orderForMail.createdAt,
             customer: {
               name: orderForMail.CustomerProfile?.name,

@@ -133,6 +133,18 @@ export class TrackingService {
 
     // Auto-update order status based on tracking status
     await this.syncOrderStatus(orderId, dto.status);
+    const TrackingStatusLabel: Record<TrackingStatus, string> = {
+      order_placed: 'Order Placed',
+      processing: 'Processing',
+      ready_to_ship: 'Ready to Ship',
+      shipped: 'Shipped',
+      in_transit: 'In Transit',
+      out_for_delivery: 'Out for Delivery',
+      delivered: 'Delivered',
+      failed_delivery: 'Delivery Failed',
+      return_processing: 'Return Processing',
+      returned: 'Returned',
+    };
 
     // 📧📲 Notify customer ONLY if tracking status changed
     try {
@@ -144,8 +156,8 @@ export class TrackingService {
           context: {
             customerName: tracking.order.CustomerProfile.name,
             orderNumber: tracking.order.orderNumber,
-            oldStatus: previousStatus,
-            newStatus: dto.status,
+            oldStatus: TrackingStatusLabel[previousStatus],
+            newStatus: TrackingStatusLabel[dto.status],
             notes: dto.notes || null,
           },
         });

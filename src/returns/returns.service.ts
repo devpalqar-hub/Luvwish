@@ -23,6 +23,7 @@ export class ReturnsService {
   /**
    * Create a new return request
    */
+
   async createReturn(dto: CreateReturnDto, customerProfileId: string) {
     // 1️⃣ Fetch order with details
     const order = await this.prisma.order.findFirst({
@@ -273,6 +274,15 @@ export class ReturnsService {
       }
     }
 
+    type ReturnType = 'full' | 'partial';
+
+    const ReturnTypeLabel: Record<ReturnType, string> = {
+      full: 'Full Return',
+      partial: 'Partial Return',
+    };
+
+
+
     // 7️⃣ Send email to customer
     if (order.CustomerProfile?.user?.email) {
       try {
@@ -283,7 +293,7 @@ export class ReturnsService {
           context: {
             customerName: order.CustomerProfile.name,
             orderNumber: order.orderNumber,
-            returnType: dto.returnType,
+            returnType: ReturnTypeLabel[dto.returnType],
             refundAmount,
             returnFee,
           },
@@ -435,6 +445,17 @@ export class ReturnsService {
       }
     }
 
+
+    const ReturnStatusLabel: Record<ReturnStatus, string> = {
+      pending: 'Pending',
+      approved: 'Approved',
+      rejected: 'Rejected',
+      picked_up: 'Picked Up',
+      returned: 'Returned',
+      refunded: 'Refunded',
+    };
+
+
     if (returnRequest.customerProfile?.user?.email) {
       try {
         await this.emailService.sendMail({
@@ -444,7 +465,7 @@ export class ReturnsService {
           context: {
             customerName: returnRequest.customerProfile.name,
             orderNumber: returnRequest.order.orderNumber,
-            status: dto.status,
+            status: ReturnStatusLabel[dto.status],
             refundAmount: returnRequest.refundAmount,
           },
         });
@@ -1010,7 +1031,7 @@ export class ReturnsService {
           context: {
             customerName: order.CustomerProfile.name,
             orderNumber: order.orderNumber,
-            status: 'refunded',
+            status: 'Refunded',
             refundAmount,
             returnCharge,
             adminNotes: adminNotes || 'Processed directly by admin',
