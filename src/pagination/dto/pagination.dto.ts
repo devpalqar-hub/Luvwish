@@ -22,6 +22,10 @@ export class PaginationDto {
   @IsUUID()
   orderId?: string;
 
+  @IsOptional()
+  @IsString()
+  pending?: string;
+
   get skip(): number {
     return (this.page - 1) * this.limit;
   }

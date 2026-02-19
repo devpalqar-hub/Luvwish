@@ -183,7 +183,7 @@ export class ReturnsService {
       },
     });
 
-    // 5️⃣.1 Mark returned order items
+    // 5️⃣.1 Mark returned order items with pending status
     if (dto.returnType === 'full') {
       await this.prisma.orderItem.updateMany({
         where: {
@@ -191,6 +191,7 @@ export class ReturnsService {
         },
         data: {
           isReturned: true,
+          returnStatus: 'pending',
         },
       });
     } else if (dto.returnType === 'partial' && dto.items?.length) {
@@ -202,6 +203,7 @@ export class ReturnsService {
         },
         data: {
           isReturned: true,
+          returnStatus: 'pending',
         },
       });
     }
@@ -311,7 +313,7 @@ export class ReturnsService {
       }
     }
 
-    // 3️⃣ Update return status
+    // 3️⃣ Update return status and order items
     const updated = await this.prisma.return.update({
       where: { id: returnId },
       data: {
@@ -322,10 +324,35 @@ export class ReturnsService {
       },
     });
 
-    // 4️⃣ If status is 'returned', handle inventory and refund
-    if (dto.status === 'returned') {
-      await this.handleReturnedItems(returnRequest);
+    // 3️⃣.1 Update order item return statuses
+    const orderItemIds = returnRequest.returnItems.map(item => item.orderItemId);
+    await this.prisma.orderItem.updateMany({
+      where: {
+        id: { in: orderItemIds },
+      },
+      data: {
+        returnStatus: dto.status,
+      },
+    });
+
+    // 4️⃣ Handle different return statuses
+    if (dto.status === 'refunded') {
+      // Restore stock when refunded
+      await this.restoreStockForReturn(returnRequest);
+    } else if (dto.status === 'rejected') {
+      // Mark items as not returned when rejected
+      await this.prisma.orderItem.updateMany({
+        where: {
+          id: { in: orderItemIds },
+        },
+        data: {
+          isReturned: false,
+          returnStatus: 'rejected',
+        },
+      });
     }
+
+    // Note: Order and tracking status remain as 'delivered', never changed to 'returned'
 
     // 5️⃣ Send notifications
     if (returnRequest.customerProfile?.fcmToken) {
@@ -367,7 +394,12 @@ export class ReturnsService {
   /**
    * Handle returned items - restore inventory
    */
-  private async handleReturnedItems(returnRequest: any) {
+  /**
+   * Restore stock for refunded return items (doesn't change order status)
+   */
+  private async restoreStockForReturn(returnRequest: any) {
+    console.log('🔄 Restoring stock for return:', returnRequest.id);
+
     if (returnRequest.returnType === 'full') {
       // Restore all items from order
       const orderItems = await this.prisma.orderItem.findMany({
@@ -389,6 +421,7 @@ export class ReturnsService {
               },
             },
           });
+          console.log(`✅ Restored ${item.quantity} units to variation ${item.productVariationId}`);
         } else {
           // Update product stock
           await this.prisma.product.update({
@@ -399,6 +432,7 @@ export class ReturnsService {
               },
             },
           });
+          console.log(`✅ Restored ${item.quantity} units to product ${item.productId}`);
         }
       }
     } else if (returnRequest.returnType === 'partial') {
@@ -414,6 +448,7 @@ export class ReturnsService {
               },
             },
           });
+          console.log(`✅ Restored ${returnItem.quantity} units to variation ${orderItem.productVariationId}`);
         } else {
           await this.prisma.product.update({
             where: { id: orderItem.productId },
@@ -423,18 +458,12 @@ export class ReturnsService {
               },
             },
           });
+          console.log(`✅ Restored ${returnItem.quantity} units to product ${orderItem.productId}`);
         }
       }
     }
 
-    // Update order status to refunded
-    await this.prisma.order.update({
-      where: { id: returnRequest.orderId },
-      data: {
-        status: 'refunded',
-        paymentStatus: 'refunded',
-      },
-    });
+    console.log('✅ Stock restoration completed. Order status remains as delivered.');
   }
 
   /**
@@ -737,5 +766,203 @@ export class ReturnsService {
     }
 
     return returnRequest;
+  }
+
+  /**
+   * Admin directly processes return and refunds items
+   * Return charge = delivery charge (not included in revenue)
+   */
+  async adminDirectReturn(dto: CreateReturnDto, adminNotes?: string) {
+    // 1️⃣ Fetch order with details
+    const order = await this.prisma.order.findFirst({
+      where: {
+        id: dto.orderId,
+      },
+      include: {
+        items: {
+          include: {
+            product: true,
+            productVariation: true,
+          },
+        },
+        deliveryPartner: {
+          select: {
+            id: true,
+            email: true,
+            AdminProfile: {
+              select: {
+                name: true,
+                fcmToken: true,
+              },
+            },
+          },
+        },
+        shippingAddress: true,
+        CustomerProfile: {
+          select: {
+            id: true,
+            name: true,
+            user: {
+              select: { email: true },
+            },
+            fcmToken: true,
+          },
+        },
+        tracking: {
+          select: {
+            status: true,
+          },
+        },
+      },
+    });
+
+    if (!order) {
+      throw new NotFoundException('Order not found');
+    }
+
+    if (order.tracking.status !== 'delivered') {
+      throw new BadRequestException(
+        'Order must be delivered before it can be returned',
+      );
+    }
+
+    // 2️⃣ Calculate refund amount
+    let refundAmount = 0;
+    const returnCharge = Number(order.shippingCost); // Return charge = delivery charge
+
+    if (dto.returnType === 'full') {
+      // Full order return
+      refundAmount = Number(order.totalAmount) - returnCharge;
+    } else if (dto.returnType === 'partial' && dto.items && dto.items.length > 0) {
+      // Partial return - calculate based on items
+      for (const returnItem of dto.items) {
+        const orderItem = order.items.find((item) => item.id === returnItem.orderItemId);
+        if (!orderItem) {
+          throw new NotFoundException(`Order item ${returnItem.orderItemId} not found`);
+        }
+        if (returnItem.quantity > orderItem.quantity) {
+          throw new BadRequestException(
+            `Cannot return ${returnItem.quantity} of item ${orderItem.product.name}. Only ${orderItem.quantity} were ordered`,
+          );
+        }
+        refundAmount += Number(orderItem.discountedPrice) * returnItem.quantity;
+      }
+      refundAmount -= returnCharge;
+    } else {
+      throw new BadRequestException('Items are required for partial returns');
+    }
+
+    if (refundAmount < 0) {
+      refundAmount = 0;
+    }
+
+    // 3️⃣ Create return request with 'refunded' status (directly approved by admin)
+    const returnRequest = await this.prisma.return.create({
+      data: {
+        orderId: dto.orderId,
+        customerProfileId: order.CustomerProfile.id,
+        deliveryPartnerId: order.deliveryPartnerId,
+        returnType: dto.returnType,
+        reason: dto.reason,
+        refundAmount,
+        returnFee: returnCharge, // Return charge = delivery charge
+        status: 'refunded', // Directly set to refunded
+        adminNotes: adminNotes || 'Processed directly by admin',
+        returnItems:
+          dto.returnType === 'full'
+            ? {
+              create: order.items.map((item) => ({
+                orderItemId: item.id,
+                quantity: item.quantity,
+                reason: dto.reason,
+              })),
+            }
+            : dto.returnType === 'partial' && dto.items
+              ? {
+                create: dto.items.map((item) => ({
+                  orderItemId: item.orderItemId,
+                  quantity: item.quantity,
+                  reason: item.reason,
+                })),
+              }
+              : undefined,
+      },
+      include: {
+        returnItems: {
+          include: {
+            orderItem: {
+              include: {
+                product: true,
+              },
+            },
+          },
+        },
+        order: {
+          select: {
+            orderNumber: true,
+          },
+        },
+      },
+    });
+
+    // 4️⃣ Mark order items as returned with 'refunded' status
+    const orderItemIds = returnRequest.returnItems.map(item => item.orderItemId);
+    await this.prisma.orderItem.updateMany({
+      where: {
+        id: { in: orderItemIds },
+      },
+      data: {
+        isReturned: true,
+        returnStatus: 'refunded',
+      },
+    });
+
+    // 5️⃣ Restore stock immediately (since admin approved directly)
+    await this.restoreStockForReturn(returnRequest);
+
+    // 6️⃣ Send notification to customer
+    if (order.CustomerProfile?.fcmToken) {
+      try {
+        await this.firebaseSender.sendPush(
+          order.CustomerProfile.fcmToken,
+          'Return Processed',
+          `Your return for order #${order.orderNumber} has been processed. Refund: ${refundAmount}`,
+        );
+      } catch (error) {
+        console.error('Failed to send push notification:', error);
+      }
+    }
+
+    if (order.CustomerProfile?.user?.email) {
+      try {
+        await this.emailService.sendMail({
+          to: order.CustomerProfile.user.email,
+          subject: `Return Processed - Order #${order.orderNumber}`,
+          template: 'return-status-update',
+          context: {
+            customerName: order.CustomerProfile.name,
+            orderNumber: order.orderNumber,
+            status: 'refunded',
+            refundAmount,
+            returnCharge,
+            adminNotes: adminNotes || 'Processed directly by admin',
+          },
+        });
+      } catch (error) {
+        console.error('Failed to send email:', error);
+      }
+    }
+
+    console.log('✅ Admin direct return processed:', {
+      returnId: returnRequest.id,
+      orderNumber: order.orderNumber,
+      refundAmount,
+      returnCharge,
+    });
+
+    return {
+      message: 'Return processed successfully by admin',
+      data: returnRequest,
+    };
   }
 }

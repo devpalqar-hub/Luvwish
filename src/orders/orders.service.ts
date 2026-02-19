@@ -64,38 +64,70 @@ export class OrdersService {
     // Get next delivery partner in rotation
     const deliveryPartnerId = await this.getNextDeliveryPartner();
 
-    const order = await this.prisma.order.create({
-      data: {
-        ...orderData,
-        deliveryPartnerId,
-        items: {
-          create: items.map((item) => ({
-            productId: item.productId,
-            quantity: item.quantity,
-            actualPrice: item.actualPrice,
-            discountedPrice: item.discountedPrice,
-          })),
+    // Create order and decrement stock in a transaction
+    const order = await this.prisma.$transaction(async (prisma) => {
+      // Create the order
+      const createdOrder = await prisma.order.create({
+        data: {
+          ...orderData,
+          deliveryPartnerId,
+          items: {
+            create: items.map((item) => ({
+              productId: item.productId,
+              productVariationId: item.productVariationId || null,
+              quantity: item.quantity,
+              actualPrice: item.actualPrice,
+              discountedPrice: item.discountedPrice,
+            })),
+          },
         },
-      },
-      include: {
-        items: true,
-        shippingAddress: true,
-        deliveryPartner: {
-          select: {
-            id: true,
-            email: true,
-            AdminProfile: {
-              select: {
-                name: true,
-                fcmToken: true,
+        include: {
+          items: true,
+          shippingAddress: true,
+          deliveryPartner: {
+            select: {
+              id: true,
+              email: true,
+              AdminProfile: {
+                select: {
+                  name: true,
+                  fcmToken: true,
+                },
               },
             },
           },
         },
-      },
+      });
+
+      // Decrement stock for each item
+      for (const item of items) {
+        if (item.productVariationId) {
+          // Decrement variation stock
+          await prisma.productVariation.update({
+            where: { id: item.productVariationId },
+            data: {
+              stockCount: {
+                decrement: item.quantity,
+              },
+            },
+          });
+        } else {
+          // Decrement product stock
+          await prisma.product.update({
+            where: { id: item.productId },
+            data: {
+              stockCount: {
+                decrement: item.quantity,
+              },
+            },
+          });
+        }
+      }
+
+      return createdOrder;
     });
 
-    // Send push notification to assigned delivery partner
+    // Send push notification and email to assigned delivery partner
     if (order.deliveryPartner?.AdminProfile?.fcmToken) {
       try {
         await this.firebaseSender.sendPush(
@@ -105,6 +137,24 @@ export class OrdersService {
         );
       } catch (error) {
         console.error('Failed to send push notification to delivery partner:', error);
+      }
+    }
+
+    if (order.deliveryPartner?.email) {
+      try {
+        await this.emailService.sendMail({
+          to: order.deliveryPartner.email,
+          subject: `New Order Assigned - #${order.orderNumber}`,
+          template: 'delivery-partner-order-assigned',
+          context: {
+            deliveryPartnerName: order.deliveryPartner.AdminProfile?.name || 'Delivery Partner',
+            orderNumber: order.orderNumber,
+            totalAmount: order.totalAmount,
+            itemCount: order.items.length,
+          },
+        });
+      } catch (error) {
+        console.error('Failed to send email to delivery partner:', error);
       }
     }
 
@@ -177,6 +227,7 @@ export class OrdersService {
               discountedPrice: false,
               actualPrice: false,
               isReturned: true,
+              returnStatus: true,
               product: {
                 include: {
                   images: true, // ✅ include product images
@@ -273,6 +324,7 @@ export class OrdersService {
             quantity: true,
             Review: true,
             isReturned: true,
+            returnStatus: true,
             product: {
               include: {
                 images: true, // ✅ include product images
@@ -483,14 +535,12 @@ export class OrdersService {
     });
 
     let updated = existing.tracking;
-    let updatedOrder = existing;
 
     // 2️⃣ Update tracking details with status history and order status in a transaction
     if (dto.status || dto.paymentStatus) {
       try {
         const result = await this.prisma.$transaction(async (tx) => {
           let trackingUpdate = existing.tracking;
-          let orderUpdate = existing;
 
           // Update tracking if status provided
           if (dto.status) {
@@ -524,7 +574,7 @@ export class OrdersService {
             // Sync order status based on tracking status
             const orderStatus = this.mapTrackingToOrderStatus(dto.status);
             if (orderStatus) {
-              orderUpdate = await tx.order.update({
+              await tx.order.update({
                 where: { id: orderId },
                 data: {
                   status: orderStatus as any,
@@ -540,7 +590,7 @@ export class OrdersService {
             }
           } else if (dto.paymentStatus) {
             // Only update payment status if no tracking status change
-            orderUpdate = await tx.order.update({
+            await tx.order.update({
               where: { id: orderId },
               data: {
                 paymentStatus: dto.paymentStatus,
@@ -548,11 +598,10 @@ export class OrdersService {
             });
           }
 
-          return { trackingUpdate, orderUpdate };
+          return { trackingUpdate };
         });
 
         updated = result.trackingUpdate;
-        updatedOrder = result.orderUpdate;
       } catch (error) {
         console.error('❌ Error updating tracking/order status:', error);
         throw error;
@@ -607,10 +656,10 @@ export class OrdersService {
       data: {
         tracking: updated,
         order: {
-          id: updatedOrder.id,
-          orderNumber: updatedOrder.orderNumber,
-          status: updatedOrder.status,
-          paymentStatus: updatedOrder.paymentStatus,
+          id: existing.id,
+          orderNumber: existing.orderNumber,
+          status: dto.status ? this.mapTrackingToOrderStatus(dto.status) || existing.status : existing.status,
+          paymentStatus: dto.paymentStatus || existing.paymentStatus,
         },
       },
     };
@@ -711,6 +760,7 @@ export class OrdersService {
               id: true,
               quantity: true,
               isReturned: true,
+              returnStatus: true,
               product: {
                 select: {
                   id: true,
@@ -745,9 +795,16 @@ export class OrdersService {
 
     const whereClause: any = { deliveryPartnerId };
 
-    if (pagination.status) {
+    // pending filter: if true, only show orders NOT cancelled or delivered
+    if (pagination.pending === 'true') {
+      whereClause.status = {
+        notIn: ['cancelled', 'delivered'],
+      };
+    } else if (pagination.status) {
+      // Regular status filter
       whereClause.status = pagination.status;
     }
+
     if (pagination.orderId) {
       whereClause.id = pagination.orderId;
     }
@@ -787,6 +844,7 @@ export class OrdersService {
               id: true,
               quantity: true,
               isReturned: true,
+              returnStatus: true,
               product: {
                 select: {
                   id: true,
@@ -1172,7 +1230,7 @@ export class OrdersService {
       },
     });
 
-    // Send push notification to newly assigned delivery partner
+    // Send push notification and email to newly assigned delivery partner
     if (deliveryPartner?.AdminProfile?.fcmToken) {
       try {
         await this.firebaseSender.sendPush(
@@ -1182,6 +1240,24 @@ export class OrdersService {
         );
       } catch (error) {
         console.error('Failed to send push notification:', error);
+      }
+    }
+
+    if (deliveryPartner?.email) {
+      try {
+        await this.emailService.sendMail({
+          to: deliveryPartner.email,
+          subject: `Order Assigned - #${order.orderNumber}`,
+          template: 'delivery-partner-order-assigned',
+          context: {
+            deliveryPartnerName: deliveryPartner.AdminProfile?.name || 'Delivery Partner',
+            orderNumber: order.orderNumber,
+            totalAmount: order.totalAmount,
+            notes: notes || 'No additional notes',
+          },
+        });
+      } catch (error) {
+        console.error('Failed to send email to delivery partner:', error);
       }
     }
 

@@ -311,15 +311,16 @@ model Order {
 }
 
 model OrderItem {
-  id                 String  @id @default(uuid())
+  id                 String        @id @default(uuid())
   orderId            String
   productId          String
   productVariationId String?
   variationDetails   Json?
   quantity           Int
-  isReturned         Boolean @default(false)
-  discountedPrice    Decimal @db.Decimal(10, 2)
-  actualPrice        Decimal @db.Decimal(10, 2)
+  isReturned         Boolean       @default(false)
+  returnStatus       ReturnStatus? // pending, approved, rejected, picked_up, returned, refunded
+  discountedPrice    Decimal       @db.Decimal(10, 2)
+  actualPrice        Decimal       @db.Decimal(10, 2)
 
   order            Order             @relation(fields: [orderId], references: [id], onDelete: Cascade)
   product          Product           @relation(fields: [productId], references: [id])
