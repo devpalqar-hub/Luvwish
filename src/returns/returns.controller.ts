@@ -94,6 +94,19 @@ export class ReturnsController {
     );
   }
 
+  @Post('admin/direct-return')
+  @Roles('ADMIN', 'SUPER_ADMIN', 'ORDER_MANAGER')
+  @ApiOperation({ 
+    summary: 'Admin directly processes return and refund', 
+    description: 'Admin can directly return items. Return charge equals delivery charge and is NOT included in revenue. Stock is restored immediately.'
+  })
+  async adminDirectReturn(
+    @Body() dto: CreateReturnDto & { adminNotes?: string },
+  ) {
+    const { adminNotes, ...returnDto } = dto;
+    return this.returnsService.adminDirectReturn(returnDto, adminNotes);
+  }
+
   // ==================== DELIVERY PARTNER ENDPOINTS ====================
 
   @Get('delivery-partner/my-returns')

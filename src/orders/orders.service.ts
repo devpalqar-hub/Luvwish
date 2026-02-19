@@ -95,7 +95,7 @@ export class OrdersService {
       },
     });
 
-    // Send push notification to assigned delivery partner
+    // Send push notification and email to assigned delivery partner
     if (order.deliveryPartner?.AdminProfile?.fcmToken) {
       try {
         await this.firebaseSender.sendPush(
@@ -105,6 +105,24 @@ export class OrdersService {
         );
       } catch (error) {
         console.error('Failed to send push notification to delivery partner:', error);
+      }
+    }
+
+    if (order.deliveryPartner?.email) {
+      try {
+        await this.emailService.sendMail({
+          to: order.deliveryPartner.email,
+          subject: `New Order Assigned - #${order.orderNumber}`,
+          template: 'delivery-partner-order-assigned',
+          context: {
+            deliveryPartnerName: order.deliveryPartner.AdminProfile?.name || 'Delivery Partner',
+            orderNumber: order.orderNumber,
+            totalAmount: order.totalAmount,
+            itemCount: order.items.length,
+          },
+        });
+      } catch (error) {
+        console.error('Failed to send email to delivery partner:', error);
       }
     }
 
@@ -734,6 +752,7 @@ export class OrdersService {
     deliveryPartnerId: string,
     pagination: PaginationDto & {
       status?: string;
+      isPending?: string;
     },
   ) {
     const page = Number(pagination.page) || 1;
@@ -742,9 +761,16 @@ export class OrdersService {
 
     const whereClause: any = { deliveryPartnerId };
 
-    if (pagination.status) {
+    // isPending filter: if true, only show orders NOT cancelled or delivered
+    if (pagination.isPending === 'true') {
+      whereClause.status = {
+        notIn: ['cancelled', 'delivered'],
+      };
+    } else if (pagination.status) {
+      // Regular status filter
       whereClause.status = pagination.status;
     }
+
     if (pagination.orderId) {
       whereClause.id = pagination.orderId;
     }
@@ -1169,7 +1195,7 @@ export class OrdersService {
       },
     });
 
-    // Send push notification to newly assigned delivery partner
+    // Send push notification and email to newly assigned delivery partner
     if (deliveryPartner?.AdminProfile?.fcmToken) {
       try {
         await this.firebaseSender.sendPush(
@@ -1179,6 +1205,24 @@ export class OrdersService {
         );
       } catch (error) {
         console.error('Failed to send push notification:', error);
+      }
+    }
+
+    if (deliveryPartner?.email) {
+      try {
+        await this.emailService.sendMail({
+          to: deliveryPartner.email,
+          subject: `Order Assigned - #${order.orderNumber}`,
+          template: 'delivery-partner-order-assigned',
+          context: {
+            deliveryPartnerName: deliveryPartner.AdminProfile?.name || 'Delivery Partner',
+            orderNumber: order.orderNumber,
+            totalAmount: order.totalAmount,
+            notes: notes || 'No additional notes',
+          },
+        });
+      } catch (error) {
+        console.error('Failed to send email to delivery partner:', error);
       }
     }
 

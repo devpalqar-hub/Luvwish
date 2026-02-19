@@ -1,0 +1,92 @@
+doctype html
+html(lang="en")
+  head
+    meta(charset="UTF-8")
+    meta(name="viewport" content="width=device-width, initial-scale=1.0")
+    title Order Assigned
+    style.
+      body {
+        font-family: Arial, sans-serif;
+        line-height: 1.6;
+        color: #333;
+        max-width: 600px;
+        margin: 0 auto;
+        padding: 20px;
+        background-color: #f4f4f4;
+      }
+      .container {
+        background-color: #ffffff;
+        padding: 30px;
+        border-radius: 10px;
+        box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+      }
+      .header {
+        text-align: center;
+        padding-bottom: 20px;
+        border-bottom: 2px solid #4CAF50;
+      }
+      .header h1 {
+        color: #4CAF50;
+        margin: 0;
+      }
+      .content {
+        margin-top: 20px;
+      }
+      .order-details {
+        background-color: #f9f9f9;
+        padding: 15px;
+        border-radius: 5px;
+        margin: 20px 0;
+      }
+      .order-details p {
+        margin: 10px 0;
+      }
+      .order-details strong {
+        color: #4CAF50;
+      }
+      .footer {
+        margin-top: 30px;
+        padding-top: 20px;
+        border-top: 1px solid #ddd;
+        text-align: center;
+        color: #888;
+        font-size: 0.9em;
+      }
+      .button {
+        display: inline-block;
+        padding: 12px 30px;
+        margin: 20px 0;
+        background-color: #4CAF50;
+        color: #ffffff;
+        text-decoration: none;
+        border-radius: 5px;
+        font-weight: bold;
+      }
+  body
+    .container
+      .header
+        h1 📦 New Order Assigned
+      .content
+        p Hello #{deliveryPartnerName},
+        p A new order has been assigned to you. Please review the details below:
+        .order-details
+          p
+            strong Order Number:
+            |  #{orderNumber}
+          p
+            strong Total Amount:
+            |  ₹#{totalAmount}
+          if itemCount
+            p
+              strong Number of Items:
+              |  #{itemCount}
+          if notes
+            p
+              strong Notes:
+              |  #{notes}
+        p Please ensure timely pickup and delivery of this order.
+        center
+          a.button(href="#") View Order Details
+      .footer
+        p Thank you for your service!
+        p © 2026 Luvwish. All rights reserved.
