@@ -64,35 +64,67 @@ export class OrdersService {
     // Get next delivery partner in rotation
     const deliveryPartnerId = await this.getNextDeliveryPartner();
 
-    const order = await this.prisma.order.create({
-      data: {
-        ...orderData,
-        deliveryPartnerId,
-        items: {
-          create: items.map((item) => ({
-            productId: item.productId,
-            quantity: item.quantity,
-            actualPrice: item.actualPrice,
-            discountedPrice: item.discountedPrice,
-          })),
+    // Create order and decrement stock in a transaction
+    const order = await this.prisma.$transaction(async (prisma) => {
+      // Create the order
+      const createdOrder = await prisma.order.create({
+        data: {
+          ...orderData,
+          deliveryPartnerId,
+          items: {
+            create: items.map((item) => ({
+              productId: item.productId,
+              productVariationId: item.productVariationId || null,
+              quantity: item.quantity,
+              actualPrice: item.actualPrice,
+              discountedPrice: item.discountedPrice,
+            })),
+          },
         },
-      },
-      include: {
-        items: true,
-        shippingAddress: true,
-        deliveryPartner: {
-          select: {
-            id: true,
-            email: true,
-            AdminProfile: {
-              select: {
-                name: true,
-                fcmToken: true,
+        include: {
+          items: true,
+          shippingAddress: true,
+          deliveryPartner: {
+            select: {
+              id: true,
+              email: true,
+              AdminProfile: {
+                select: {
+                  name: true,
+                  fcmToken: true,
+                },
               },
             },
           },
         },
-      },
+      });
+
+      // Decrement stock for each item
+      for (const item of items) {
+        if (item.productVariationId) {
+          // Decrement variation stock
+          await prisma.productVariation.update({
+            where: { id: item.productVariationId },
+            data: {
+              stockCount: {
+                decrement: item.quantity,
+              },
+            },
+          });
+        } else {
+          // Decrement product stock
+          await prisma.product.update({
+            where: { id: item.productId },
+            data: {
+              stockCount: {
+                decrement: item.quantity,
+              },
+            },
+          });
+        }
+      }
+
+      return createdOrder;
     });
 
     // Send push notification and email to assigned delivery partner
@@ -195,6 +227,7 @@ export class OrdersService {
               discountedPrice: false,
               actualPrice: false,
               isReturned: true,
+              returnStatus: true,
               product: {
                 include: {
                   images: true, // ✅ include product images
@@ -291,6 +324,7 @@ export class OrdersService {
             quantity: true,
             Review: true,
             isReturned: true,
+            returnStatus: true,
             product: {
               include: {
                 images: true, // ✅ include product images
@@ -726,6 +760,7 @@ export class OrdersService {
               id: true,
               quantity: true,
               isReturned: true,
+              returnStatus: true,
               product: {
                 select: {
                   id: true,
@@ -809,6 +844,7 @@ export class OrdersService {
               id: true,
               quantity: true,
               isReturned: true,
+              returnStatus: true,
               product: {
                 select: {
                   id: true,
