@@ -1272,13 +1272,16 @@ export class OrdersService {
     deliveryPartnerId: string,
     dto: BulkUpdateOrderStatusDto,
   ) {
-    const { orderIds, status, paymentStatus } = dto;
 
-    // 1️⃣ Fetch orders with tracking
+    const { fromTrackingStatus, toTrackingStatus, paymentStatus } = dto;
+
+    // 1️⃣ Fetch orders with tracking having required status
     const orders = await this.prisma.order.findMany({
       where: {
-        id: { in: orderIds },
         deliveryPartnerId,
+        tracking: {
+          status: fromTrackingStatus,
+        },
       },
       include: {
         tracking: true,
@@ -1297,10 +1300,8 @@ export class OrdersService {
       },
     });
 
-    if (orders.length !== orderIds.length) {
-      throw new NotFoundException(
-        'Some orders not found or not assigned to you',
-      );
+    if (!orders.length) {
+      throw new NotFoundException('No Orders found');
     }
 
     // 2️⃣ Ensure all orders have tracking
@@ -1310,54 +1311,39 @@ export class OrdersService {
       );
     }
 
-    // 3️⃣ Validate all have same tracking status
-    const currentStatus = orders[0].tracking.status;
-
-    const invalid = orders.some(
-      o => o.tracking.status !== currentStatus,
-    );
-
-    if (invalid) {
-      throw new BadRequestException(
-        'All selected orders must have same tracking status',
-      );
-    }
-
-    // 4️⃣ Update tracking details with status history and order status in transactions
     console.log('🚚 Bulk updating orders:', {
       orderCount: orders.length,
-      newTrackingStatus: status,
+      fromTrackingStatus,
+      toTrackingStatus,
       paymentStatus,
     });
 
     try {
       await this.prisma.$transaction(async (tx) => {
-        // Map tracking status to order status
-        const orderStatus = this.mapTrackingToOrderStatus(status);
+
+        const orderStatus = this.mapTrackingToOrderStatus(toTrackingStatus);
 
         for (const order of orders) {
-          // Get existing status history or initialize
+
           const statusHistory = (order.tracking.statusHistory as any[]) || [];
 
-          // Add new status to history
           const newHistoryEntry = {
-            status,
+            status: toTrackingStatus,
             timestamp: new Date().toISOString(),
             notes: 'Bulk update by delivery partner',
           };
+
           statusHistory.push(newHistoryEntry);
 
-          // Update tracking detail with status history
           await tx.trackingDetail.update({
             where: { orderId: order.id },
             data: {
-              status,
+              status: toTrackingStatus,
               statusHistory,
               lastUpdatedAt: new Date(),
             },
           });
 
-          // Update order status based on tracking status
           if (orderStatus) {
             await tx.order.update({
               where: { id: order.id },
@@ -1367,7 +1353,6 @@ export class OrdersService {
               },
             });
           } else if (paymentStatus) {
-            // Only update payment status if no order status mapping
             await tx.order.update({
               where: { id: order.id },
               data: { paymentStatus },
@@ -1377,6 +1362,7 @@ export class OrdersService {
       });
 
       console.log('✅ Bulk update completed successfully');
+
     } catch (error) {
       console.error('❌ Error in bulk update transaction:', error);
       throw error;
@@ -1384,11 +1370,13 @@ export class OrdersService {
 
     // 5️⃣ Notifications (non-blocking loop)
     for (const order of orders) {
+
       const deliveryPartnerName =
         order.deliveryPartner?.AdminProfile?.name ||
         'Delivery Partner';
 
       try {
+
         if (order.CustomerProfile?.user?.email) {
           await this.emailService.sendMail({
             to: order.CustomerProfile.user.email,
@@ -1398,8 +1386,8 @@ export class OrdersService {
               customerName: order.CustomerProfile.name,
               orderNumber: order.orderNumber,
               deliveryPartnerName,
-              oldStatus: order.tracking.status,
-              newStatus: status,
+              oldStatus: fromTrackingStatus,
+              newStatus: toTrackingStatus,
               oldPaymentStatus: order.paymentStatus,
               newPaymentStatus: paymentStatus,
               notes: 'Bulk update by delivery partner',
@@ -1411,9 +1399,10 @@ export class OrdersService {
           await this.firebaseSender.sendPush(
             order.CustomerProfile.fcmToken,
             'Order Tracking Updated',
-            `Your order ${order.orderNumber} is now ${status}`,
+            `Your order ${order.orderNumber} is now ${toTrackingStatus}`,
           );
         }
+
       } catch (error) {
         console.error(`❌ Failed to send notification for order ${order.orderNumber}:`, error);
       }
@@ -1423,7 +1412,7 @@ export class OrdersService {
 
     return {
       message: 'Orders updated successfully',
-      updatedCount: orderIds.length,
+      updatedCount: orders.length,
     };
   }
 
