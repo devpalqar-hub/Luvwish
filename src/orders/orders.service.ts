@@ -752,7 +752,6 @@ export class OrdersService {
     deliveryPartnerId: string,
     pagination: PaginationDto & {
       status?: string;
-      isPending?: string;
     },
   ) {
     const page = Number(pagination.page) || 1;
@@ -761,8 +760,8 @@ export class OrdersService {
 
     const whereClause: any = { deliveryPartnerId };
 
-    // isPending filter: if true, only show orders NOT cancelled or delivered
-    if (pagination.isPending === 'true') {
+    // pending filter: if true, only show orders NOT cancelled or delivered
+    if (pagination.pending === 'true') {
       whereClause.status = {
         notIn: ['cancelled', 'delivered'],
       };
