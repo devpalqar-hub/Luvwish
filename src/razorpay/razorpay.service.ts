@@ -1042,11 +1042,63 @@ export class RazorpayService {
     const order = await this.prisma.$transaction(async (tx) => {
       // 1️⃣ Reduce stock
       for (const item of orderItemsData) {
-        await tx.product.updateMany({
-          where: { id: item.productId, stockCount: { gte: item.quantity } },
-          data: { stockCount: { decrement: item.quantity } },
+
+        // -----------------------------------------
+        // 🔹 CASE 1 : VARIATION ORDER ITEM
+        // -----------------------------------------
+        if (item.productVariationId) {
+
+          // 1️⃣ Reduce variation stock
+          const variationUpdated = await tx.productVariation.updateMany({
+            where: {
+              id: item.productVariationId,
+              stockCount: { gte: item.quantity },
+            },
+            data: {
+              stockCount: { decrement: item.quantity },
+            },
+          });
+
+          if (!variationUpdated.count) {
+            throw new Error('Variation stock update failed');
+          }
+
+          // 2️⃣ Reduce parent product stock also
+          const productUpdated = await tx.product.updateMany({
+            where: {
+              id: item.productId,
+              stockCount: { gte: item.quantity },
+            },
+            data: {
+              stockCount: { decrement: item.quantity },
+            },
+          });
+
+          if (!productUpdated.count) {
+            throw new Error('Product stock update failed');
+          }
+
+          continue;
+        }
+
+        // -----------------------------------------
+        // 🔹 CASE 2 : SIMPLE PRODUCT ORDER ITEM
+        // -----------------------------------------
+        const productUpdated = await tx.product.updateMany({
+          where: {
+            id: item.productId,
+            stockCount: { gte: item.quantity },
+          },
+          data: {
+            stockCount: { decrement: item.quantity },
+          },
         });
+
+        if (!productUpdated.count) {
+          throw new Error('Product stock update failed');
+        }
       }
+
       // --------------------------------------------------
       // 🚚 AUTO ASSIGN DELIVERY PARTNER
       // --------------------------------------------------
