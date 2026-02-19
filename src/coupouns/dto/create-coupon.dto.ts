@@ -12,7 +12,6 @@ import { CoupounValueType } from '@prisma/client';
 
 export class CreateCouponDto {
   @IsString()
-  @Matches(/^[A-Z]+$/, { message: 'couponName must contain only capital letters' })
   couponName: string;
 
   @IsEnum(CoupounValueType)
