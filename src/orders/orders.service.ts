@@ -467,10 +467,10 @@ export class OrdersService {
       );
     }
 
-    const statusChanged = dto.status && dto.status !== existing.status;
     const paymentStatusChanged =
       dto.paymentStatus && dto.paymentStatus !== existing.paymentStatus;
 
+    // Get tracking details
     const tracking = await this.prisma.trackingDetail.findUnique({
       where: { orderId },
     });
@@ -479,15 +479,39 @@ export class OrdersService {
       throw new NotFoundException('Tracking details not found for this order');
     }
 
-    const updated = await this.prisma.trackingDetail.update({
-      where: { orderId },
-      data: {
-        ...(dto.status && { status: dto.status }),
-      },
-    });
+    const previousTrackingStatus = tracking.status;
+    const statusChanged = dto.status && dto.status !== previousTrackingStatus;
 
+    let updated = tracking;
 
-    // update payment status separately (belongs to Order)
+    // 2️⃣ Update tracking details with status history
+    if (dto.status) {
+      // Get existing status history or initialize
+      const statusHistory = (tracking.statusHistory as any[]) || [];
+
+      // Add new status to history
+      const newHistoryEntry = {
+        status: dto.status,
+        timestamp: new Date().toISOString(),
+        notes: `Updated by delivery partner`,
+      };
+      statusHistory.push(newHistoryEntry);
+
+      // Update tracking detail with status history
+      updated = await this.prisma.trackingDetail.update({
+        where: { orderId },
+        data: {
+          status: dto.status,
+          statusHistory,
+          lastUpdatedAt: new Date(),
+        },
+      });
+
+      // Sync order status based on tracking status
+      await this.syncOrderStatusFromTracking(orderId, dto.status);
+    }
+
+    // Update payment status separately (belongs to Order)
     if (dto.paymentStatus) {
       await this.prisma.order.update({
         where: { id: orderId },
@@ -497,7 +521,6 @@ export class OrdersService {
       });
     }
 
-
     // 3️⃣ Send notifications to customer
     if (
       (statusChanged || paymentStatusChanged) &&
@@ -506,28 +529,31 @@ export class OrdersService {
       const deliveryPartnerName =
         existing.deliveryPartner?.AdminProfile?.name || 'Delivery Partner';
 
+      // Send email notification
       await this.emailService.sendMail({
         to: existing.CustomerProfile.user.email,
-        subject: `Order Update – ${existing.orderNumber}`,
-        template: 'order-status-update',
+        subject: `Order Tracking Update – ${existing.orderNumber}`,
+        template: 'order-tracking-update',
         context: {
           customerName: existing.CustomerProfile.name,
           orderNumber: existing.orderNumber,
           deliveryPartnerName,
-          oldStatus: statusChanged ? existing.status : null,
+          oldStatus: statusChanged ? previousTrackingStatus : null,
           newStatus: statusChanged ? dto.status : null,
           oldPaymentStatus: paymentStatusChanged
             ? existing.paymentStatus
             : null,
           newPaymentStatus: paymentStatusChanged ? dto.paymentStatus : null,
+          notes: 'Updated by delivery partner',
         },
       });
 
+      // Send push notification
       if (existing.CustomerProfile.fcmToken) {
         await this.firebaseSender.sendPush(
           existing.CustomerProfile.fcmToken,
-          'Order Status Updated',
-          `Your order ${existing.orderNumber} is now ${dto.status || existing.status}`,
+          'Order Tracking Updated',
+          `Your order ${existing.orderNumber} is now ${dto.status || previousTrackingStatus}`,
         );
       }
     }
@@ -536,6 +562,32 @@ export class OrdersService {
       message: 'Order status updated successfully',
       data: updated,
     };
+  }
+
+  /**
+   * Sync order status based on tracking status
+   */
+  private async syncOrderStatusFromTracking(orderId: string, trackingStatus: any) {
+    const statusMap: Record<string, string> = {
+      order_placed: 'confirmed',
+      processing: 'processing',
+      ready_to_ship: 'processing',
+      shipped: 'shipped',
+      in_transit: 'shipped',
+      out_for_delivery: 'shipped',
+      delivered: 'delivered',
+      failed_delivery: 'shipped',
+      return_processing: 'return_processing',
+      returned: 'cancelled',
+    };
+
+    const orderStatus = statusMap[trackingStatus];
+    if (orderStatus) {
+      await this.prisma.order.update({
+        where: { id: orderId },
+        data: { status: orderStatus as any },
+      });
+    }
   }
 
 
@@ -1149,26 +1201,44 @@ export class OrdersService {
       );
     }
 
-    // 4️⃣ Transactional update
-    await this.prisma.$transaction([
-      this.prisma.trackingDetail.updateMany({
-        where: {
-          orderId: { in: orderIds },
-        },
+    // 4️⃣ Update tracking details with status history for each order
+    for (const order of orders) {
+      // Get existing status history or initialize
+      const statusHistory = (order.tracking.statusHistory as any[]) || [];
+
+      // Add new status to history
+      const newHistoryEntry = {
+        status,
+        timestamp: new Date().toISOString(),
+        notes: 'Bulk update by delivery partner',
+      };
+      statusHistory.push(newHistoryEntry);
+
+      // Update tracking detail with status history
+      await this.prisma.trackingDetail.update({
+        where: { orderId: order.id },
         data: {
           status,
+          statusHistory,
           lastUpdatedAt: new Date(),
         },
-      }),
-      this.prisma.order.updateMany({
+      });
+
+      // Sync order status based on tracking status
+      await this.syncOrderStatusFromTracking(order.id, status);
+    }
+
+    // Update payment status for all orders if provided
+    if (paymentStatus) {
+      await this.prisma.order.updateMany({
         where: {
           id: { in: orderIds },
         },
         data: {
           paymentStatus,
         },
-      }),
-    ]);
+      });
+    }
 
     // 5️⃣ Notifications (non-blocking loop)
     for (const order of orders) {
@@ -1179,8 +1249,8 @@ export class OrdersService {
       if (order.CustomerProfile?.user?.email) {
         await this.emailService.sendMail({
           to: order.CustomerProfile.user.email,
-          subject: `Order Update – ${order.orderNumber}`,
-          template: 'order-status-update',
+          subject: `Order Tracking Update – ${order.orderNumber}`,
+          template: 'order-tracking-update',
           context: {
             customerName: order.CustomerProfile.name,
             orderNumber: order.orderNumber,
@@ -1189,6 +1259,7 @@ export class OrdersService {
             newStatus: status,
             oldPaymentStatus: order.paymentStatus,
             newPaymentStatus: paymentStatus,
+            notes: 'Bulk update by delivery partner',
           },
         });
       }
@@ -1196,7 +1267,7 @@ export class OrdersService {
       if (order.CustomerProfile?.fcmToken) {
         await this.firebaseSender.sendPush(
           order.CustomerProfile.fcmToken,
-          'Order Status Updated',
+          'Order Tracking Updated',
           `Your order ${order.orderNumber} is now ${status}`,
         );
       }
