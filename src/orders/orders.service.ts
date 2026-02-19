@@ -483,14 +483,12 @@ export class OrdersService {
     });
 
     let updated = existing.tracking;
-    let updatedOrder = existing;
 
     // 2️⃣ Update tracking details with status history and order status in a transaction
     if (dto.status || dto.paymentStatus) {
       try {
         const result = await this.prisma.$transaction(async (tx) => {
           let trackingUpdate = existing.tracking;
-          let orderUpdate = existing;
 
           // Update tracking if status provided
           if (dto.status) {
@@ -524,7 +522,7 @@ export class OrdersService {
             // Sync order status based on tracking status
             const orderStatus = this.mapTrackingToOrderStatus(dto.status);
             if (orderStatus) {
-              orderUpdate = await tx.order.update({
+              await tx.order.update({
                 where: { id: orderId },
                 data: {
                   status: orderStatus as any,
@@ -540,7 +538,7 @@ export class OrdersService {
             }
           } else if (dto.paymentStatus) {
             // Only update payment status if no tracking status change
-            orderUpdate = await tx.order.update({
+            await tx.order.update({
               where: { id: orderId },
               data: {
                 paymentStatus: dto.paymentStatus,
@@ -548,11 +546,10 @@ export class OrdersService {
             });
           }
 
-          return { trackingUpdate, orderUpdate };
+          return { trackingUpdate };
         });
 
         updated = result.trackingUpdate;
-        updatedOrder = result.orderUpdate;
       } catch (error) {
         console.error('❌ Error updating tracking/order status:', error);
         throw error;
@@ -607,10 +604,10 @@ export class OrdersService {
       data: {
         tracking: updated,
         order: {
-          id: updatedOrder.id,
-          orderNumber: updatedOrder.orderNumber,
-          status: updatedOrder.status,
-          paymentStatus: updatedOrder.paymentStatus,
+          id: existing.id,
+          orderNumber: existing.orderNumber,
+          status: dto.status ? this.mapTrackingToOrderStatus(dto.status) || existing.status : existing.status,
+          paymentStatus: dto.paymentStatus || existing.paymentStatus,
         },
       },
     };
