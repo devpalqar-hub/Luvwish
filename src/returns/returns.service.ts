@@ -65,17 +65,25 @@ export class ReturnsService {
         },
       },
     });
+    // 1️⃣ Order existence check FIRST
+    if (!order) {
+      throw new NotFoundException('Order not found for this customer');
+    }
+
+    // 2️⃣ Tracking existence check
+    if (!order.tracking) {
+      throw new BadRequestException(
+        'Tracking details not found for this order',
+      );
+    }
+
+    // 3️⃣ Delivery check
     if (order.tracking.status !== 'delivered') {
       throw new BadRequestException(
         'Order must be delivered before it can be returned',
       );
     }
 
-    if (!order) {
-      throw new NotFoundException(
-        'Order not found or not eligible for return (must be delivered)',
-      );
-    }
 
     // 2️⃣ Check if return window is within 3 days
     const threeDaysAgo = new Date();
@@ -87,21 +95,63 @@ export class ReturnsService {
       );
     }
 
-    // 3️⃣ Check if any order items already have returns
-    for (const orderItem of order.items) {
-      const existingReturnItem = await this.prisma.returnItem.findFirst({
-        where: {
-          orderItemId: orderItem.id,
-        },
-        select: { id: true },
-      });
+    // 3️⃣ Prevent duplicate returns
 
-      if (existingReturnItem) {
-        throw new BadRequestException(
-          `Return already exists for item ${orderItem.product.name}`,
+    if (dto.returnType === 'full') {
+
+      // 🔹 FULL RETURN → Check all order items
+      for (const orderItem of order.items) {
+
+        const existingReturnItem = await this.prisma.returnItem.findFirst({
+          where: {
+            orderItemId: orderItem.id,
+          },
+          select: { id: true },
+        });
+
+        if (existingReturnItem) {
+          throw new BadRequestException(
+            `Return already exists for item ${orderItem.product.name}`,
+          );
+        }
+      }
+
+    } else if (dto.returnType === 'partial') {
+
+      if (!dto.items || !dto.items.length) {
+        throw new BadRequestException('Items are required for partial return');
+      }
+
+      // 🔹 PARTIAL RETURN → Check only passed items
+      for (const returnItem of dto.items) {
+
+        // 1️⃣ Verify item belongs to this order
+        const orderItem = order.items.find(
+          item => item.id === returnItem.orderItemId,
         );
+
+        if (!orderItem) {
+          throw new BadRequestException(
+            `Order item ${returnItem.orderItemId} does not belong to this order`,
+          );
+        }
+
+        // 2️⃣ Check if already returned
+        const existingReturnItem = await this.prisma.returnItem.findFirst({
+          where: {
+            orderItemId: returnItem.orderItemId,
+          },
+          select: { id: true },
+        });
+
+        if (existingReturnItem) {
+          throw new BadRequestException(
+            `Return already exists for item ${orderItem.product.name}`,
+          );
+        }
       }
     }
+
 
 
     // 4️⃣ Calculate refund amount
