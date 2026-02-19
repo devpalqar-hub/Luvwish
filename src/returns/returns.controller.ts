@@ -9,7 +9,7 @@ import {
   Request,
   UseGuards,
 } from '@nestjs/common';
-import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiBody, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { ReturnsService } from './returns.service';
 import { CreateReturnDto } from './dto/create-return.dto';
 import { UpdateReturnStatusDto } from './dto/update-return-status.dto';
@@ -30,6 +30,7 @@ export class ReturnsController {
   @Post()
   @Roles('CUSTOMER')
   @ApiOperation({ summary: 'Create a return request (Customer)' })
+  @ApiBody({ type: CreateReturnDto })
   async createReturn(@Request() req, @Body() dto: CreateReturnDto) {
     const userId = req.user.id || req.user.sub;
     const customerProfile = await this.returnsService['prisma'].customerProfile.findUnique({
@@ -96,10 +97,11 @@ export class ReturnsController {
 
   @Post('admin/direct-return')
   @Roles('ADMIN', 'SUPER_ADMIN', 'ORDER_MANAGER')
-  @ApiOperation({ 
-    summary: 'Admin directly processes return and refund', 
+  @ApiOperation({
+    summary: 'Admin directly processes return and refund',
     description: 'Admin can directly return items. Return charge equals delivery charge and is NOT included in revenue. Stock is restored immediately.'
   })
+  @ApiBody({ type: CreateReturnDto })
   async adminDirectReturn(
     @Body() dto: CreateReturnDto & { adminNotes?: string },
   ) {
