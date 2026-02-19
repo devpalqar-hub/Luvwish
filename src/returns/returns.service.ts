@@ -10,6 +10,7 @@ import { UpdateReturnStatusDto } from './dto/update-return-status.dto';
 import { ReturnFilterDto } from './dto/return-filter.dto';
 import { FirebaseSender } from '../firebase/firebase.sender';
 import { MailService } from '../mail/mail.service';
+import { ReturnPaymentMethod, ReturnStatus } from '@prisma/client';
 
 @Injectable()
 export class ReturnsService {
@@ -313,6 +314,23 @@ export class ReturnsService {
       }
     }
 
+
+
+    let paymentMethodToUpdate: ReturnPaymentMethod | null =
+      returnRequest.returnPaymentMethod;
+
+    // ❌ If rejected → force NULL
+    if (dto.status === 'rejected') {
+      paymentMethodToUpdate = null;
+    }
+
+    // ✅ If refunded → allow dto value
+    else if (dto.status === 'refunded') {
+      paymentMethodToUpdate = dto.returnPaymentMethod;
+    }
+
+    // Otherwise keep previous value
+
     // 3️⃣ Update return status and order items
     const updated = await this.prisma.return.update({
       where: { id: returnId },
@@ -320,7 +338,7 @@ export class ReturnsService {
         status: dto.status,
         adminNotes: dto.adminNotes || returnRequest.adminNotes,
         updatedAt: new Date(),
-        returnPaymentMethod: dto.returnPaymentMethod,
+        returnPaymentMethod: paymentMethodToUpdate,
       },
     });
 

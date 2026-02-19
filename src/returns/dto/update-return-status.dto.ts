@@ -22,5 +22,6 @@ export class UpdateReturnStatusDto {
     description: 'How the customer will be refunded (e.g., cash or online)'
   })
   @IsEnum(ReturnPaymentMethod)
+  @IsOptional()
   returnPaymentMethod: ReturnPaymentMethod;
 }
