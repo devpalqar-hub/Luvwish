@@ -13,7 +13,8 @@
     "test": "jest",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
-    "prisma:seed": "ts-node prisma/seed.ts"
+    "prisma:seed": "ts-node prisma/seed.ts",
+    "prisma:order": "ts-node prisma/orders.seed.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.962.0",
@@ -29,6 +30,7 @@
     "@nestjs/platform-express": "10.4.22",
     "@nestjs/platform-socket.io": "10.4.22",
     "@nestjs/schedule": "3.0.4",
+    "@nestjs/swagger": "^7.4.2",
     "@nestjs/throttler": "5.1.2",
     "@nestjs/websockets": "^10.4.22",
     "@prisma/client": "^6.16.2",
@@ -52,6 +54,7 @@
     "reflect-metadata": "0.1.13",
     "rxjs": "^7.8.1",
     "socket.io": "^4.8.3",
+    "swagger-ui-express": "^5.0.1",
     "uuid": "^11.1.0"
   },
   "devDependencies": {

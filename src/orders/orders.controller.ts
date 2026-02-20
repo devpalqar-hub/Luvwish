@@ -12,6 +12,7 @@ import {
   ParseUUIDPipe,
   Res,
 } from '@nestjs/common';
+import { ApiBearerAuth, ApiBody, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Response } from 'express';
 import { OrdersService } from './orders.service';
 import { CreateOrderDto } from './dto/create-orders.dto';
@@ -23,6 +24,9 @@ import { RolesGuard } from 'src/common/guards/roles.guard';
 import { Roles } from 'src/common/decorators/roles.decorator';
 import { UpdateOrderStatusDto } from './dto/update-order-status.dto';
 import { get } from 'http';
+import { BulkUpdateOrderStatusDto } from './dto/update-bulk-orders.dto';
+
+@ApiTags('Orders')
 @Controller('orders')
 export class OrdersController {
   constructor(private readonly ordersService: OrdersService) { }
@@ -85,7 +89,9 @@ export class OrdersController {
   }
 
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('ADMIN', 'DELIVERY')
+  @Roles('ADMIN', 'SUPER_ADMIN', 'ORDER_MANAGER')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Update order status (Admin only)' })
   @Patch(':id/status')
   updateOrderStatus(
     @Param('id', new ParseUUIDPipe()) id: string,
@@ -93,6 +99,7 @@ export class OrdersController {
   ) {
     return this.ordersService.updateOrderStatus(id, dto);
   }
+
 
   @Get('admin/get-all')
   async findAllbyAdmin(
@@ -148,14 +155,55 @@ export class OrdersController {
       'Content-Type',
       'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
     );
-    res.setHeader(
-      'Content-Disposition',
-      'attachment; filename=orders.xlsx',
-    );
-
-    res.send(fileBuffer);
   }
 
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('DELIVERY')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Get orders assigned to logged-in delivery partner' })
+  @Get('delivery-partner/my-orders')
+  async getMyDeliveryOrders(@Request() req, @Query() query: PaginationDto) {
+    const deliveryPartnerId = req.user.id || req.user.sub;
+    return this.ordersService.findOrdersByDeliveryPartner(
+      deliveryPartnerId,
+      Object.assign(query, {
+        status: query.status,
+        orderId: query.orderId,
+      }),
+    );
+
+  }
+
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('ADMIN', 'SUPER_ADMIN', 'ORDER_MANAGER', 'DELIVERY')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Manually assign or reassign a delivery partner to an order' })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        deliveryPartnerId: {
+          type: 'string',
+          example: 'clx9a2k3f0001abc123xyz',
+          description: 'Delivery partner ID to assign to the order',
+        },
+        notes: {
+          type: 'string',
+          example: 'delivery partner changed due to traffic issues',
+          description: 'Optional notes for the delivery partner',
+        },
+      },
+      required: ['deliveryPartnerId'],
+    },
+  })
+  @Patch(':orderId/assign-delivery-partner')
+  async assignDeliveryPartner(
+    @Param('orderId') orderId: string,
+    @Body('deliveryPartnerId') deliveryPartnerId: string,
+    @Body('notes') notes: string
+  ) {
+    return this.ordersService.assignDeliveryPartner(orderId, deliveryPartnerId, notes);
+  }
 
   @Get('check/delivery')
   async checkDeliverable(@Query('postalCode') postalCode: string) {
@@ -174,5 +222,48 @@ export class OrdersController {
   }
 
 
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('DELIVERY')
+  @ApiBearerAuth()
+  @ApiOperation({
+    summary: 'Bulk update order status (Delivery Partner)',
+  })
+  @ApiBody({ type: BulkUpdateOrderStatusDto })
+  @Patch('delivery/bulk/status')
+  bulkUpdateOrderStatusByDeliveryPartner(
+    @Request() req,
+    @Body() dto: BulkUpdateOrderStatusDto,
+  ) {
+    console.log("hieee")
+    console.log(dto, "Received bulk update request from delivery partner");
+    const deliveryPartnerId = req.user.id || req.user.sub;
+
+    return this.ordersService.bulkUpdateOrderStatusByDeliveryPartner(
+      deliveryPartnerId,
+      dto,
+    );
+  }
+
+
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('DELIVERY')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Update order status (Delivery Partner - only assigned orders)' })
+  @Patch('delivery/:orderId/status')
+  updateOrderStatusByDeliveryPartner(
+    @Param('orderId', new ParseUUIDPipe()) orderId: string,
+    @Request() req,
+    @Body() dto: UpdateOrderStatusDto,
+  ) {
+    const deliveryPartnerId = req.user.id || req.user.sub;
+    return this.ordersService.updateOrderStatusByDeliveryPartner(
+      orderId,
+      deliveryPartnerId,
+      dto,
+    );
+  }
+
+
 
 }
+

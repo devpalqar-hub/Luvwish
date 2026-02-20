@@ -4,10 +4,13 @@ import { SalesProgressQueryDto, SalesPeriod } from './dto/sales-progress-query.d
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { Roles } from '../common/decorators/roles.decorator';
+import { ApiTags } from '@nestjs/swagger';
 
+
+@ApiTags('Analytics')
 @Controller('analytics')
 export class AnalyticsController {
-  constructor(private readonly analyticsService: AnalyticsService) {}
+  constructor(private readonly analyticsService: AnalyticsService) { }
 
   // Admin - Get sales progress graph data
   @UseGuards(JwtAuthGuard, RolesGuard)

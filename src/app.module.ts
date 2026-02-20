@@ -32,6 +32,8 @@ import { MailModule } from './mail/mail.module';
 import { WhatsAppModule } from './whatsapp/whatsapp.module';
 import { MyFatoorahService } from './razorpay/myfatoorah.service';
 import { HttpModule, HttpService } from '@nestjs/axios';
+import { DeliveryPartnersModule } from './delivery-partners/delivery-partners.module';
+import { ReturnsModule } from './returns/returns.module';
 
 @Module({
   imports: [
@@ -69,6 +71,8 @@ import { HttpModule, HttpService } from '@nestjs/axios';
     BannersModule,
     AnalyticsModule,
     WhatsAppModule,
+    DeliveryPartnersModule,
+    ReturnsModule,
   ],
   providers: [RazorpayService, MyFatoorahService],
   controllers: [RazorpayController],

@@ -29,10 +29,12 @@ import { ToggleFeaturedDto } from './dto/toggle-featured.dto';
 import { OptionalJwtAuthGuard } from 'src/common/guards/ optional-jwt-auth.guard';
 import { AdminProductFilterDto } from './dto/admin-product-filter.dto';
 import { UpdateProductVariationDto } from './dto/update-product-variation.dto';
+import { ApiTags } from '@nestjs/swagger';
 
 const maxSize = 10 * 1024 * 1024; // 50MB per media
 const maxSizeGallery = 50 * 1024 * 1024; // 50 MB
 
+@ApiTags('Products')
 @Controller('products')
 export class ProductsController {
   constructor(

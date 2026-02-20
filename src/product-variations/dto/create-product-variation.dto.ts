@@ -12,7 +12,10 @@ export class CreateProductVariationDto {
   sku?: string;
 
   @IsNumber()
-  price: number;
+  discountedPrice: number;
+
+  @IsNumber()
+  actualPrice: number;
 
   @IsNumber()
   stockCount: number;

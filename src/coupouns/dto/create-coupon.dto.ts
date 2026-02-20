@@ -5,6 +5,7 @@ import {
   IsBoolean,
   IsEnum,
   Min,
+  Matches,
 } from 'class-validator';
 import { Type } from 'class-transformer';
 import { CoupounValueType } from '@prisma/client';

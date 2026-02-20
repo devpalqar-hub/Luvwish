@@ -14,7 +14,9 @@ import { UpdateProductVariationDto } from './dto/update-product-variation.dto';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { Roles } from '../common/decorators/roles.decorator';
+import { ApiTags } from '@nestjs/swagger';
 
+@ApiTags('Product Variations')
 @Controller('product-variations')
 export class ProductVariationsController {
   constructor(private readonly productVariationsService: ProductVariationsService) {}

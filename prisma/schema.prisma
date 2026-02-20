@@ -39,6 +39,11 @@ enum CoupounValueType {
   amount
 }
 
+enum ReturnPaymentMethod {
+  cash
+  online
+}
+
 enum Roles {
   SUPER_ADMIN // full system control
   ADMIN // manage store operations
@@ -61,7 +66,24 @@ enum TrackingStatus {
   out_for_delivery
   delivered
   failed_delivery
+  return_processing
   returned
+}
+
+enum ReturnStatus {
+  pending
+  approved
+  rejected
+  picked_up
+  returned
+  refunded
+}
+
+enum RefundMethod {
+  original_payment
+  bank_transfer
+  store_credit
+  wallet
 }
 
 model User {
@@ -79,6 +101,10 @@ model User {
   AdminProfile    AdminProfile?
   UserOtp         UserOtp[]
   DeviceToken     DeviceToken[]
+  deliveryOrders  Order[]          @relation("DeliveryPartner")
+  deliveryReturns Return[]         @relation("DeliveryPartnerReturns")
+
+  lastAssignedDeliveryTime DateTime?
 
   @@map("users")
 }
@@ -106,6 +132,7 @@ model CustomerProfile {
   BankDetails      BankDetails[]
   Wishlist         Wishlist[]
   whatsappSessions WhatsAppSession[]
+  returns          Return[]
 
   @@map("CustomerProfile")
 }
@@ -262,6 +289,7 @@ model Order {
   notes             String?
   shippingAddressId String?
   razorpay_id       String?
+  deliveryPartnerId String?
 
   coupounId String?
   tracking  TrackingDetail?
@@ -270,30 +298,35 @@ model Order {
 
   coupun           Coupon? @relation(fields: [coupounId], references: [id])
   isCoupuonApplied Boolean @default(false)
+  deliveryPartner  User?   @relation("DeliveryPartner", fields: [deliveryPartnerId], references: [id], onDelete: SetNull)
 
   items             OrderItem[]
   shippingAddress   Address?        @relation("ShippingAddress", fields: [shippingAddressId], references: [id])
   CustomerProfile   CustomerProfile @relation(fields: [customerProfileId], references: [id])
   customerProfileId String
   Payment           Payment[]
+  returns           Return[]
 
   @@map("orders")
 }
 
 model OrderItem {
-  id                 String  @id @default(uuid())
+  id                 String        @id @default(uuid())
   orderId            String
   productId          String
   productVariationId String?
   variationDetails   Json?
   quantity           Int
-  discountedPrice    Decimal @db.Decimal(10, 2)
-  actualPrice        Decimal @db.Decimal(10, 2)
+  isReturned         Boolean       @default(false)
+  returnStatus       ReturnStatus? // pending, approved, rejected, picked_up, returned, refunded
+  discountedPrice    Decimal       @db.Decimal(10, 2)
+  actualPrice        Decimal       @db.Decimal(10, 2)
 
   order            Order             @relation(fields: [orderId], references: [id], onDelete: Cascade)
   product          Product           @relation(fields: [productId], references: [id])
   productVariation ProductVariation? @relation(fields: [productVariationId], references: [id], onDelete: SetNull)
   Review           Review?
+  returnItems      ReturnItem[]
 
   @@map("order_items")
 }
@@ -469,6 +502,43 @@ model DeviceToken {
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+model Return {
+  id                  String               @id @default(uuid())
+  orderId             String
+  customerProfileId   String
+  deliveryPartnerId   String?
+  status              ReturnStatus         @default(pending)
+  returnPaymentMethod ReturnPaymentMethod?
+  returnType          String               @default("full") // full or partial
+  reason              String               @db.Text
+  refundAmount        Decimal              @db.Decimal(10, 2)
+  returnFee           Decimal              @default(0) @db.Decimal(10, 2)
+  refundMethod        RefundMethod         @default(original_payment)
+  adminNotes          String?              @db.Text
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime             @updatedAt
+
+  order           Order           @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  customerProfile CustomerProfile @relation(fields: [customerProfileId], references: [id])
+  deliveryPartner User?           @relation("DeliveryPartnerReturns", fields: [deliveryPartnerId], references: [id], onDelete: SetNull)
+  returnItems     ReturnItem[]
+
+  @@map("returns")
+}
+
+model ReturnItem {
+  id          String  @id @default(uuid())
+  returnId    String
+  orderItemId String
+  quantity    Int
+  reason      String? @db.Text
+
+  return    Return    @relation(fields: [returnId], references: [id], onDelete: Cascade)
+  orderItem OrderItem @relation(fields: [orderItemId], references: [id])
+
+  @@map("return_items")
 }
 
 model WhatsAppSettings {

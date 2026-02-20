@@ -1,0 +1,27 @@
+doctype html
+html
+  head
+    meta(charset="UTF-8")
+    title Order Tracking Update
+  body
+    p Hi #{customerName || 'Customer'},
+
+    p Your order
+      strong  #{orderNumber}
+      |  tracking status has been updated.
+
+    if oldStatus && newStatus
+      p
+        strong Tracking Status:
+        |  #{oldStatus} → #{newStatus}
+
+    if notes
+      p
+        strong Notes:
+        |  #{notes}
+
+    br
+    p You can track your order in real time from your account.
+
+    br
+    p Thanks for choosing us.

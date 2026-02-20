@@ -15,7 +15,9 @@ import { CartService } from './cart.service';
 import { AddToCartDto } from './dto/add-to-cart.dto';
 import { UpdateCartDto } from './dto/update-cart-item.dto';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
+import { ApiTags } from '@nestjs/swagger';
 
+@ApiTags('Cart')
 @Controller('cart')
 @UseGuards(JwtAuthGuard)
 export class CartController {
@@ -49,12 +51,32 @@ export class CartController {
     return this.cartService.updateCartItem(profile_id, updateCartDto);
   }
 
+  // @UseGuards(JwtAuthGuard)
+  // @Patch('remove-from-cart/:id')
+  // async removeFromCart(@Request() req, @Param('id') cartItemId: string) {
+  //   const profile_id = req.user.id;
+  //   return this.cartService.RemoveFromCart(profile_id, cartItemId);
+  // }
+
   @UseGuards(JwtAuthGuard)
-  @Patch('remove-from-cart/:id')
-  async removeFromCart(@Request() req, @Param('id') cartItemId: string) {
-    const profile_id = req.user.id;
-    return this.cartService.RemoveFromCart(profile_id, cartItemId);
+  @Patch('remove-from-cart')
+  async removeFromCart(
+    @Request() req,
+    @Query('id') cartItemId?: string,
+    @Query('productId') productId?: string,
+    @Query('productVariationId') productVariationId?: string,
+  ) {
+    const userId = req.user.id;
+    console.log(productId)
+
+    return this.cartService.RemoveFromCart(
+      userId,
+      cartItemId,
+      productId,
+      productVariationId,
+    );
   }
+
 
   @UseGuards(JwtAuthGuard)
   @Delete('delete-cart/:id')

@@ -11,7 +11,9 @@ import {
 import { DeliveryChargesService } from './delivery-charges.service';
 import { CreateDeliveryChargeDto } from './dto/create-delivery-charge.dto';
 import { UpdateDeliveryChargeDto } from './dto/update-delivery-charge.dto';
+import { ApiTags } from '@nestjs/swagger';
 
+@ApiTags('Delivery Charges')
 @Controller('delivery-charges')
 export class DeliveryChargesController {
     constructor(

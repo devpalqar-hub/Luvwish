@@ -6,7 +6,7 @@ import { Attachment } from 'nodemailer/lib/mailer';
 export class MailService {
     constructor(private readonly mailer: MailerService) { }
     async sendMail(options: {
-        to: string;
+        to: string | string[];
         subject: string;
 
         /** One of the following is required */

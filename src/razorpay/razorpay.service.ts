@@ -4,7 +4,7 @@ import Razorpay from 'razorpay';
 import { CreatePaymentIntentDto } from './dto/checkout.dto';
 import { PrismaService } from '../prisma/prisma.service';
 import * as crypto from 'crypto';
-import { CoupounValueType, OrderStatus, PaymentMethod, PaymentStatus } from '@prisma/client';
+import { CoupounValueType, OrderStatus, PaymentMethod, PaymentStatus, Roles } from '@prisma/client';
 import { MailService } from 'src/mail/mail.service';
 import { FirebaseSender } from 'src/firebase/firebase.sender';
 import { MyFatoorahService } from './myfatoorah.service';
@@ -833,10 +833,15 @@ export class RazorpayService {
     // --------------------------------------------------
     const customerProfile = await this.prisma.customerProfile.findUnique({
       where: { userId: customerProfileId },
+      include: { user: true },
     });
 
     if (!customerProfile) {
       throw new Error('Customer profile not found');
+    }
+
+    if (customerProfile.user.isActive === false) {
+      throw new HttpException('User account is deactivated', HttpStatus.FORBIDDEN);
     }
 
     // --------------------------------------------------
@@ -1037,11 +1042,101 @@ export class RazorpayService {
     const order = await this.prisma.$transaction(async (tx) => {
       // 1️⃣ Reduce stock
       for (const item of orderItemsData) {
-        await tx.product.updateMany({
-          where: { id: item.productId, stockCount: { gte: item.quantity } },
-          data: { stockCount: { decrement: item.quantity } },
+
+        // -----------------------------------------
+        // 🔹 CASE 1 : VARIATION ORDER ITEM
+        // -----------------------------------------
+        if (item.productVariationId) {
+
+          // 1️⃣ Reduce variation stock
+          const variationUpdated = await tx.productVariation.updateMany({
+            where: {
+              id: item.productVariationId,
+              stockCount: { gte: item.quantity },
+            },
+            data: {
+              stockCount: { decrement: item.quantity },
+            },
+          });
+
+          if (!variationUpdated.count) {
+            throw new Error('Variation stock update failed');
+          }
+
+          // 2️⃣ Reduce parent product stock also
+          const productUpdated = await tx.product.updateMany({
+            where: {
+              id: item.productId,
+              stockCount: { gte: item.quantity },
+            },
+            data: {
+              stockCount: { decrement: item.quantity },
+            },
+          });
+
+          if (!productUpdated.count) {
+            throw new Error('Product stock update failed');
+          }
+
+          continue;
+        }
+
+        // -----------------------------------------
+        // 🔹 CASE 2 : SIMPLE PRODUCT ORDER ITEM
+        // -----------------------------------------
+        const productUpdated = await tx.product.updateMany({
+          where: {
+            id: item.productId,
+            stockCount: { gte: item.quantity },
+          },
+          data: {
+            stockCount: { decrement: item.quantity },
+          },
         });
+
+        if (!productUpdated.count) {
+          throw new Error('Product stock update failed');
+        }
       }
+
+      // --------------------------------------------------
+      // 🚚 AUTO ASSIGN DELIVERY PARTNER
+      // --------------------------------------------------
+
+      // 1️⃣ Check if any delivery partner has null assignment time
+      const deliveryPartnerWithNull = await tx.user.findFirst({
+        where: {
+          role: Roles.DELIVERY,
+          isActive: true,
+          lastAssignedDeliveryTime: null,
+        },
+        orderBy: {
+          createdAt: 'asc',
+        },
+        select: { id: true },
+      });
+
+      let selectedDeliveryPartnerId: string | null = null;
+
+      if (deliveryPartnerWithNull) {
+        // First round
+        selectedDeliveryPartnerId = deliveryPartnerWithNull.id;
+      } else {
+        // Normal circular assignment
+        const deliveryPartner = await tx.user.findFirst({
+          where: {
+            role: Roles.DELIVERY,
+            isActive: true,
+          },
+          orderBy: {
+            lastAssignedDeliveryTime: 'asc',
+          },
+          select: { id: true },
+        });
+
+        selectedDeliveryPartnerId = deliveryPartner?.id ?? null;
+      }
+
 
       // 2️⃣ Create order
       const order = await tx.order.create({
@@ -1049,9 +1144,7 @@ export class RazorpayService {
           customerProfileId: customerProfile.id,
           orderNumber: `ORD-${Date.now()}`,
           status: OrderStatus.confirmed,
-          paymentStatus: isCOD
-            ? PaymentStatus.pending
-            : PaymentStatus.completed,
+          paymentStatus: PaymentStatus.completed,
           paymentMethod: paymentMethod ?? PaymentMethod.cash_on_delivery,
           totalAmount: totalOrderAmount,
           shippingAddressId: shippingAddrs.id,
@@ -1059,9 +1152,19 @@ export class RazorpayService {
           isCoupuonApplied: !!coupuon,
           shippingCost,
           razorpay_id: fatoorahPaymentId ?? null,
+          deliveryPartnerId: selectedDeliveryPartnerId,
           items: { create: orderItemsData },
         },
       });
+
+      if (selectedDeliveryPartnerId) {
+        await tx.user.update({
+          where: { id: selectedDeliveryPartnerId },
+          data: {
+            lastAssignedDeliveryTime: new Date(),
+          },
+        });
+      }
 
       // 3️⃣ Clear cart AFTER successful order creation
       if (useCart) {
@@ -1112,11 +1215,88 @@ export class RazorpayService {
     // --------------------------------------------------
     (async () => {
       try {
-        const admins = await this.prisma.adminProfile.findMany({
-          where: { fcmToken: { not: null } },
-          select: { fcmToken: true },
+        const orderForMail = await this.prisma.order.findUnique({
+          where: { id: order.id },
+          select: {
+            orderNumber: true,
+            totalAmount: true,
+            paymentMethod: true,
+            shippingCost: true,
+            createdAt: true,
+            CustomerProfile: {
+              select: {
+                name: true,
+                phone: true,
+                user: { select: { email: true } },
+              },
+            },
+            items: {
+              select: {
+                quantity: true,
+                discountedPrice: true,
+                product: { select: { name: true } },
+              },
+            },
+          },
+        });
+        const adminsEmail = await this.prisma.adminProfile.findMany({
+          select: { fcmToken: true, user: { select: { email: true } } },
         });
 
+        // 🔹 Collect & dedupe admin emails
+        const adminEmails = [
+          ...new Set(
+            adminsEmail
+              .map((a) => a.user?.email)
+              .filter((email): email is string => Boolean(email)),
+          ),
+        ];
+
+        // 🔹 Fallback (optional but safe)
+        if (!adminEmails.length && process.env.ADMIN_EMAIL) {
+          adminEmails.push(process.env.ADMIN_EMAIL);
+        }
+
+        const PaymentMethodLabel: Record<PaymentMethod, string> = {
+          credit_card: 'Credit Card',
+          debit_card: 'Debit Card',
+          paypal: 'PayPal',
+          stripe: 'Stripe',
+          bank_transfer: 'Bank Transfer',
+          myfatoorah: 'MyFatoorah',
+          cash_on_delivery: 'Cash on Delivery',
+        };
+
+
+
+        console.log(adminEmails)
+        await this.emailService.sendMail({
+          to: adminEmails,
+          subject: `🛒 New Order Placed – ${orderForMail.orderNumber}`,
+          template: 'admin-order-placed',
+          context: {
+            orderNumber: orderForMail.orderNumber,
+            totalAmount: orderForMail.totalAmount,
+            paymentMethod: PaymentMethodLabel[orderForMail.paymentMethod],
+            createdAt: orderForMail.createdAt,
+            customer: {
+              name: orderForMail.CustomerProfile?.name,
+              email: orderForMail.CustomerProfile?.user?.email,
+              phone: orderForMail.CustomerProfile?.phone,
+            },
+            items: orderForMail.items.map(item => ({
+              name: item.product.name,
+              quantity: item.quantity,
+              price: item.discountedPrice,
+            })),
+          },
+        });
+
+
+        const admins = await this.prisma.adminProfile.findMany({
+          where: { fcmToken: { not: null } },
+          select: { fcmToken: true, user: { select: { email: true } } },
+        });
         await this.firebaseSender.sendPushMultiple(
           admins.map(a => a.fcmToken),
           'New Order Placed',

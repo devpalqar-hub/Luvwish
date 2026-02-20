@@ -1,9 +1,10 @@
 // check-coupon.dto.ts
-import { IsNumber, IsOptional, IsString } from 'class-validator';
+import { IsNumber, IsOptional, IsString, Matches } from 'class-validator';
 import { Transform } from 'class-transformer';
 
 export class CheckCouponDto {
     @IsString()
+    @Matches(/^[A-Z]+$/, { message: 'couponName must contain only capital letters' })
     couponName: string;
 
     @IsNumber()

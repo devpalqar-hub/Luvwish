@@ -21,7 +21,9 @@ import { query } from 'express';
 import { SearchFilterDto } from 'src/pagination/dto/search-filter.dto';
 import { CheckCouponDto } from './dto/check-coupon.dto';
 import { ApplyCouponDto } from './dto/apply-coupon.dto';
+import { ApiTags } from '@nestjs/swagger';
 
+@ApiTags('Coupons')
 @Controller('coupons')
 export class CouponController {
   constructor(private readonly couponService: CouponService) { }

@@ -2,10 +2,16 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { UpdateTrackingStatusDto } from './dto/update-tracking-status.dto';
 import { TrackingStatus } from '@prisma/client';
+import { FirebaseSender } from 'src/firebase/firebase.sender';
+import { MailService } from 'src/mail/mail.service';
+import { Logger } from '@nestjs/common';
+
 
 @Injectable()
 export class TrackingService {
-  constructor(private prisma: PrismaService) {}
+  private readonly logger = new Logger(TrackingService.name);
+  constructor(private prisma: PrismaService, private readonly emailService: MailService,
+    private readonly firebaseSender: FirebaseSender) { }
 
   // Get tracking details by order ID
   async getTrackingByOrderId(orderId: string) {
@@ -26,6 +32,7 @@ export class TrackingService {
             },
           },
         },
+
       },
     });
 
@@ -69,11 +76,31 @@ export class TrackingService {
   async updateTrackingStatus(orderId: string, dto: UpdateTrackingStatusDto) {
     const tracking = await this.prisma.trackingDetail.findUnique({
       where: { orderId },
+      include: {
+        order: {
+          select: {
+            id: true,
+            orderNumber: true,
+            status: true,
+            CustomerProfile: {
+              select: {
+                name: true,
+                fcmToken: true,
+                user: {
+                  select: { email: true },
+                },
+              },
+            },
+          },
+        },
+      },
     });
 
     if (!tracking) {
       throw new NotFoundException(`Tracking details for order ${orderId} not found`);
     }
+
+    const previousStatus = tracking.status;
 
     // Get existing status history or initialize
     const statusHistory = (tracking.statusHistory as any[]) || [];
@@ -99,7 +126,6 @@ export class TrackingService {
           select: {
             id: true,
             orderNumber: true,
-            status: true,
           },
         },
       },
@@ -107,12 +133,57 @@ export class TrackingService {
 
     // Auto-update order status based on tracking status
     await this.syncOrderStatus(orderId, dto.status);
+    const TrackingStatusLabel: Record<TrackingStatus, string> = {
+      order_placed: 'Order Placed',
+      processing: 'Processing',
+      ready_to_ship: 'Ready to Ship',
+      shipped: 'Shipped',
+      in_transit: 'In Transit',
+      out_for_delivery: 'Out for Delivery',
+      delivered: 'Delivered',
+      failed_delivery: 'Delivery Failed',
+      return_processing: 'Return Processing',
+      returned: 'Returned',
+    };
+
+    // 📧📲 Notify customer ONLY if tracking status changed
+    try {
+      if (tracking.order.CustomerProfile?.user?.email) {
+        await this.emailService.sendMail({
+          to: tracking.order.CustomerProfile.user.email,
+          subject: `Order Tracking Update – ${tracking.order.orderNumber}`,
+          template: 'order-tracking-update',
+          context: {
+            customerName: tracking.order.CustomerProfile.name,
+            orderNumber: tracking.order.orderNumber,
+            oldStatus: TrackingStatusLabel[previousStatus],
+            newStatus: TrackingStatusLabel[dto.status],
+            notes: dto.notes || null,
+          },
+        });
+      }
+
+      if (tracking.order.CustomerProfile?.fcmToken) {
+        await this.firebaseSender.sendPush(
+          tracking.order.CustomerProfile.fcmToken,
+          'Order Tracking Updated',
+          `Your order ${tracking.order.orderNumber} is now ${dto.status}`,
+        );
+      }
+    } catch (err) {
+      this.logger.warn(
+        `Notification failed for order ${tracking.order.orderNumber}`,
+        err,
+      );
+    }
+
 
     return {
       message: 'Tracking status updated successfully',
       tracking: updatedTracking,
     };
   }
+
 
   // Sync order status with tracking status
   private async syncOrderStatus(orderId: string, trackingStatus: TrackingStatus) {
@@ -125,6 +196,7 @@ export class TrackingService {
       out_for_delivery: 'shipped',
       delivered: 'delivered',
       failed_delivery: 'shipped',
+      return_processing: 'return_processing',
       returned: 'cancelled',
     };
 

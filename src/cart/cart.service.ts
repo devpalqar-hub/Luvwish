@@ -337,34 +337,66 @@ export class CartService {
     return { message: 'Item removed from cart successfully' };
   }
 
-
-  async RemoveFromCart(userId: string, cartItemId: string) {
-    const customerprofile = await this.prisma.customerProfile.findUnique({
+  async RemoveFromCart(
+    userId: string,
+    cartItemId?: string,
+    productId?: string,
+    productVariationId?: string,
+  ) {
+    const customerProfile = await this.prisma.customerProfile.findUnique({
       where: { userId },
     });
-    if (!customerprofile) {
+
+    if (!customerProfile) {
       throw new NotFoundException('Customer profile not found');
     }
+
+    if (!cartItemId && !productId && !productVariationId) {
+      throw new BadRequestException(
+        'cartItemId or productId or productVariationId is required',
+      );
+    }
+
+    // --------------------------------------------------
+    // Resolve cart item (same pattern as wishlist)
+    // --------------------------------------------------
     const cart = await this.prisma.cartItem.findFirst({
       where: {
-        customerProfileId: customerprofile.id,
-        id: cartItemId,
+        customerProfileId: customerProfile.id,
+        OR: [
+          cartItemId ? { id: cartItemId } : undefined,
+          productVariationId
+            ? { productVariationId }
+            : undefined,
+          productId
+            ? { productId, productVariationId: null }
+            : undefined,
+        ].filter(Boolean),
       },
     });
+
     if (!cart) {
       throw new NotFoundException('Cart item not found');
     }
-    const newQuantity = cart.quantity - 1;
+
+    // --------------------------------------------------
+    // Quantity handling
+    // --------------------------------------------------
+    const newQuantity = (cart.quantity ?? 0) - 1;
+
     if (newQuantity > 0) {
       return this.prisma.cartItem.update({
         where: { id: cart.id },
         data: { quantity: newQuantity },
       });
     }
-    else {
-      await this.prisma.cartItem.delete({ where: { id: cart.id } });
-      return { message: 'Item removed from cart successfully' };
-    }
+
+    await this.prisma.cartItem.delete({
+      where: { id: cart.id },
+    });
+
+    return { message: 'Item removed from cart successfully' };
   }
+
 
 }
