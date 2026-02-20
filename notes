@@ -1,1 +1,90 @@
-product stock count reduction
+when assigning order to deliveryPartner
+    📦 New Pickup Assigned
+    Order #ORD-1042 is assigned to you. Please proceed to pickup location.
+
+
+
+status changes
+📦 When Status → processing
+
+Title:
+
+👨‍🍳 Preparing Your Order
+
+Body:
+
+We're getting your order #ORD-1042 ready.
+
+📦 When Status → ready_to_ship
+
+Title:
+
+📦 Packed & Ready
+
+Body:
+
+Your order #ORD-1042 has been packed and will be shipped soon.
+
+🚚 When Status → shipped / in_transit
+
+Title:
+
+🚚 On the Way
+
+Body:
+
+Your order #ORD-1042 is on its way to your delivery location.
+
+🛵 When Status → out_for_delivery
+
+Title:
+
+🛵 Out for Delivery
+
+Body:
+
+Your order #ORD-1042 will reach you shortly. Please keep your phone accessible.
+
+✅ When Status → delivered
+
+Title:
+
+✅ Delivered
+
+Body:
+
+Your order #ORD-1042 has been delivered successfully. Enjoy!
+
+⚠️ When Status → failed_delivery
+
+Title:
+
+⚠️ Delivery Attempt Failed
+
+Body:
+
+We couldn't deliver your order #ORD-1042. We'll try again soon.
+
+🔄 When Status → return_processing
+
+Title:
+
+🔄 Return in Progress
+
+Body:
+
+Return process for order #ORD-1042 has been initiated.
+
+📦 When Status → returned
+
+Title:
+
+📦 Order Returned
+
+Body:
+
+Your order #ORD-1042 has been returned successfully.
+
+
+
+

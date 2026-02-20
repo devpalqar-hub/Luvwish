@@ -1,5 +1,5 @@
 // src/payment/payment.service.ts
-import { Injectable, Inject, HttpException, HttpStatus } from '@nestjs/common';
+import { Injectable, Inject, HttpException, HttpStatus, NotFoundException } from '@nestjs/common';
 import Razorpay from 'razorpay';
 import { CreatePaymentIntentDto } from './dto/checkout.dto';
 import { PrismaService } from '../prisma/prisma.service';
@@ -859,7 +859,7 @@ export class RazorpayService {
     });
 
     if (!shippingAddrs) {
-      throw new Error('Shipping address not found');
+      throw new NotFoundException('Shipping address not found');
     }
 
     const deliverCharge = await this.prisma.deliveryCharges.findUnique({
@@ -877,16 +877,38 @@ export class RazorpayService {
       id: string;
       Value: string;
       ValueType: CoupounValueType;
+      usageLimitPerPerson: number;
     } | null = null;
 
     if (couponName) {
       coupuon = await this.prisma.coupon.findUnique({
         where: { couponName },
-        select: { id: true, Value: true, ValueType: true },
+        select: {
+          id: true,
+          Value: true,
+          ValueType: true,
+          usageLimitPerPerson: true,
+        },
       });
 
       if (!coupuon) {
         throw new Error('Coupon not found');
+      }
+
+      // ✅ COUNT HOW MANY TIMES USER USED THIS COUPON
+      const usageCount = await this.prisma.couponUsage.count({
+        where: {
+          couponId: coupuon.id,
+          customerProfileId: customerProfile.id,
+        },
+      });
+
+      // ❌ LIMIT EXCEEDED
+      if (usageCount >= coupuon.usageLimitPerPerson) {
+        throw new HttpException(
+          `Coupon usage exceeded. You can use this coupon only ${coupuon.usageLimitPerPerson} time(s).`,
+          HttpStatus.BAD_REQUEST,
+        );
       }
     }
 
@@ -1157,6 +1179,18 @@ export class RazorpayService {
         },
       });
 
+      // --------------------------------------------------
+      // 🧾 RECORD COUPON USAGE
+      // --------------------------------------------------
+      if (coupuon?.id) {
+        await tx.couponUsage.create({
+          data: {
+            couponId: coupuon.id,
+            customerProfileId: customerProfile.id,
+          },
+        });
+      }
+
       if (selectedDeliveryPartnerId) {
         await tx.user.update({
           where: { id: selectedDeliveryPartnerId },
@@ -1297,10 +1331,31 @@ export class RazorpayService {
           where: { fcmToken: { not: null } },
           select: { fcmToken: true, user: { select: { email: true } } },
         });
+        const itemSummary = orderForMail.items
+          .map(item => `${item.quantity}× ${item.product.name}`)
+          .join(', ');
+
+        const customerName = orderForMail.CustomerProfile?.name ?? 'Customer';
+
+        const MAX_LENGTH = 180;
+
+        let body = `${customerName} ordered ${itemSummary} (Order #${orderForMail.orderNumber})`;
+
+        if (body.length > MAX_LENGTH) {
+          const shortItems = orderForMail.items
+            .slice(0, 2)
+            .map(item => `${item.quantity}× ${item.product.name}`)
+            .join(', ');
+
+          const moreCount = orderForMail.items.length - 2;
+
+          body = `${customerName} ordered ${shortItems}${moreCount > 0 ? ` +${moreCount} more` : ''} (Order #${orderForMail.orderNumber})`;
+        }
+
         await this.firebaseSender.sendPushMultiple(
           admins.map(a => a.fcmToken),
-          'New Order Placed',
-          `Order ${order.orderNumber} placed`,
+          '🛒 New Order Received!',
+          body,
         );
       } catch (e) {
         console.error('Notification failed', e);

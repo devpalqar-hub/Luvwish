@@ -6,7 +6,7 @@ import {
 import { PrismaService } from 'src/prisma/prisma.service';
 import { CreateOrderDto } from './dto/create-orders.dto';
 import { UpdateOrderDto } from './dto/update-orders.dto';
-import { OrderStatus } from '@prisma/client';
+import { OrderStatus, TrackingStatus } from '@prisma/client';
 import { PaginationResponseDto } from 'src/pagination/pagination-response.dto';
 import { PaginationDto } from 'src/pagination/dto/pagination.dto';
 import { UpdateOrderStatusDto } from './dto/update-order-status.dto';
@@ -15,6 +15,7 @@ import * as ExcelJS from 'exceljs';
 import { MailService } from 'src/mail/mail.service';
 import { FirebaseSender } from 'src/firebase/firebase.sender';
 import { BulkUpdateOrderStatusDto } from './dto/update-bulk-orders.dto';
+import { getTrackingPushContent } from 'src/common/utility/tracking-notification.util';
 
 @Injectable()
 export class OrdersService {
@@ -399,6 +400,77 @@ export class OrdersService {
     });
   }
 
+  private getTrackingPushContent(
+    orderNumber: string,
+    customerName: string | null | undefined,
+    status: TrackingStatus,
+  ) {
+
+    const TrackingStatusLabel: Record<TrackingStatus, string> = {
+      order_placed: 'Order Placed',
+      processing: 'Being Prepared',
+      ready_to_ship: 'Packed & Ready',
+      shipped: 'Shipped',
+      in_transit: 'On the Way',
+      out_for_delivery: 'Out for Delivery',
+      delivered: 'Delivered',
+      failed_delivery: 'Delivery Attempt Failed',
+      return_processing: 'Return in Progress',
+      returned: 'Returned',
+    };
+
+    const name = customerName ?? 'Customer';
+
+    let title = '📦 Order Update';
+    let body = `Hi ${name}, your order #${orderNumber} is now ${TrackingStatusLabel[status]}.`;
+
+    switch (status) {
+
+      case 'processing':
+        title = '👨‍🍳 Preparing Your Order';
+        body = `We're getting your order #${orderNumber} ready.`;
+        break;
+
+      case 'ready_to_ship':
+        title = '📦 Packed & Ready';
+        body = `Your order #${orderNumber} has been packed and will be shipped soon.`;
+        break;
+
+      case 'shipped':
+      case 'in_transit':
+        title = '🚚 On the Way';
+        body = `Your order #${orderNumber} is on its way to your delivery location.`;
+        break;
+
+      case 'out_for_delivery':
+        title = '🛵 Out for Delivery';
+        body = `Your order #${orderNumber} will reach you shortly. Please keep your phone accessible.`;
+        break;
+
+      case 'delivered':
+        title = '✅ Delivered';
+        body = `Your order #${orderNumber} has been delivered successfully. Enjoy!`;
+        break;
+
+      case 'failed_delivery':
+        title = '⚠️ Delivery Attempt Failed';
+        body = `We couldn't deliver your order #${orderNumber}. We'll try again soon.`;
+        break;
+
+      case 'return_processing':
+        title = '🔄 Return in Progress';
+        body = `Return process for order #${orderNumber} has been initiated.`;
+        break;
+
+      case 'returned':
+        title = '📦 Order Returned';
+        body = `Your order #${orderNumber} has been returned successfully.`;
+        break;
+    }
+
+    return { title, body };
+  }
+
   async updateOrderStatus(id: string, dto: UpdateOrderStatusDto) {
     // 1️⃣ Ensure order exists (minimal fetch)
     const existing = await this.prisma.order.findUnique({
@@ -459,11 +531,22 @@ export class OrdersService {
             : null,
         },
       });
-      await this.firebaseSender.sendPush(
-        existing.CustomerProfile.fcmToken,
-        'Order Status Updated',
-        `Your order ${existing.orderNumber} is now ${dto.status}`,
-      );
+      if (existing.CustomerProfile?.fcmToken) {
+
+        const effectiveStatus = dto.status;
+
+        const { title, body } = getTrackingPushContent(
+          existing.orderNumber,
+          existing.CustomerProfile?.name,
+          effectiveStatus,
+        );
+
+        await this.firebaseSender.sendPush(
+          existing.CustomerProfile.fcmToken,
+          title,
+          body,
+        );
+      }
     }
 
     return {
@@ -636,12 +719,21 @@ export class OrdersService {
           },
         });
 
-        // Send push notification
-        if (existing.CustomerProfile.fcmToken) {
+
+        if (existing.CustomerProfile?.fcmToken) {
+
+          const effectiveStatus = dto.status ?? previousTrackingStatus;
+
+          const { title, body } = getTrackingPushContent(
+            existing.orderNumber,
+            existing.CustomerProfile?.name,
+            effectiveStatus,
+          );
+
           await this.firebaseSender.sendPush(
             existing.CustomerProfile.fcmToken,
-            'Order Tracking Updated',
-            `Your order ${existing.orderNumber} is now ${dto.status || previousTrackingStatus}`,
+            title,
+            body,
           );
         }
 
@@ -1233,10 +1325,12 @@ export class OrdersService {
     // Send push notification and email to newly assigned delivery partner
     if (deliveryPartner?.AdminProfile?.fcmToken) {
       try {
+        const dpName = deliveryPartner.AdminProfile?.name ?? 'Partner';
+
         await this.firebaseSender.sendPush(
           deliveryPartner.AdminProfile.fcmToken,
-          'Order Assigned',
-          `Order #${order.orderNumber} has been assigned to you. Total: ${order.totalAmount}`,
+          '📦 New Pickup Assigned',
+          `Hi ${dpName}, Order #${order.orderNumber} is assigned to you. Please proceed to pickup location.`,
         );
       } catch (error) {
         console.error('Failed to send push notification:', error);
@@ -1396,10 +1490,17 @@ export class OrdersService {
         }
 
         if (order.CustomerProfile?.fcmToken) {
+
+          const { title, body } = getTrackingPushContent(
+            order.orderNumber,
+            order.CustomerProfile?.name,
+            toTrackingStatus,
+          );
+
           await this.firebaseSender.sendPush(
             order.CustomerProfile.fcmToken,
-            'Order Tracking Updated',
-            `Your order ${order.orderNumber} is now ${toTrackingStatus}`,
+            title,
+            body,
           );
         }
 

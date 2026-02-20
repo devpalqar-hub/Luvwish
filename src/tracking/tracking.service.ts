@@ -5,6 +5,7 @@ import { TrackingStatus } from '@prisma/client';
 import { FirebaseSender } from 'src/firebase/firebase.sender';
 import { MailService } from 'src/mail/mail.service';
 import { Logger } from '@nestjs/common';
+import { getTrackingPushContent } from 'src/common/utility/tracking-notification.util';
 
 
 @Injectable()
@@ -164,10 +165,17 @@ export class TrackingService {
       }
 
       if (tracking.order.CustomerProfile?.fcmToken) {
+
+        const { title, body } = getTrackingPushContent(
+          tracking.order.orderNumber,
+          tracking.order.CustomerProfile?.name,
+          dto.status,
+        );
+
         await this.firebaseSender.sendPush(
           tracking.order.CustomerProfile.fcmToken,
-          'Order Tracking Updated',
-          `Your order ${tracking.order.orderNumber} is now ${dto.status}`,
+          title,
+          body,
         );
       }
     } catch (err) {

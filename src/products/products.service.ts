@@ -142,7 +142,7 @@ export class ProductsService {
         0,
       );
 
-      if (productData.stockCount <= totalVariationStock) {
+      if (productData.stockCount < totalVariationStock) {
         throw new BadRequestException(
           `Product stock (${productData.stockCount}) must be greater than total variation stock (${totalVariationStock})`,
         );
@@ -221,8 +221,8 @@ export class ProductsService {
         if (tokens.length > 0) {
           await this.firebaseSender.sendPushMultiple(
             tokens,
-            '🆕 New Product Added',
-            `${createdProduct.name} was successfully added`,
+            '🆕 New Product Live',
+            `${createdProduct.name} is now available in the catalog.`,
           );
         }
       } catch (error) {
