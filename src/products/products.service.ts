@@ -142,7 +142,7 @@ export class ProductsService {
         0,
       );
 
-      if (productData.stockCount <= totalVariationStock) {
+      if (productData.stockCount < totalVariationStock) {
         throw new BadRequestException(
           `Product stock (${productData.stockCount}) must be greater than total variation stock (${totalVariationStock})`,
         );
