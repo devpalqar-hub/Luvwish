@@ -137,16 +137,16 @@ export class ProductsService {
     // VALIDATE PRODUCT STOCK vs VARIATION STOCK
     // --------------------------------------------------
     if (variations && variations.length > 0) {
+
       const totalVariationStock = variations.reduce(
         (sum, v) => sum + Number(v.stockCount || 0),
         0,
       );
 
-      if (productData.stockCount < totalVariationStock) {
-        throw new BadRequestException(
-          `Product stock (${productData.stockCount}) must be greater than total variation stock (${totalVariationStock})`,
-        );
-      }
+      const baseStock = Number(productData.stockCount || 0);
+
+      // Save total stock into product table
+      productData.stockCount = baseStock + totalVariationStock;
     }
 
     const createdProduct = await this.prisma.product.create({
