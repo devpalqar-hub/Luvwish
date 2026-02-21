@@ -136,17 +136,36 @@ export class ProductsService {
     // --------------------------------------------------
     // VALIDATE PRODUCT STOCK vs VARIATION STOCK
     // --------------------------------------------------
-    if (variations && variations.length > 0) {
+    // if (variations && variations.length > 0) {
 
-      const totalVariationStock = variations.reduce(
+    //   const totalVariationStock = variations.reduce(
+    //     (sum, v) => sum + Number(v.stockCount || 0),
+    //     0,
+    //   );
+
+    //   const baseStock = Number(productData.stockCount || 0);
+
+    //   // Save total stock into product table
+    //   productData.stockCount = baseStock + totalVariationStock;
+    // }
+
+    // --------------------------------------------------
+    // DERIVE PRODUCT STOCK FROM VARIATIONS (IF PRESENT)
+    // --------------------------------------------------
+    if (processedVariations && processedVariations.length > 0) {
+
+      const totalVariationStock = processedVariations.reduce(
         (sum, v) => sum + Number(v.stockCount || 0),
         0,
       );
 
-      const baseStock = Number(productData.stockCount || 0);
+      // Ignore request body product stock when variations exist
+      productData.stockCount = totalVariationStock;
 
-      // Save total stock into product table
-      productData.stockCount = baseStock + totalVariationStock;
+    } else {
+
+      // No variations → use request body value
+      productData.stockCount = Number(productData.stockCount || 0);
     }
 
     const createdProduct = await this.prisma.product.create({
