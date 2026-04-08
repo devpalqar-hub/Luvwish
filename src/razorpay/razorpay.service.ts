@@ -864,6 +864,14 @@ export class RazorpayService {
 
     const deliverCharge = await this.prisma.deliveryCharges.findUnique({
       where: { postalCode: shippingAddrs.postalCode },
+      select: {
+        id: true,
+        postalCode: true,
+        deliveryCharge: true,
+        isFreeDeliveryEligible: true,
+        createdAt: true,
+        updatedAt: true,
+      },
     });
 
     if (!deliverCharge) {
@@ -1006,7 +1014,10 @@ export class RazorpayService {
 
     const isCOD = paymentMethod === 'cash_on_delivery';
     const orderAmount = amount;
-    const shippingCost = Number(deliverCharge.deliveryCharge);
+    const shippingCost =
+      deliverCharge.isFreeDeliveryEligible && orderAmount >= 150
+        ? 0
+        : Number(deliverCharge.deliveryCharge);
     const totalOrderAmount = orderAmount + shippingCost;
 
     // --------------------------------------------------
@@ -1481,9 +1492,16 @@ export class RazorpayService {
 
       return response.data;
     } catch (error) {
+      const paymentError = error as {
+        response?: {
+          data?: unknown;
+          status?: number;
+        };
+      };
+
       throw new HttpException(
-        error.response?.data || 'Payment gateway error',
-        error.response?.status || HttpStatus.BAD_REQUEST,
+        paymentError.response?.data || 'Payment gateway error',
+        paymentError.response?.status || HttpStatus.BAD_REQUEST,
       );
     }
   }
