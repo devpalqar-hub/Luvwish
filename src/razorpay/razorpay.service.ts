@@ -1014,10 +1014,11 @@ export class RazorpayService {
 
     const isCOD = paymentMethod === 'cash_on_delivery';
     const orderAmount = amount;
+    const actualDeliveryFee = Number(deliverCharge.deliveryCharge);
     const shippingCost =
       deliverCharge.isFreeDeliveryEligible && orderAmount >= 150
         ? 0
-        : Number(deliverCharge.deliveryCharge);
+        : actualDeliveryFee;
     const totalOrderAmount = orderAmount + shippingCost;
 
     // --------------------------------------------------
@@ -1184,6 +1185,7 @@ export class RazorpayService {
           coupounId: coupuon?.id ?? null,
           isCoupuonApplied: !!coupuon,
           shippingCost,
+          actualDeliveryFee,
           razorpay_id: fatoorahPaymentId ?? null,
           deliveryPartnerId: selectedDeliveryPartnerId,
           items: { create: orderItemsData },
