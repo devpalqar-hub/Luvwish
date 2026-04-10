@@ -297,6 +297,7 @@ export class OrdersService {
         paymentMethod: true,
         totalAmount: true,
         shippingCost: true,
+        actualDeliveryFee: true,
         taxAmount: true,
         discountAmount: true,
         notes: true,
