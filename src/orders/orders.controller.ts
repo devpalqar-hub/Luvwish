@@ -206,8 +206,21 @@ export class OrdersController {
   }
 
   @Get('check/delivery')
-  async checkDeliverable(@Query('postalCode') postalCode: string) {
-    return this.ordersService.checkDeliverable(postalCode);
+  async checkDeliverable(
+    @Query('postalCode') postalCode: string,
+    @Query('orderAmount') orderAmount?: string,
+  ) {
+    const parsedOrderAmount =
+      orderAmount !== undefined && orderAmount !== ''
+        ? Number(orderAmount)
+        : undefined;
+
+    return this.ordersService.checkDeliverable(
+      postalCode,
+      parsedOrderAmount !== undefined && !Number.isNaN(parsedOrderAmount)
+        ? parsedOrderAmount
+        : undefined,
+    );
   }
 
 

@@ -1246,14 +1246,31 @@ export class OrdersService {
   }
 
 
-  async checkDeliverable(postalCode: string) {
+  async checkDeliverable(postalCode: string, orderAmount?: number) {
     const area = await this.prisma.deliveryCharges.findUnique({
       where: { postalCode: postalCode }
     })
     if (!area) {
       throw new NotFoundException("Cannot Deliver at this location")
     }
-    return { message: "Deliverable at this location", data: area }
+
+    const freeDeliveryThreshold = 150;
+    const resolvedOrderAmount =
+      orderAmount !== undefined && !Number.isNaN(orderAmount) ? orderAmount : 0;
+    const baseDeliveryCharge = Number(area.deliveryCharge);
+    const isFreeDeliveryApplied =
+      area.isFreeDeliveryEligible && resolvedOrderAmount >= freeDeliveryThreshold;
+
+    return {
+      message: "Deliverable at this location",
+      data: {
+        ...area,
+        deliveryCharge: isFreeDeliveryApplied ? 0 : baseDeliveryCharge,
+        baseDeliveryCharge,
+        isFreeDeliveryApplied,
+        freeDeliveryThreshold,
+      },
+    }
   }
 
 
