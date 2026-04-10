@@ -157,7 +157,7 @@ export class ReturnsService {
 
     // 4️⃣ Calculate refund amount
     let refundAmount = 0;
-    const returnFee = Number(order.shippingCost); // Return fee = delivery charge
+    const returnFee = Number(order.shippingCost ?? 0); // Return fee = delivery charge
 
     if (dto.returnType === 'full') {
       // Full order return
@@ -917,7 +917,7 @@ export class ReturnsService {
 
     // 2️⃣ Calculate refund amount
     let refundAmount = 0;
-    const returnCharge = Number(order.shippingCost); // Return charge = delivery charge
+    const returnCharge = Number(order.shippingCost ?? 0); // Return charge = delivery charge
 
     if (dto.returnType === 'full') {
       // Full order return

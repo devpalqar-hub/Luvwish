@@ -10,12 +10,13 @@ export class DeliveryChargesService {
     constructor(private readonly prisma: PrismaService) { }
 
     async create(dto: CreateDeliveryChargeDto) {
-        const { postalCodes, deliveryCharge } = dto;
+        const { postalCodes, deliveryCharge, isFreeDeliveryEligible = false } = dto;
 
         const data = await this.prisma.deliveryCharges.createMany({
             data: postalCodes.map((postalCode) => ({
                 postalCode,
                 deliveryCharge,
+                isFreeDeliveryEligible,
             })),
             skipDuplicates: true, // optional but recommended
         });
@@ -79,7 +80,12 @@ export class DeliveryChargesService {
         return this.prisma.deliveryCharges.update({
             where: { postalCode: postalCode },
             data: {
-                deliveryCharge: dto.deliveryCharge
+                ...(dto.deliveryCharge !== undefined && {
+                    deliveryCharge: dto.deliveryCharge,
+                }),
+                ...(dto.isFreeDeliveryEligible !== undefined && {
+                    isFreeDeliveryEligible: dto.isFreeDeliveryEligible,
+                }),
             },
         });
     }
