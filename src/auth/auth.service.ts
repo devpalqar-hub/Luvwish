@@ -147,7 +147,7 @@ export class AuthService {
   async validateOtp(email: string, otp: string) {
     const user = await this.prisma.user.findUnique({
       where: { email },
-      include: { CustomerProfile: true },
+      include: { CustomerProfile: true, AdminProfile: true },
     });
 
     if (!user) throw new UnauthorizedException('Invalid credentials');
@@ -178,8 +178,9 @@ export class AuthService {
       data: { used: true },
     });
 
-    // Check if user has completed registration (has customer profile)
-    const isNewUser = !user.CustomerProfile;
+    // Only customers without a profile are considered new users.
+    // Admin/Delivery users should be able to login directly.
+    const isNewUser = user.role === Roles.CUSTOMER && !user.CustomerProfile;
 
     if (isNewUser) {
       // Generate a temporary token for completing registration
@@ -192,6 +193,7 @@ export class AuthService {
 
       return {
         isNew: true,
+        role: user.role,
         access_token: this.jwtService.sign(tempPayload, { expiresIn: '30m' }),
         message: 'Please complete your registration',
       };
@@ -208,12 +210,13 @@ export class AuthService {
 
     return {
       isNew: false,
+      role: user.role,
       access_token: token,
       user: {
         id: user.id,
         email: user.email,
-        name: user.CustomerProfile?.name || '',
-        phone: user.CustomerProfile?.phone || '',
+        name: user.CustomerProfile?.name || user.AdminProfile?.name || '',
+        phone: user.CustomerProfile?.phone || user.AdminProfile?.phone || '',
         role: user.role,
         createdAt: user.createdAt,
         updatedAt: user.updatedAt,
@@ -602,7 +605,7 @@ export class AuthService {
 
     const user = await this.prisma.user.findUnique({
       where: { email },
-      include: { CustomerProfile: true },
+      include: { CustomerProfile: true, AdminProfile: true },
     });
 
     if (!user) {
@@ -631,8 +634,9 @@ export class AuthService {
       data: { used: true },
     });
 
-    // Check if user has completed registration (has customer profile)
-    const isNewUser = !user.CustomerProfile;
+    // Only customers without a profile are considered new users.
+    // Admin/Delivery users should be able to login directly.
+    const isNewUser = user.role === Roles.CUSTOMER && !user.CustomerProfile;
 
     if (isNewUser) {
       // Generate a temporary token for completing registration
@@ -645,6 +649,7 @@ export class AuthService {
 
       return {
         isNew: true,
+        role: user.role,
         access_token: this.jwtService.sign(tempPayload, { expiresIn: '30m' }), // 30 min to complete registration
         message: 'Please complete your registration',
       };
@@ -661,12 +666,13 @@ export class AuthService {
 
     return {
       isNew: false,
+      role: user.role,
       access_token: token,
       user: {
         id: user.id,
         email: user.email,
-        name: user.CustomerProfile?.name || '',
-        phone: user.CustomerProfile?.phone || '',
+        name: user.CustomerProfile?.name || user.AdminProfile?.name || '',
+        phone: user.CustomerProfile?.phone || user.AdminProfile?.phone || '',
         role: user.role,
         createdAt: user.createdAt,
         updatedAt: user.updatedAt,

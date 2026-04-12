@@ -128,6 +128,32 @@ export class OrdersService {
       return createdOrder;
     });
 
+    // Notify active admin users about new order.
+    const adminProfiles = await this.prisma.adminProfile.findMany({
+      where: {
+        fcmToken: { not: null },
+        user: {
+          isActive: true,
+          role: { in: ['ADMIN', 'SUPER_ADMIN'] },
+        },
+      },
+      select: { fcmToken: true },
+    });
+
+    const adminTokens = [...new Set(adminProfiles.map((p) => p.fcmToken).filter(Boolean))] as string[];
+
+    if (adminTokens.length > 0) {
+      try {
+        await this.firebaseSender.sendPushMultiple(
+          adminTokens,
+          'New Order Received',
+          `Order #${order.orderNumber} placed. Total: ${order.totalAmount}`,
+        );
+      } catch (error) {
+        console.error('Failed to send push notification to admins:', error);
+      }
+    }
+
     // Send push notification and email to assigned delivery partner
     if (order.deliveryPartner?.AdminProfile?.fcmToken) {
       try {

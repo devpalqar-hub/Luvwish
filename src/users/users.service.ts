@@ -468,15 +468,40 @@ export class UsersService {
   }
 
   async saveCustomerFcmToken(userId: string, token: string) {
-    const customer = await this.prisma.customerProfile.findUnique({
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { role: true },
+    });
+
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    if (user.role === Roles.CUSTOMER) {
+      const customer = await this.prisma.customerProfile.findUnique({
+        where: { userId },
+      });
+
+      if (!customer) {
+        throw new NotFoundException('Customer profile not found');
+      }
+
+      return this.prisma.customerProfile.update({
+        where: { userId },
+        data: { fcmToken: token },
+      });
+    }
+
+    // Admin-like roles (including delivery partners) store token in AdminProfile.
+    const adminProfile = await this.prisma.adminProfile.findUnique({
       where: { userId },
     });
 
-    if (!customer) {
-      throw new NotFoundException('Customer profile not found');
+    if (!adminProfile) {
+      throw new NotFoundException('Admin/Delivery profile not found');
     }
 
-    return this.prisma.customerProfile.update({
+    return this.prisma.adminProfile.update({
       where: { userId },
       data: { fcmToken: token },
     });
