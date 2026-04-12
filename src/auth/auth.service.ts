@@ -203,7 +203,9 @@ export class AuthService {
     const payload = {
       email: user.email,
       sub: user.id,
+      id: user.id,
       role: user.role,
+      admin: user.AdminProfile,
     };
 
     const token = this.jwtService.sign(payload);
@@ -218,6 +220,7 @@ export class AuthService {
         name: user.CustomerProfile?.name || user.AdminProfile?.name || '',
         phone: user.CustomerProfile?.phone || user.AdminProfile?.phone || '',
         role: user.role,
+        admin: user.AdminProfile || null,
         createdAt: user.createdAt,
         updatedAt: user.updatedAt,
       },
@@ -659,7 +662,9 @@ export class AuthService {
     const payload = {
       email: user.email,
       sub: user.id,
+      id: user.id,
       role: user.role,
+      admin: user.AdminProfile,
     };
 
     const token = this.jwtService.sign(payload);
@@ -674,6 +679,7 @@ export class AuthService {
         name: user.CustomerProfile?.name || user.AdminProfile?.name || '',
         phone: user.CustomerProfile?.phone || user.AdminProfile?.phone || '',
         role: user.role,
+        admin: user.AdminProfile || null,
         createdAt: user.createdAt,
         updatedAt: user.updatedAt,
       },
