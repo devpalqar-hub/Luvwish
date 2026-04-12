@@ -65,7 +65,7 @@ export class AuthController {
     return this.authService.generateOtp(emailDto.email);
   }
 
-  @Post('otp/verify')
+  @Post('otp/verify-legacy')
   async verifyOtp(@Body() otpVerifyDto: OtpVerifyDto) {
     return this.authService.validateOtp(otpVerifyDto.email, otpVerifyDto.otp);
   }

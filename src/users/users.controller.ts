@@ -64,7 +64,7 @@ export class UsersController {
     @Body('token') token: string,
   ) {
     return this.usersService.saveCustomerFcmToken(
-      req.user.id,
+      req.user.id || req.user.sub,
       token,
     );
   }
@@ -76,7 +76,7 @@ export class UsersController {
     @Body('token') token: string,
   ) {
     return this.usersService.saveAdminFcmToken(
-      req.user.id,
+      req.user.id || req.user.sub,
       token,
     );
   }
