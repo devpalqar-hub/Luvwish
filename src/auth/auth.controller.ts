@@ -67,7 +67,15 @@ export class AuthController {
 
   @Post('otp/verify')
   async verifyOtp(@Body() otpVerifyDto: OtpVerifyDto) {
-    return this.authService.validateOtp(otpVerifyDto.email, otpVerifyDto.otp);
+    const response = await this.authService.validateOtp(
+      otpVerifyDto.email,
+      otpVerifyDto.otp,
+    );
+
+    return {
+      ...response,
+      role: response?.role ?? response?.user?.role,
+    };
   }
 
   @Get('profile')
@@ -160,7 +168,12 @@ export class AuthController {
   // 🔹 NEW OTP FLOW - Verify OTP and check if user is new or existing
   @Post('otp/verify')
   async verifyOtpNew(@Body() dto: VerifyOtpDto) {
-    return this.authService.verifyOtp(dto);
+    const response = await this.authService.verifyOtp(dto);
+
+    return {
+      ...response,
+      role: response?.role ?? response?.user?.role,
+    };
   }
 
   // 🔹 NEW OTP FLOW - Complete registration for new users
