@@ -14,6 +14,7 @@ enum OrderStatus {
   shipped
   delivered
   cancelled
+  returned
   refunded
 }
 
@@ -481,9 +482,9 @@ model Banner {
 }
 
 model DeliveryCharges {
-  id             String  @id @default(uuid())
-  postalCode     String  @unique
-  deliveryCharge Decimal @db.Decimal(10, 2)
+  id                     String  @id @default(uuid())
+  postalCode             String  @unique
+  deliveryCharge         Decimal @db.Decimal(10, 2)
   isFreeDeliveryEligible Boolean @default(false)
 
   createdAt DateTime @default(now())

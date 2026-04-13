@@ -205,7 +205,7 @@ export class TrackingService {
       delivered: 'delivered',
       failed_delivery: 'shipped',
       return_processing: 'return_processing',
-      returned: 'cancelled',
+      returned: 'returned',
     };
 
     const orderStatus = statusMap[trackingStatus];
