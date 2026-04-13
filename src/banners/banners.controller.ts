@@ -20,7 +20,14 @@ import { RolesGuard } from '../common/guards/roles.guard';
 import { Roles } from '../common/decorators/roles.decorator';
 import { FileInterceptor, FilesInterceptor } from '@nestjs/platform-express';
 import { S3Service } from 'src/s3/s3.service';
-import { ApiTags } from '@nestjs/swagger';
+import {
+  ApiBody,
+  ApiConsumes,
+  ApiOkResponse,
+  ApiOperation,
+  ApiParam,
+  ApiTags,
+} from '@nestjs/swagger';
 const maxSize = 10 * 1024 * 1024; // 50MB per media
 const maxSizeGallery = 50 * 1024 * 1024; // 50 MB
 
@@ -35,6 +42,10 @@ export class BannersController {
   // @Roles('ADMIN', 'SUPER_ADMIN', 'MARKETING_MANAGER')
   @Post('admin')
   @UseInterceptors(FilesInterceptor('image', 10))
+  @ApiConsumes('multipart/form-data')
+  @ApiOperation({ summary: 'Create banner with uploaded images' })
+  @ApiBody({ type: CreateBannerDto })
+  @ApiOkResponse({ description: 'Banner created successfully' })
   async createBanner(
     @Body() createBannerDto: CreateBannerDto,
     @UploadedFiles() files: Express.Multer.File[],
@@ -70,6 +81,8 @@ export class BannersController {
 
   // Public - List all banners
   @Get()
+  @ApiOperation({ summary: 'List all banners' })
+  @ApiOkResponse({ description: 'Banners returned successfully' })
   findAll() {
     return this.bannersService.findAll();
   }
@@ -78,6 +91,9 @@ export class BannersController {
   // @UseGuards(JwtAuthGuard, RolesGuard)
   // @Roles('ADMIN', 'SUPER_ADMIN', 'MARKETING_MANAGER')
   @Get('admin/:id')
+  @ApiOperation({ summary: 'Get banner by id' })
+  @ApiParam({ name: 'id', description: 'Banner id' })
+  @ApiOkResponse({ description: 'Banner returned successfully' })
   findOne(@Param('id') id: string) {
     return this.bannersService.findOne(id);
   }
@@ -87,6 +103,11 @@ export class BannersController {
   // @Roles('ADMIN', 'SUPER_ADMIN', 'MARKETING_MANAGER')
   @Patch('admin/:id')
   @UseInterceptors(FileInterceptor('image'))
+  @ApiConsumes('multipart/form-data')
+  @ApiOperation({ summary: 'Update banner by id' })
+  @ApiParam({ name: 'id', description: 'Banner id' })
+  @ApiBody({ type: UpdateBannerDto })
+  @ApiOkResponse({ description: 'Banner updated successfully' })
   async update(
     @Param('id') id: string,
     @Body() updateBannerDto: UpdateBannerDto,
@@ -118,6 +139,9 @@ export class BannersController {
   // @UseGuards(JwtAuthGuard, RolesGuard)
   // @Roles('ADMIN', 'SUPER_ADMIN', 'MARKETING_MANAGER')
   @Delete('admin/:id')
+  @ApiOperation({ summary: 'Delete banner by id' })
+  @ApiParam({ name: 'id', description: 'Banner id' })
+  @ApiOkResponse({ description: 'Banner deleted successfully' })
   remove(@Param('id') id: string) {
     return this.bannersService.remove(id);
   }

@@ -14,15 +14,12 @@ import {
   ForbiddenException,
 } from '@nestjs/common';
 import {
-  ApiTags,
-  ApiOperation,
-  ApiResponse,
-  ApiBody,
   ApiBearerAuth,
-  ApiBadRequestResponse,
+  ApiBody,
+  ApiOkResponse,
+  ApiOperation,
+  ApiTags,
   ApiUnauthorizedResponse,
-  ApiForbiddenResponse,
-  ApiConflictResponse,
 } from '@nestjs/swagger';
 import { AuthService } from './auth.service';
 import { LoginDto } from './dto/login.dto';
@@ -46,7 +43,7 @@ import { SendOtpDto } from './dto/send-otp.dto';
 import { VerifyOtpDto } from './dto/verify-otp.dto';
 import { CompleteRegistrationDto } from './dto/complete-registration.dto';
 
-@ApiTags('Authentication')
+@ApiTags('Auth')
 @Controller('auth')
 export class AuthController {
   constructor(
@@ -55,116 +52,53 @@ export class AuthController {
   ) { }
 
   @Post('login')
-  @ApiOperation({
-    summary: 'User login with credentials',
-    description: 'Authenticate user with email and password. Returns JWT token for authenticated requests.',
-  })
+  @ApiOperation({ summary: 'Login with email/password' })
   @ApiBody({ type: LoginDto })
-  @ApiResponse({
-    status: 200,
-    description: 'Login successful',
-    schema: {
-      example: {
-        accessToken: 'eyJhbGciOiJIUzI1NiIs...',
-        refreshToken: 'eyJhbGciOiJIUzI1NiIs...',
-        user: {
-          id: 'uuid',
-          email: 'user@example.com',
-          role: 'CUSTOMER',
-        },
-      },
-    },
-  })
-  @ApiBadRequestResponse({ description: 'Invalid email or password' })
-  @ApiConflictResponse({ description: 'User account is disabled' })
+  @ApiOkResponse({ description: 'User logged in successfully' })
   async login(@Body() loginDto: LoginDto) {
     return this.authService.login(loginDto);
   }
 
   @Post('register')
-  @ApiOperation({
-    summary: 'Register new customer account',
-    description: 'Create a new customer account with email and password. Email must be unique.',
-  })
+  @ApiOperation({ summary: 'Register customer account' })
   @ApiBody({ type: RegisterDto })
-  @ApiResponse({
-    status: 201,
-    description: 'Registration successful',
-    schema: {
-      example: {
-        id: 'uuid',
-        email: 'newuser@example.com',
-        role: 'CUSTOMER',
-        createdAt: '2026-02-16T10:30:00Z',
-      },
-    },
-  })
-  @ApiBadRequestResponse({ description: 'Invalid email format or password too weak' })
-  @ApiConflictResponse({ description: 'Email already registered' })
+  @ApiOkResponse({ description: 'Customer registered successfully' })
   async register(@Body() registerDto: RegisterDto) {
     return this.authService.registeruser(registerDto);
   }
 
+  //need to make it only accessbile by admin
   @Post('register-admin')
-  @ApiOperation({
-    summary: 'Register new admin account',
-    description: 'Create a new admin account. Admin registration typically requires authorization.',
-  })
+  @ApiOperation({ summary: 'Register admin account' })
   @ApiBody({ type: RegisterDto })
-  @ApiResponse({
-    status: 201,
-    description: 'Admin registration successful',
-  })
-  @ApiBadRequestResponse({ description: 'Invalid credentials' })
-  @ApiForbiddenResponse({ description: 'Insufficient permissions' })
+  @ApiOkResponse({ description: 'Admin registered successfully' })
   async registerAdmin(@Body() registerDto: RegisterDto) {
     return this.authService.registeradmin(registerDto);
   }
 
   @Post('otp/generate')
-  @ApiOperation({
-    summary: 'Generate OTP for email verification (Legacy)',
-    description: 'Send one-time password to user email for verification. Legacy endpoint.',
-  })
+  @ApiOperation({ summary: 'Generate legacy OTP' })
   @ApiBody({ type: EmailDto })
-  @ApiResponse({
-    status: 200,
-    description: 'OTP sent successfully',
-  })
-  @ApiBadRequestResponse({ description: 'Invalid email address' })
+  @ApiOkResponse({ description: 'OTP generated successfully' })
   async generateOtp(@Body() emailDto: EmailDto) {
     return this.authService.generateOtp(emailDto.email);
   }
 
   @Post('otp/verify-legacy')
-  @ApiOperation({
-    summary: 'Verify OTP code (Legacy)',
-    description: 'Verify one-time password sent to email. Legacy endpoint.',
-  })
+  @ApiOperation({ summary: 'Verify legacy OTP' })
   @ApiBody({ type: OtpVerifyDto })
-  @ApiResponse({
-    status: 200,
-    description: 'OTP verified successfully',
-  })
-  @ApiBadRequestResponse({ description: 'Invalid or expired OTP' })
+  @ApiOkResponse({ description: 'OTP verified successfully' })
   async verifyOtp(@Body() otpVerifyDto: OtpVerifyDto) {
     return this.authService.validateOtp(otpVerifyDto.email, otpVerifyDto.otp);
   }
 
   @Get('profile')
-  @ApiBearerAuth('access-token')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('ADMIN')
-  @ApiOperation({
-    summary: 'Get admin profile',
-    description: 'Retrieve authenticated admin user profile information.',
-  })
-  @ApiResponse({
-    status: 200,
-    description: 'Admin profile retrieved',
-  })
-  @ApiUnauthorizedResponse({ description: 'Unauthorized' })
-  @ApiForbiddenResponse({ description: 'Only admins can access this' })
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Get admin profile' })
+  @ApiOkResponse({ description: 'Admin profile returned successfully' })
+  @ApiUnauthorizedResponse({ description: 'Unauthorized - Missing or invalid token' })
   async getAdminProfile(@Request() req) {
     const userId = req.user.id;
     const role = req.user.role;
@@ -172,19 +106,14 @@ export class AuthController {
     return this.authService.getAdminProfile(userId, role);
   }
 
+  // 🔹 Customer profile
   @Get('customer/profile')
-  @ApiBearerAuth('access-token')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('CUSTOMER', 'ADMIN')
-  @ApiOperation({
-    summary: 'Get customer profile',
-    description: 'Retrieve authenticated customer profile with contact and address information.',
-  })
-  @ApiResponse({
-    status: 200,
-    description: 'Customer profile retrieved',
-  })
-  @ApiUnauthorizedResponse({ description: 'Unauthorized' })
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Get customer profile' })
+  @ApiOkResponse({ description: 'Customer profile returned successfully' })
+  @ApiUnauthorizedResponse({ description: 'Unauthorized - Missing or invalid token' })
   async getCustomerProfile(@Request() req) {
     const userId = req.user.id;
     const role = req.user.role;
@@ -193,17 +122,11 @@ export class AuthController {
 
   @UseGuards(JwtAuthGuard)
   @Post('profile')
-  @ApiBearerAuth('access-token')
-  @ApiOperation({
-    summary: 'Create customer profile',
-    description: 'Create complete customer profile with address and contact information.',
-  })
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Create customer profile' })
   @ApiBody({ type: UpdateCustomerProfileDto })
-  @ApiResponse({
-    status: 201,
-    description: 'Customer profile created',
-  })
-  @ApiUnauthorizedResponse({ description: 'Unauthorized' })
+  @ApiOkResponse({ description: 'Customer profile created successfully' })
+  @ApiUnauthorizedResponse({ description: 'Unauthorized - Missing or invalid token' })
   async createProfile(
     @Request() req,
     @Body() data: UpdateCustomerProfileDto,
@@ -214,18 +137,11 @@ export class AuthController {
 
   @UseGuards(JwtAuthGuard)
   @Patch('profile')
-  @ApiBearerAuth('access-token')
-  @ApiOperation({
-    summary: 'Update customer profile',
-    description: 'Update customer profile information, address, and contact details.',
-  })
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Update customer profile' })
   @ApiBody({ type: UpdateCustomerProfileDto })
-  @ApiResponse({
-    status: 200,
-    description: 'Customer profile updated',
-  })
-  @ApiUnauthorizedResponse({ description: 'Unauthorized' })
-  @ApiBadRequestResponse({ description: 'Invalid profile data' })
+  @ApiOkResponse({ description: 'Customer profile updated successfully' })
+  @ApiUnauthorizedResponse({ description: 'Unauthorized - Missing or invalid token' })
   async updateProfile(
     @Request() req,
     @Body() data: UpdateCustomerProfileDto,
@@ -236,182 +152,94 @@ export class AuthController {
 
   @UseGuards(JwtAuthGuard)
   @Patch('change-password')
-  @ApiBearerAuth('access-token')
-  @ApiOperation({
-    summary: 'Change user password',
-    description: 'Update password for authenticated user. Requires current password verification.',
-  })
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Change password for logged-in user' })
   @ApiBody({ type: ChangePasswordDto })
-  @ApiResponse({
-    status: 200,
-    description: 'Password changed successfully',
-  })
-  @ApiUnauthorizedResponse({ description: 'Unauthorized' })
-  @ApiBadRequestResponse({ description: 'Current password is incorrect' })
+  @ApiOkResponse({ description: 'Password changed successfully' })
+  @ApiUnauthorizedResponse({ description: 'Unauthorized - Missing or invalid token' })
   async changePassword(@Request() req, @Body() dto: ChangePasswordDto) {
     const userId = req.user.id;
     return this.authService.changePassword(userId, dto);
   }
 
   @Post('forgot-password')
-  @ApiOperation({
-    summary: 'Request password reset',
-    description: 'Send password reset email. User must verify their email to proceed with reset.',
-  })
+  @ApiOperation({ summary: 'Request password reset' })
   @ApiBody({ type: ForgotPasswordDto })
-  @ApiResponse({
-    status: 200,
-    description: 'Password reset email sent',
-  })
-  @ApiBadRequestResponse({ description: 'User email not found' })
+  @ApiOkResponse({ description: 'Password reset request accepted' })
   async forgotPassword(@Body() dto: ForgotPasswordDto) {
     return this.authService.forgotPassword(dto);
   }
 
   @Post('reset-password')
-  @ApiOperation({
-    summary: 'Reset password with token',
-    description: 'Complete password reset using the token sent via email.',
-  })
+  @ApiOperation({ summary: 'Reset password using OTP/token' })
   @ApiBody({ type: ResetPasswordDto })
-  @ApiResponse({
-    status: 200,
-    description: 'Password reset successfully',
-  })
-  @ApiBadRequestResponse({ description: 'Invalid or expired reset token' })
+  @ApiOkResponse({ description: 'Password reset successfully' })
   async resetPassword(@Body() dto: ResetPasswordDto) {
     return this.authService.resetPassword(dto);
   }
 
+  // 🔹 Register customer with OTP
   @Post('register-with-otp')
-  @ApiOperation({
-    summary: 'Initiate registration with OTP',
-    description: 'Start user registration process. Sends OTP code to provided email.',
-  })
+  @ApiOperation({ summary: 'Register with OTP flow' })
   @ApiBody({ type: RegisterWithOtpDto })
-  @ApiResponse({
-    status: 200,
-    description: 'Registration initiated, OTP sent to email',
-  })
-  @ApiConflictResponse({ description: 'Email already registered' })
+  @ApiOkResponse({ description: 'Registration OTP sent/validated successfully' })
   async registerWithOtp(@Body() dto: RegisterWithOtpDto) {
     return this.authService.registerWithOtp(dto);
   }
 
+  // 🔹 Verify registration OTP
   @Post('verify-registration-otp')
-  @ApiOperation({
-    summary: 'Verify OTP during registration',
-    description: 'Verify the OTP code sent to email during registration process.',
-  })
+  @ApiOperation({ summary: 'Verify registration OTP' })
   @ApiBody({ type: VerifyRegistrationOtpDto })
-  @ApiResponse({
-    status: 200,
-    description: 'OTP verified, registration completed',
-    schema: {
-      example: {
-        accessToken: 'token...',
-        user: { id: 'uuid', email: 'user@example.com' },
-      },
-    },
-  })
-  @ApiBadRequestResponse({ description: 'Invalid or expired OTP' })
+  @ApiOkResponse({ description: 'Registration OTP verified successfully' })
   async verifyRegistrationOtp(@Body() dto: VerifyRegistrationOtpDto) {
     return this.authService.verifyRegistrationOtp(dto);
   }
 
+  // 🔹 Login with OTP (send OTP to email)
   @Post('login-with-otp')
-  @ApiOperation({
-    summary: 'Request login OTP',
-    description: 'Send one-time password to registered email for OTP-based login.',
-  })
+  @ApiOperation({ summary: 'Start login with OTP' })
   @ApiBody({ type: LoginWithOtpDto })
-  @ApiResponse({
-    status: 200,
-    description: 'OTP sent to email',
-  })
-  @ApiBadRequestResponse({ description: 'User email not found' })
+  @ApiOkResponse({ description: 'Login OTP sent successfully' })
   async loginWithOtp(@Body() dto: LoginWithOtpDto) {
     return this.authService.loginWithOtp(dto);
   }
 
+  // 🔹 Verify login OTP
   @Post('verify-login-otp')
-  @ApiOperation({
-    summary: 'Verify OTP login',
-    description: 'Verify OTP code to complete OTP-based login.',
-  })
+  @ApiOperation({ summary: 'Verify login OTP' })
   @ApiBody({ type: VerifyLoginOtpDto })
-  @ApiResponse({
-    status: 200,
-    description: 'Login successful',
-    schema: {
-      example: {
-        accessToken: 'token...',
-        user: { id: 'uuid', email: 'user@example.com' },
-      },
-    },
-  })
-  @ApiBadRequestResponse({ description: 'Invalid or expired OTP' })
+  @ApiOkResponse({ description: 'Login OTP verified successfully' })
   async verifyLoginOtp(@Body() dto: VerifyLoginOtpDto) {
     return this.authService.verifyLoginOtp(dto);
   }
 
+  // 🔹 NEW OTP FLOW - Send OTP to email (for both login and registration)
   @Post('otp/send')
-  @ApiOperation({
-    summary: 'Send OTP (New Flow)',
-    description: 'Send OTP code for both login and registration. New unified OTP flow.',
-  })
+  @ApiOperation({ summary: 'Send OTP for login/registration' })
   @ApiBody({ type: SendOtpDto })
-  @ApiResponse({
-    status: 200,
-    description: 'OTP sent to email',
-    schema: {
-      example: {
-        message: 'OTP sent to email',
-        userExists: true,
-      },
-    },
-  })
-  @ApiBadRequestResponse({ description: 'Invalid email address' })
+  @ApiOkResponse({ description: 'OTP sent successfully' })
   async sendOtp(@Body() dto: SendOtpDto) {
     return this.authService.sendOtp(dto);
   }
 
+  // 🔹 NEW OTP FLOW - Verify OTP and check if user is new or existing
   @Post('otp/verify')
-  @ApiOperation({
-    summary: 'Verify OTP and Check User Status',
-    description: 'Verify OTP code. Returns temp token for new users to complete registration or access token for existing users.',
-  })
+  @ApiOperation({ summary: 'Verify OTP and identify user state' })
   @ApiBody({ type: VerifyOtpDto })
-  @ApiResponse({
-    status: 200,
-    description: 'OTP verified',
-    schema: {
-      example: {
-        accessToken: 'token...',
-        tempToken: 'temp...',
-        isNewUser: true,
-      },
-    },
-  })
-  @ApiBadRequestResponse({ description: 'Invalid or expired OTP' })
+  @ApiOkResponse({ description: 'OTP verified successfully' })
   async verifyOtpNew(@Body() dto: VerifyOtpDto) {
     return this.authService.verifyOtp(dto);
   }
 
+  // 🔹 NEW OTP FLOW - Complete registration for new users
   @UseGuards(JwtAuthGuard)
   @Post('otp/complete')
-  @ApiBearerAuth('access-token')
-  @ApiOperation({
-    summary: 'Complete Registration (New User)',
-    description: 'Complete registration for new user after OTP verification. Requires temp token from OTP verification.',
-  })
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Complete registration after OTP verification' })
   @ApiBody({ type: CompleteRegistrationDto })
-  @ApiResponse({
-    status: 201,
-    description: 'Registration completed',
-  })
-  @ApiUnauthorizedResponse({ description: 'Unauthorized' })
-  @ApiBadRequestResponse({ description: 'Invalid or incomplete registration data' })
+  @ApiOkResponse({ description: 'Registration completed successfully' })
+  @ApiUnauthorizedResponse({ description: 'Unauthorized - Missing or invalid token' })
   async completeRegistration(@Request() req, @Body() dto: CompleteRegistrationDto) {
     const userId = req.user.id || req.user.sub;
     return this.authService.completeRegistration(userId, dto);
