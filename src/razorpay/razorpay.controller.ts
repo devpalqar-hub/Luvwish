@@ -4,7 +4,14 @@ import { RazorpayService } from './razorpay.service';
 import { CreatePaymentIntentDto } from './dto/checkout.dto';
 import { JwtAuthGuard } from 'src/common/guards/jwt-auth.guard';
 import { CreatePaymentDto } from './dto/create-payment.dto';
-import { ApiTags } from '@nestjs/swagger';
+import {
+  ApiBearerAuth,
+  ApiBody,
+  ApiOkResponse,
+  ApiOperation,
+  ApiTags,
+  ApiUnauthorizedResponse,
+} from '@nestjs/swagger';
 
 @ApiTags('Payments')
 @Controller('payments')
@@ -13,6 +20,11 @@ export class RazorpayController {
 
   @UseGuards(JwtAuthGuard)
   @Post('create-order')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Create Razorpay order' })
+  @ApiBody({ type: CreatePaymentIntentDto })
+  @ApiOkResponse({ description: 'Razorpay order created successfully' })
+  @ApiUnauthorizedResponse({ description: 'Unauthorized - Missing or invalid token' })
   async createOrder(@Request() req, @Body() dto: CreatePaymentIntentDto) {
     const user = req.user.id;
     return this.razorpayService.createOrder(dto, user);
@@ -27,6 +39,19 @@ export class RazorpayController {
   // }
 
   @Post('verify-payment')
+  @ApiOperation({ summary: 'Verify Razorpay payment signature' })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        razorpay_order_id: { type: 'string' },
+        razorpay_payment_id: { type: 'string' },
+        razorpay_signature: { type: 'string' },
+      },
+      required: ['razorpay_order_id', 'razorpay_payment_id', 'razorpay_signature'],
+    },
+  })
+  @ApiOkResponse({ description: 'Payment verification completed' })
   async verifyPayment(@Body() body: {
     razorpay_order_id: string;
     razorpay_payment_id: string;
@@ -41,6 +66,9 @@ export class RazorpayController {
 
 
   @Post('myfatoorah')
+  @ApiOperation({ summary: 'Create MyFatoorah payment request' })
+  @ApiBody({ type: CreatePaymentDto })
+  @ApiOkResponse({ description: 'Payment request created successfully' })
   async createPayment(@Body() dto: CreatePaymentDto) {
     return this.razorpayService.createPayment(dto);
   }

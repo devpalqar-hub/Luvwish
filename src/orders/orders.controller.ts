@@ -15,16 +15,12 @@ import {
 import {
   ApiBearerAuth,
   ApiBody,
+  ApiOkResponse,
   ApiOperation,
-  ApiTags,
-  ApiResponse,
   ApiParam,
   ApiQuery,
+  ApiTags,
   ApiUnauthorizedResponse,
-  ApiForbiddenResponse,
-  ApiBadRequestResponse,
-  ApiNotFoundResponse,
-  ApiConflictResponse,
 } from '@nestjs/swagger';
 import { Response } from 'express';
 import { OrdersService } from './orders.service';
@@ -43,197 +39,104 @@ import { BulkUpdateOrderStatusDto } from './dto/update-bulk-orders.dto';
 export class OrdersController {
   constructor(private readonly ordersService: OrdersService) { }
 
+  //user
   @Post()
-  @ApiOperation({
-    summary: 'Create a new order',
-    description: 'Create a new order with items from cart. Cart items are cleared after order creation.',
-  })
+  @ApiOperation({ summary: 'Create order' })
   @ApiBody({ type: CreateOrderDto })
-  @ApiResponse({
-    status: 201,
-    description: 'Order created successfully',
-    schema: {
-      example: {
-        id: 'uuid',
-        orderNumber: 'ORD-2026-001',
-        customerId: 'uuid',
-        items: [],
-        totalAmount: 4999.99,
-        status: 'pending',
-        createdAt: '2026-02-16T10:30:00Z',
-      },
-    },
-  })
-  @ApiBadRequestResponse({ description: 'Invalid order data or cart items unavailable' })
-  @ApiConflictResponse({ description: 'Product out of stock' })
+  @ApiOkResponse({ description: 'Order created successfully' })
   create(@Body() createOrderDto: CreateOrderDto) {
     return this.ordersService.create(createOrderDto);
   }
 
+  //user
   @UseGuards(JwtAuthGuard)
   @Get()
-  @ApiBearerAuth('access-token')
-  @ApiOperation({
-    summary: 'Get user orders',
-    description: 'Retrieve all orders of the authenticated user with optional filtering by status.',
-  })
-  @ApiQuery({
-    name: 'page',
-    required: false,
-    type: 'number',
-    description: 'Page number (default: 1)',
-  })
-  @ApiQuery({
-    name: 'limit',
-    required: false,
-    type: 'number',
-    description: 'Items per page (default: 10)',
-  })
-  @ApiQuery({
-    name: 'status',
-    required: false,
-    enum: ['pending', 'confirmed', 'shipped', 'delivered', 'cancelled'],
-    description: 'Filter by order status',
-  })
-  @ApiResponse({
-    status: 200,
-    description: 'User orders retrieved',
-  })
-  @ApiUnauthorizedResponse({ description: 'Unauthorized' })
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Get orders for logged-in user' })
+  @ApiQuery({ name: 'page', required: false })
+  @ApiQuery({ name: 'limit', required: false })
+  @ApiQuery({ name: 'status', required: false, enum: OrderStatus })
+  @ApiOkResponse({ description: 'Orders returned successfully' })
+  @ApiUnauthorizedResponse({ description: 'Unauthorized - Missing or invalid token' })
   findAll(@Query() query: PaginationDto, @Request() req) {
     return this.ordersService.findAll(
       query,
       req.user.id,
-      query.status,
+      query.status, // ✅ FIX: use query.status
     );
   }
 
   @Get('user/:userId')
-  @ApiOperation({
-    summary: 'Get orders by user ID',
-    description: 'Retrieve all orders for a specific user (Admin endpoint).',
-  })
-  @ApiParam({ name: 'userId', type: 'string', description: 'User ID (UUID)' })
-  @ApiResponse({ status: 200, description: 'User orders' })
-  @ApiNotFoundResponse({ description: 'User not found' })
+  @ApiOperation({ summary: 'Get orders by user profile id' })
+  @ApiParam({ name: 'userId', description: 'User profile id' })
+  @ApiOkResponse({ description: 'Orders returned successfully' })
   findByUser(@Param('profile_id') profile_id: string) {
     return this.ordersService.findByUser(profile_id);
   }
 
   @UseGuards(JwtAuthGuard)
   @Get(':id')
-  @ApiBearerAuth('access-token')
-  @ApiOperation({
-    summary: 'Get order details',
-    description: 'Retrieve detailed information about a specific order.',
-  })
-  @ApiParam({ name: 'id', type: 'string', description: 'Order ID (UUID)' })
-  @ApiResponse({
-    status: 200,
-    description: 'Order details',
-  })
-  @ApiUnauthorizedResponse({ description: 'Unauthorized' })
-  @ApiNotFoundResponse({ description: 'Order not found' })
-  @ApiForbiddenResponse({ description: 'Forbidden - Customers can only view their own orders' })
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Get single order by id' })
+  @ApiParam({ name: 'id', description: 'Order id' })
+  @ApiOkResponse({ description: 'Order returned successfully' })
+  @ApiUnauthorizedResponse({ description: 'Unauthorized - Missing or invalid token' })
   findOneOrder(@Param('id') id: string) {
     return this.ordersService.findOneOrder(id);
   }
 
+  //user - cancel order
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('CUSTOMER')
   @Patch(':id/cancel')
-  @ApiBearerAuth('access-token')
-  @ApiOperation({
-    summary: 'Cancel order',
-    description: 'Cancel an order. Only possible if order is in pending or confirmed status.',
-  })
-  @ApiParam({ name: 'id', type: 'string', description: 'Order ID (UUID)' })
-  @ApiResponse({
-    status: 200,
-    description: 'Order cancelled successfully',
-  })
-  @ApiUnauthorizedResponse({ description: 'Unauthorized' })
-  @ApiForbiddenResponse({ description: 'Forbidden - Cannot cancel this order' })
-  @ApiNotFoundResponse({ description: 'Order not found' })
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Cancel own order' })
+  @ApiParam({ name: 'id', description: 'Order id' })
+  @ApiOkResponse({ description: 'Order cancelled successfully' })
   cancelOrder(@Param('id') id: string, @Request() req) {
     const userId = req.user.id || req.user.sub;
     return this.ordersService.cancelOrder(id, userId, false);
   }
 
+  //admin - cancel any order
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('ADMIN', 'SUPER_ADMIN', 'ORDER_MANAGER')
   @Patch('admin/:id/cancel')
-  @ApiBearerAuth('access-token')
-  @ApiOperation({
-    summary: 'Cancel order (Admin)',
-    description: 'Admin can cancel any order regardless of status.',
-  })
-  @ApiParam({ name: 'id', type: 'string', description: 'Order ID (UUID)' })
-  @ApiResponse({
-    status: 200,
-    description: 'Order cancelled',
-  })
-  @ApiUnauthorizedResponse({ description: 'Unauthorized' })
-  @ApiForbiddenResponse({ description: 'Forbidden - Admin access required' })
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Admin cancel any order' })
+  @ApiParam({ name: 'id', description: 'Order id' })
+  @ApiOkResponse({ description: 'Order cancelled successfully' })
   adminCancelOrder(@Param('id') id: string) {
     return this.ordersService.cancelOrder(id, null, true);
   }
 
+  //admin
   @Patch(':id')
-  @ApiBearerAuth('access-token')
-  @ApiOperation({
-    summary: 'Update order details',
-    description: 'Update order information (Admin endpoint).',
-  })
-  @ApiParam({ name: 'id', type: 'string', description: 'Order ID (UUID)' })
+  @ApiOperation({ summary: 'Update order by id' })
+  @ApiParam({ name: 'id', description: 'Order id' })
   @ApiBody({ type: UpdateOrderDto })
-  @ApiResponse({
-    status: 200,
-    description: 'Order updated',
-  })
-  @ApiBadRequestResponse({ description: 'Invalid update data' })
-  @ApiNotFoundResponse({ description: 'Order not found' })
+  @ApiOkResponse({ description: 'Order updated successfully' })
   update(@Param('id') id: string, @Body() updateOrderDto: UpdateOrderDto) {
     return this.ordersService.update(id, updateOrderDto);
   }
 
+  //admin
   @Delete(':id')
-  @ApiBearerAuth('access-token')
-  @ApiOperation({
-    summary: 'Delete order',
-    description: 'Delete an order (Admin endpoint). Soft delete is performed.',
-  })
-  @ApiParam({ name: 'id', type: 'string', description: 'Order ID (UUID)' })
-  @ApiResponse({
-    status: 200,
-    description: 'Order deleted',
-  })
-  @ApiNotFoundResponse({ description: 'Order not found' })
+  @ApiOperation({ summary: 'Delete order by id' })
+  @ApiParam({ name: 'id', description: 'Order id' })
+  @ApiOkResponse({ description: 'Order deleted successfully' })
   remove(@Param('id') id: string) {
     return this.ordersService.remove(id);
   }
 
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('ADMIN', 'SUPER_ADMIN', 'ORDER_MANAGER')
-  @Patch(':id/status')
-  @ApiBearerAuth('access-token')
-  @ApiOperation({
-    summary: 'Update order status',
-    description: 'Update the status of an order. Triggers notifications to customer.',
-  })
-  @ApiParam({
-    name: 'id',
-    type: 'string',
-    description: 'Order ID (UUID)',
-  })
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Update order status (Admin only)' })
+  @ApiParam({ name: 'id', description: 'Order id (UUID)' })
   @ApiBody({ type: UpdateOrderStatusDto })
-  @ApiResponse({
-    status: 200,
-    description: 'Order status updated successfully',
-  })
-  @ApiUnauthorizedResponse({ description: 'Unauthorized' })
-  @ApiForbiddenResponse({ description: 'Forbidden - Admin access required' })
-  @ApiNotFoundResponse({ description: 'Order not found' })
+  @ApiOkResponse({ description: 'Order status updated successfully' })
+  @Patch(':id/status')
   updateOrderStatus(
     @Param('id', new ParseUUIDPipe()) id: string,
     @Body() dto: UpdateOrderStatusDto,
@@ -241,26 +144,14 @@ export class OrdersController {
     return this.ordersService.updateOrderStatus(id, dto);
   }
 
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('ADMIN', 'SUPER_ADMIN', 'ORDER_MANAGER')
-  @Get('admin/dashboard')
-  @ApiBearerAuth('access-token')
-  @ApiOperation({
-    summary: 'Get all orders (Admin)',
-    description: 'Retrieve all orders with advanced filtering options. Admin endpoint.',
-  })
-  @ApiQuery({ name: 'page', required: false, type: 'number' })
-  @ApiQuery({ name: 'limit', required: false, type: 'number' })
-  @ApiQuery({ name: 'search', required: false, type: 'string', description: 'Search by order number or customer name' })
-  @ApiQuery({ name: 'status', required: false, type: 'string', description: 'Filter by order status' })
-  @ApiQuery({ name: 'startDate', required: false, type: 'string', description: 'Filter by start date (ISO format)' })
-  @ApiQuery({ name: 'endDate', required: false, type: 'string', description: 'Filter by end date (ISO format)' })
-  @ApiResponse({
-    status: 200,
-    description: 'All orders with pagination',
-  })
-  @ApiUnauthorizedResponse({ description: 'Unauthorized' })
-  @ApiForbiddenResponse({ description: 'Forbidden - Admin access required' })
+
+  @Get('admin/get-all')
+  @ApiOperation({ summary: 'Admin list all orders with filters' })
+  @ApiQuery({ name: 'page', required: false })
+  @ApiQuery({ name: 'limit', required: false })
+  @ApiQuery({ name: 'search', required: false })
+  @ApiQuery({ name: 'status', required: false })
+  @ApiOkResponse({ description: 'Orders returned successfully' })
   async findAllbyAdmin(
     @Query('page') page?: number,
     @Query('limit') limit?: number,
@@ -284,25 +175,17 @@ export class OrdersController {
 
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('ADMIN', 'SUPER_ADMIN', 'ORDER_MANAGER')
-  @Get('admin/analytics')
-  @ApiBearerAuth('access-token')
-  @ApiOperation({
-    summary: 'Get order analytics and aggregates',
-    description: 'Get order statistics, revenue, and aggregates with filters.',
-  })
-  @ApiQuery({ name: 'categoryId', required: false, description: 'Filter by category' })
-  @ApiQuery({ name: 'subCategoryId', required: false, description: 'Filter by subcategory' })
-  @ApiQuery({ name: 'paymentMethod', required: false, description: 'Filter by payment method' })
-  @ApiQuery({ name: 'paymentStatus', required: false, description: 'Filter by payment status' })
-  @ApiQuery({ name: 'startDate', required: false, description: 'Start date (ISO format)' })
-  @ApiQuery({ name: 'endDate', required: false, description: 'End date (ISO format)' })
-  @ApiQuery({ name: 'customerProfileId', required: false, description: 'Filter by customer' })
-  @ApiResponse({
-    status: 200,
-    description: 'Order analytics and statistics',
-  })
-  @ApiUnauthorizedResponse({ description: 'Unauthorized' })
-  @ApiForbiddenResponse({ description: 'Forbidden - Admin access required' })
+  @Get('admin/aggregates')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Get order aggregate analytics' })
+  @ApiQuery({ name: 'categoryId', required: false })
+  @ApiQuery({ name: 'subCategoryId', required: false })
+  @ApiQuery({ name: 'paymentMethod', required: false })
+  @ApiQuery({ name: 'paymentStatus', required: false })
+  @ApiQuery({ name: 'startDate', required: false })
+  @ApiQuery({ name: 'endDate', required: false })
+  @ApiQuery({ name: 'customerProfileId', required: false })
+  @ApiOkResponse({ description: 'Order aggregates returned successfully' })
   async getOrderAggregates(
     @Query('categoryId') categoryId?: string,
     @Query('subCategoryId') subCategoryId?: string,
@@ -324,6 +207,8 @@ export class OrdersController {
   }
 
   @Get('export/data')
+  @ApiOperation({ summary: 'Export orders as Excel file' })
+  @ApiOkResponse({ description: 'Excel export generated successfully' })
   async exportOrders(@Res() res: Response) {
     const fileBuffer =
       await this.ordersService.exportOrdersToExcel();
@@ -338,6 +223,10 @@ export class OrdersController {
   @Roles('DELIVERY')
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Get orders assigned to logged-in delivery partner' })
+  @ApiQuery({ name: 'page', required: false })
+  @ApiQuery({ name: 'limit', required: false })
+  @ApiQuery({ name: 'status', required: false })
+  @ApiOkResponse({ description: 'Assigned orders returned successfully' })
   @Get('delivery-partner/my-orders')
   async getMyDeliveryOrders(@Request() req, @Query() query: PaginationDto) {
     const deliveryPartnerId = req.user.id || req.user.sub;
@@ -374,6 +263,8 @@ export class OrdersController {
     },
   })
   @Patch(':orderId/assign-delivery-partner')
+  @ApiParam({ name: 'orderId', description: 'Order id' })
+  @ApiOkResponse({ description: 'Delivery partner assigned successfully' })
   async assignDeliveryPartner(
     @Param('orderId') orderId: string,
     @Body('deliveryPartnerId') deliveryPartnerId: string,
@@ -383,6 +274,10 @@ export class OrdersController {
   }
 
   @Get('check/delivery')
+  @ApiOperation({ summary: 'Check delivery availability by postal code and amount' })
+  @ApiQuery({ name: 'postalCode', required: true })
+  @ApiQuery({ name: 'orderAmount', required: false })
+  @ApiOkResponse({ description: 'Deliverability check completed' })
   async checkDeliverable(
     @Query('postalCode') postalCode: string,
     @Query('orderAmount') orderAmount?: string,
@@ -402,6 +297,9 @@ export class OrdersController {
 
 
   @Get('notification/test-push')
+  @ApiOperation({ summary: 'Send test push notification' })
+  @ApiQuery({ name: 'token', required: true, description: 'FCM token' })
+  @ApiOkResponse({ description: 'Push notification test completed' })
   async testPush(@Query('token') token: string) {
     if (!token) {
       return { message: 'FCM token is required' };
@@ -419,6 +317,7 @@ export class OrdersController {
     summary: 'Bulk update order status (Delivery Partner)',
   })
   @ApiBody({ type: BulkUpdateOrderStatusDto })
+  @ApiOkResponse({ description: 'Bulk order status update completed' })
   @Patch('delivery/bulk/status')
   bulkUpdateOrderStatusByDeliveryPartner(
     @Request() req,
@@ -439,6 +338,9 @@ export class OrdersController {
   @Roles('DELIVERY')
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Update order status (Delivery Partner - only assigned orders)' })
+  @ApiParam({ name: 'orderId', description: 'Order id (UUID)' })
+  @ApiBody({ type: UpdateOrderStatusDto })
+  @ApiOkResponse({ description: 'Order status updated successfully' })
   @Patch('delivery/:orderId/status')
   updateOrderStatusByDeliveryPartner(
     @Param('orderId', new ParseUUIDPipe()) orderId: string,
