@@ -1181,6 +1181,7 @@ export class RazorpayService {
           paymentStatus: PaymentStatus.completed,
           paymentMethod: paymentMethod ?? PaymentMethod.cash_on_delivery,
           totalAmount: totalOrderAmount,
+          totalAmountWithoutDelivery: orderAmount,
           shippingAddressId: shippingAddrs.id,
           coupounId: coupuon?.id ?? null,
           isCoupuonApplied: !!coupuon,

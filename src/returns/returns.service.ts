@@ -161,7 +161,7 @@ export class ReturnsService {
 
     if (dto.returnType === 'full') {
       // Full order return
-      refundAmount = Number(order.totalAmount) - returnFee;
+      refundAmount = Number(order.totalAmountWithoutDelivery) - returnFee;
     } else if (dto.returnType === 'partial' && dto.items && dto.items.length > 0) {
       // Partial return - calculate based on items
       for (const returnItem of dto.items) {

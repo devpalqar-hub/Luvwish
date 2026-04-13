@@ -388,6 +388,7 @@ export class OrdersService {
                 quantity: item.quantity,
                 actualPrice: item.actualPrice,
                 discountedPrice: item.discountedPrice,
+
               })),
             },
           }
