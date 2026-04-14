@@ -29,7 +29,16 @@ import { ToggleFeaturedDto } from './dto/toggle-featured.dto';
 import { OptionalJwtAuthGuard } from 'src/common/guards/ optional-jwt-auth.guard';
 import { AdminProductFilterDto } from './dto/admin-product-filter.dto';
 import { UpdateProductVariationDto } from './dto/update-product-variation.dto';
-import { ApiTags } from '@nestjs/swagger';
+import {
+  ApiBearerAuth,
+  ApiBody,
+  ApiConsumes,
+  ApiOkResponse,
+  ApiOperation,
+  ApiParam,
+  ApiQuery,
+  ApiTags,
+} from '@nestjs/swagger';
 
 const maxSize = 10 * 1024 * 1024; // 50MB per media
 const maxSizeGallery = 50 * 1024 * 1024; // 50 MB
@@ -47,6 +56,10 @@ export class ProductsController {
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('ADMIN', 'SUPER_ADMIN')
   @UseInterceptors(FilesInterceptor('images', 10))
+  @ApiBearerAuth()
+  @ApiConsumes('multipart/form-data')
+  @ApiOperation({ summary: 'Create product with image uploads' })
+  @ApiOkResponse({ description: 'Product created successfully' })
   async create(
     @Body() body: any,
     @UploadedFiles() images?: Express.Multer.File[],
@@ -87,6 +100,11 @@ export class ProductsController {
 
   @UseGuards(OptionalJwtAuthGuard)
   @Get()
+  @ApiOperation({ summary: 'List products with filters' })
+  @ApiQuery({ name: 'page', required: false })
+  @ApiQuery({ name: 'limit', required: false })
+  @ApiQuery({ name: 'search', required: false })
+  @ApiOkResponse({ description: 'Products returned successfully' })
   findAll(@Query() query: SearchFilterDto, @Request() req) {
     // If user is logged in (set by your JWT middleware), use their id
     const userId = req.user?.id || req.user?.sub; // handle either shape
@@ -95,6 +113,8 @@ export class ProductsController {
 
   @UseGuards(OptionalJwtAuthGuard)
   @Get('featured')
+  @ApiOperation({ summary: 'List featured products' })
+  @ApiOkResponse({ description: 'Featured products returned successfully' })
   getFeaturedProducts(@Query() query: SearchFilterDto, @Request() req) {
     const userId = req.user?.id || req.user?.sub;
     return this.productsService.getFeaturedProducts(query, userId);
@@ -104,6 +124,9 @@ export class ProductsController {
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('ADMIN', 'SUPER_ADMIN')
   @Get('admin/products')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Admin list products with advanced filters' })
+  @ApiOkResponse({ description: 'Admin product list returned successfully' })
   getAdminProducts(@Query() query: AdminProductFilterDto) {
     return this.productsService.getAdminProducts(query);
   }
@@ -111,6 +134,9 @@ export class ProductsController {
   // 🔹 Get single product
   @UseGuards(OptionalJwtAuthGuard)
   @Get(':id')
+  @ApiOperation({ summary: 'Get product by id' })
+  @ApiParam({ name: 'id', description: 'Product id' })
+  @ApiOkResponse({ description: 'Product returned successfully' })
   findOne(@Param('id') id: string, @Request() req) {
     const userId = req.user?.id || req.user?.sub;
     return this.productsService.findOne(id, userId);
@@ -134,11 +160,19 @@ export class ProductsController {
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('ADMIN')
   @Delete(':id')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Delete product by id' })
+  @ApiParam({ name: 'id', description: 'Product id' })
+  @ApiOkResponse({ description: 'Product deleted successfully' })
   remove(@Param('id') id: string) {
     return this.productsService.remove(id);
   }
 
   @Get(':id/related')
+  @ApiOperation({ summary: 'Get related products' })
+  @ApiParam({ name: 'id', description: 'Product id' })
+  @ApiQuery({ name: 'customerProfileId', required: false })
+  @ApiOkResponse({ description: 'Related products returned successfully' })
   async getRelatedProducts(
     @Param('id') productId: string,
     @Query('customerProfileId') customerProfileId?: string,
@@ -152,6 +186,10 @@ export class ProductsController {
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('ADMIN')
   @Patch('update-stock')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Update stock for products/variations' })
+  @ApiBody({ type: UpdateStockDto })
+  @ApiOkResponse({ description: 'Stock updated successfully' })
   async updateStock(@Body() dto: UpdateStockDto) {
     return this.productsService.updateStock(dto);
   }
@@ -159,6 +197,11 @@ export class ProductsController {
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('ADMIN', 'SUPER_ADMIN')
   @Patch(':id/featured')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Toggle product featured flag' })
+  @ApiParam({ name: 'id', description: 'Product id' })
+  @ApiBody({ type: ToggleFeaturedDto })
+  @ApiOkResponse({ description: 'Featured flag updated successfully' })
   async toggleFeatured(
     @Param('id') id: string,
     @Body() dto: ToggleFeaturedDto,
@@ -171,6 +214,10 @@ export class ProductsController {
   @Roles('ADMIN')
   @Post('upload-images')
   @UseInterceptors(FilesInterceptor('images', 10)) // Max 10 images
+  @ApiBearerAuth()
+  @ApiConsumes('multipart/form-data')
+  @ApiOperation({ summary: 'Upload product images to S3' })
+  @ApiOkResponse({ description: 'Product images uploaded successfully' })
   async uploadProductImages(@UploadedFiles() images: Express.Multer.File[]) {
     return this.s3Service.uploadMultipleFiles(images, 'products');
   }
@@ -178,6 +225,10 @@ export class ProductsController {
 
   //this is by devanand joly
   @Patch(':id')
+  @ApiOperation({ summary: 'Update product by id' })
+  @ApiParam({ name: 'id', description: 'Product id' })
+  @ApiBody({ type: UpdateProductDto })
+  @ApiOkResponse({ description: 'Product updated successfully' })
   async updateProduct(
     @Param('id') id: string,
     @Body() dto: UpdateProductDto,
@@ -196,6 +247,11 @@ export class ProductsController {
   @Roles('ADMIN', 'SUPER_ADMIN')
   @Post(':productId/gallery/images')
   @UseInterceptors(FilesInterceptor('image', 10))
+  @ApiBearerAuth()
+  @ApiConsumes('multipart/form-data')
+  @ApiOperation({ summary: 'Add gallery images to product' })
+  @ApiParam({ name: 'productId', description: 'Product id' })
+  @ApiOkResponse({ description: 'Product gallery images added successfully' })
   async addProductImages(
     @Param('productId') productId: string,
     @UploadedFiles() files: Express.Multer.File[],
@@ -245,6 +301,9 @@ export class ProductsController {
   //     description: 'Mess images fetched successfully',
   // })
   @Get(':productId/gallery/images')
+  @ApiOperation({ summary: 'Get product gallery images' })
+  @ApiParam({ name: 'productId', description: 'Product id' })
+  @ApiOkResponse({ description: 'Product gallery images returned successfully' })
   async getProductImages(@Param('productId') productId: string) {
     return this.productsService.getProductImages(productId);
   }
@@ -255,6 +314,10 @@ export class ProductsController {
   // @UseGuards(JwtAuthGuard, RolesGuard)
   // @Roles(Role.MESS_ADMIN)
   @Delete(':productId/gallery/images/:imageId')
+  @ApiOperation({ summary: 'Delete product gallery image' })
+  @ApiParam({ name: 'productId', description: 'Product id' })
+  @ApiParam({ name: 'imageId', description: 'Image id' })
+  @ApiOkResponse({ description: 'Product gallery image deleted successfully' })
   async deleteProductImage(
     @Param('productId') productId: string,
     @Param('imageId') imageId: string,
@@ -263,6 +326,9 @@ export class ProductsController {
   }
 
   @Get(":productId/variations")
+  @ApiOperation({ summary: 'Get all variations for product' })
+  @ApiParam({ name: 'productId', description: 'Product id' })
+  @ApiOkResponse({ description: 'Product variations returned successfully' })
   async getAllVariation(@Param('productId') productId?: string) {
     return this.productsService.getAllVariation(productId);
   }

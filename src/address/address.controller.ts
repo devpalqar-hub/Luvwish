@@ -13,7 +13,15 @@ import { AddressService } from './address.service';
 import { CreateAddressDto } from './dto/create-address.dto';
 import { UpdateAddressDto } from './dto/update-address.dto';
 import { JwtAuthGuard } from 'src/common/guards/jwt-auth.guard';
-import { ApiTags } from '@nestjs/swagger';
+import {
+  ApiBearerAuth,
+  ApiBody,
+  ApiOkResponse,
+  ApiOperation,
+  ApiParam,
+  ApiTags,
+  ApiUnauthorizedResponse,
+} from '@nestjs/swagger';
 
 
 @ApiTags('Address')
@@ -23,6 +31,11 @@ export class AddressController {
 
   @UseGuards(JwtAuthGuard)
   @Post()
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Create address for current user' })
+  @ApiBody({ type: CreateAddressDto })
+  @ApiOkResponse({ description: 'Address created successfully' })
+  @ApiUnauthorizedResponse({ description: 'Unauthorized - Missing or invalid token' })
   create(@Body() createAddressDto: CreateAddressDto, @Request() req) {
     const profile_id = req.user.id;
 
@@ -31,6 +44,10 @@ export class AddressController {
 
   @UseGuards(JwtAuthGuard)
   @Get()
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'List all addresses for current user' })
+  @ApiOkResponse({ description: 'Addresses returned successfully' })
+  @ApiUnauthorizedResponse({ description: 'Unauthorized - Missing or invalid token' })
   async findAll(@Request() req) {
     return this.addressService.findAll(req.user.id);
   }
@@ -38,6 +55,11 @@ export class AddressController {
   // GET BY ID
   @UseGuards(JwtAuthGuard)
   @Get(':id')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Get address by id for current user' })
+  @ApiParam({ name: 'id', description: 'Address id' })
+  @ApiOkResponse({ description: 'Address returned successfully' })
+  @ApiUnauthorizedResponse({ description: 'Unauthorized - Missing or invalid token' })
   async findOne(@Request() req, @Param('id') id: string) {
     return this.addressService.findOne(req.user.id, id);
   }
@@ -45,6 +67,12 @@ export class AddressController {
   // UPDATE
   @UseGuards(JwtAuthGuard)
   @Patch(':id')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Update address by id for current user' })
+  @ApiParam({ name: 'id', description: 'Address id' })
+  @ApiBody({ type: UpdateAddressDto })
+  @ApiOkResponse({ description: 'Address updated successfully' })
+  @ApiUnauthorizedResponse({ description: 'Unauthorized - Missing or invalid token' })
   async update(
     @Request() req,
     @Param('id') id: string,
@@ -56,6 +84,11 @@ export class AddressController {
   // DELETE
   @UseGuards(JwtAuthGuard)
   @Delete(':id')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Delete address by id for current user' })
+  @ApiParam({ name: 'id', description: 'Address id' })
+  @ApiOkResponse({ description: 'Address deleted successfully' })
+  @ApiUnauthorizedResponse({ description: 'Unauthorized - Missing or invalid token' })
   async remove(@Request() req, @Param('id') id: string) {
     return this.addressService.remove(req.user.id, id);
   }

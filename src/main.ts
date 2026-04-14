@@ -53,6 +53,9 @@ async function bootstrap() {
   SwaggerModule.setup('docs', app, swaggerDocument);
 
   await app.listen(process.env.PORT || 3000);
-  console.log(`Application is running on: ${await app.getUrl()}`);
+  const appUrl = await app.getUrl();
+  console.log(`Application is running on: ${appUrl}`);
+  console.log(`Swagger UI: ${appUrl}/docs`);
+  console.log(`OpenAPI JSON: ${appUrl}/api-json`);
 }
 bootstrap();

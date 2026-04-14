@@ -12,7 +12,16 @@ import {
   ParseUUIDPipe,
   Res,
 } from '@nestjs/common';
-import { ApiBearerAuth, ApiBody, ApiOperation, ApiTags } from '@nestjs/swagger';
+import {
+  ApiBearerAuth,
+  ApiBody,
+  ApiOkResponse,
+  ApiOperation,
+  ApiParam,
+  ApiQuery,
+  ApiTags,
+  ApiUnauthorizedResponse,
+} from '@nestjs/swagger';
 import { Response } from 'express';
 import { OrdersService } from './orders.service';
 import { CreateOrderDto } from './dto/create-orders.dto';
@@ -32,6 +41,9 @@ export class OrdersController {
 
   //user
   @Post()
+  @ApiOperation({ summary: 'Create order' })
+  @ApiBody({ type: CreateOrderDto })
+  @ApiOkResponse({ description: 'Order created successfully' })
   create(@Body() createOrderDto: CreateOrderDto) {
     return this.ordersService.create(createOrderDto);
   }
@@ -39,6 +51,13 @@ export class OrdersController {
   //user
   @UseGuards(JwtAuthGuard)
   @Get()
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Get orders for logged-in user' })
+  @ApiQuery({ name: 'page', required: false })
+  @ApiQuery({ name: 'limit', required: false })
+  @ApiQuery({ name: 'status', required: false, enum: OrderStatus })
+  @ApiOkResponse({ description: 'Orders returned successfully' })
+  @ApiUnauthorizedResponse({ description: 'Unauthorized - Missing or invalid token' })
   findAll(@Query() query: PaginationDto, @Request() req) {
     return this.ordersService.findAll(
       query,
@@ -48,12 +67,20 @@ export class OrdersController {
   }
 
   @Get('user/:userId')
+  @ApiOperation({ summary: 'Get orders by user profile id' })
+  @ApiParam({ name: 'userId', description: 'User profile id' })
+  @ApiOkResponse({ description: 'Orders returned successfully' })
   findByUser(@Param('profile_id') profile_id: string) {
     return this.ordersService.findByUser(profile_id);
   }
 
   @UseGuards(JwtAuthGuard)
   @Get(':id')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Get single order by id' })
+  @ApiParam({ name: 'id', description: 'Order id' })
+  @ApiOkResponse({ description: 'Order returned successfully' })
+  @ApiUnauthorizedResponse({ description: 'Unauthorized - Missing or invalid token' })
   findOneOrder(@Param('id') id: string) {
     return this.ordersService.findOneOrder(id);
   }
@@ -62,6 +89,10 @@ export class OrdersController {
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('CUSTOMER')
   @Patch(':id/cancel')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Cancel own order' })
+  @ApiParam({ name: 'id', description: 'Order id' })
+  @ApiOkResponse({ description: 'Order cancelled successfully' })
   cancelOrder(@Param('id') id: string, @Request() req) {
     const userId = req.user.id || req.user.sub;
     return this.ordersService.cancelOrder(id, userId, false);
@@ -71,18 +102,29 @@ export class OrdersController {
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('ADMIN', 'SUPER_ADMIN', 'ORDER_MANAGER')
   @Patch('admin/:id/cancel')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Admin cancel any order' })
+  @ApiParam({ name: 'id', description: 'Order id' })
+  @ApiOkResponse({ description: 'Order cancelled successfully' })
   adminCancelOrder(@Param('id') id: string) {
     return this.ordersService.cancelOrder(id, null, true);
   }
 
   //admin
   @Patch(':id')
+  @ApiOperation({ summary: 'Update order by id' })
+  @ApiParam({ name: 'id', description: 'Order id' })
+  @ApiBody({ type: UpdateOrderDto })
+  @ApiOkResponse({ description: 'Order updated successfully' })
   update(@Param('id') id: string, @Body() updateOrderDto: UpdateOrderDto) {
     return this.ordersService.update(id, updateOrderDto);
   }
 
   //admin
   @Delete(':id')
+  @ApiOperation({ summary: 'Delete order by id' })
+  @ApiParam({ name: 'id', description: 'Order id' })
+  @ApiOkResponse({ description: 'Order deleted successfully' })
   remove(@Param('id') id: string) {
     return this.ordersService.remove(id);
   }
@@ -91,6 +133,9 @@ export class OrdersController {
   @Roles('ADMIN', 'SUPER_ADMIN', 'ORDER_MANAGER')
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Update order status (Admin only)' })
+  @ApiParam({ name: 'id', description: 'Order id (UUID)' })
+  @ApiBody({ type: UpdateOrderStatusDto })
+  @ApiOkResponse({ description: 'Order status updated successfully' })
   @Patch(':id/status')
   updateOrderStatus(
     @Param('id', new ParseUUIDPipe()) id: string,
@@ -101,6 +146,12 @@ export class OrdersController {
 
 
   @Get('admin/get-all')
+  @ApiOperation({ summary: 'Admin list all orders with filters' })
+  @ApiQuery({ name: 'page', required: false })
+  @ApiQuery({ name: 'limit', required: false })
+  @ApiQuery({ name: 'search', required: false })
+  @ApiQuery({ name: 'status', required: false })
+  @ApiOkResponse({ description: 'Orders returned successfully' })
   async findAllbyAdmin(
     @Query('page') page?: number,
     @Query('limit') limit?: number,
@@ -125,6 +176,16 @@ export class OrdersController {
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('ADMIN', 'SUPER_ADMIN', 'ORDER_MANAGER')
   @Get('admin/aggregates')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Get order aggregate analytics' })
+  @ApiQuery({ name: 'categoryId', required: false })
+  @ApiQuery({ name: 'subCategoryId', required: false })
+  @ApiQuery({ name: 'paymentMethod', required: false })
+  @ApiQuery({ name: 'paymentStatus', required: false })
+  @ApiQuery({ name: 'startDate', required: false })
+  @ApiQuery({ name: 'endDate', required: false })
+  @ApiQuery({ name: 'customerProfileId', required: false })
+  @ApiOkResponse({ description: 'Order aggregates returned successfully' })
   async getOrderAggregates(
     @Query('categoryId') categoryId?: string,
     @Query('subCategoryId') subCategoryId?: string,
@@ -146,6 +207,8 @@ export class OrdersController {
   }
 
   @Get('export/data')
+  @ApiOperation({ summary: 'Export orders as Excel file' })
+  @ApiOkResponse({ description: 'Excel export generated successfully' })
   async exportOrders(@Res() res: Response) {
     const fileBuffer =
       await this.ordersService.exportOrdersToExcel();
@@ -160,6 +223,10 @@ export class OrdersController {
   @Roles('DELIVERY')
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Get orders assigned to logged-in delivery partner' })
+  @ApiQuery({ name: 'page', required: false })
+  @ApiQuery({ name: 'limit', required: false })
+  @ApiQuery({ name: 'status', required: false })
+  @ApiOkResponse({ description: 'Assigned orders returned successfully' })
   @Get('delivery-partner/my-orders')
   async getMyDeliveryOrders(@Request() req, @Query() query: PaginationDto) {
     const deliveryPartnerId = req.user.id || req.user.sub;
@@ -196,6 +263,8 @@ export class OrdersController {
     },
   })
   @Patch(':orderId/assign-delivery-partner')
+  @ApiParam({ name: 'orderId', description: 'Order id' })
+  @ApiOkResponse({ description: 'Delivery partner assigned successfully' })
   async assignDeliveryPartner(
     @Param('orderId') orderId: string,
     @Body('deliveryPartnerId') deliveryPartnerId: string,
@@ -205,6 +274,10 @@ export class OrdersController {
   }
 
   @Get('check/delivery')
+  @ApiOperation({ summary: 'Check delivery availability by postal code and amount' })
+  @ApiQuery({ name: 'postalCode', required: true })
+  @ApiQuery({ name: 'orderAmount', required: false })
+  @ApiOkResponse({ description: 'Deliverability check completed' })
   async checkDeliverable(
     @Query('postalCode') postalCode: string,
     @Query('orderAmount') orderAmount?: string,
@@ -224,6 +297,9 @@ export class OrdersController {
 
 
   @Get('notification/test-push')
+  @ApiOperation({ summary: 'Send test push notification' })
+  @ApiQuery({ name: 'token', required: true, description: 'FCM token' })
+  @ApiOkResponse({ description: 'Push notification test completed' })
   async testPush(@Query('token') token: string) {
     if (!token) {
       return { message: 'FCM token is required' };
@@ -241,6 +317,7 @@ export class OrdersController {
     summary: 'Bulk update order status (Delivery Partner)',
   })
   @ApiBody({ type: BulkUpdateOrderStatusDto })
+  @ApiOkResponse({ description: 'Bulk order status update completed' })
   @Patch('delivery/bulk/status')
   bulkUpdateOrderStatusByDeliveryPartner(
     @Request() req,
@@ -261,6 +338,9 @@ export class OrdersController {
   @Roles('DELIVERY')
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Update order status (Delivery Partner - only assigned orders)' })
+  @ApiParam({ name: 'orderId', description: 'Order id (UUID)' })
+  @ApiBody({ type: UpdateOrderStatusDto })
+  @ApiOkResponse({ description: 'Order status updated successfully' })
   @Patch('delivery/:orderId/status')
   updateOrderStatusByDeliveryPartner(
     @Param('orderId', new ParseUUIDPipe()) orderId: string,

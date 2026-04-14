@@ -223,6 +223,7 @@ export class OrdersService {
           paymentStatus: true,
           paymentMethod: true,
           totalAmount: true,
+          totalAmountWithoutDelivery: true,
           shippingCost: true,
           taxAmount: true,
           discountAmount: true,
@@ -322,6 +323,7 @@ export class OrdersService {
         paymentStatus: true,
         paymentMethod: true,
         totalAmount: true,
+        totalAmountWithoutDelivery: true,
         shippingCost: true,
         actualDeliveryFee: true,
         taxAmount: true,
@@ -388,6 +390,7 @@ export class OrdersService {
                 quantity: item.quantity,
                 actualPrice: item.actualPrice,
                 discountedPrice: item.discountedPrice,
+
               })),
             },
           }
