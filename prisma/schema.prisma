@@ -452,7 +452,7 @@ model Wishlist {
   productVariation ProductVariation? @relation(fields: [productVariationId], references: [id], onDelete: Cascade)
   customerProfile  CustomerProfile   @relation(fields: [customerProfileId], references: [id], onDelete: Cascade)
 
-  @@unique([customerProfileId, productId]) // Prevent duplicates
+  @@unique([customerProfileId, productVariationId, productId]) // Prevent duplicates
   @@map("wishlist")
 }
 
