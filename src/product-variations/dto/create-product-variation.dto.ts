@@ -1,4 +1,5 @@
-import { IsString, IsNumber, IsBoolean, IsOptional, IsUUID } from 'class-validator';
+import { IsString, IsNumber, IsBoolean, IsOptional, IsUUID, IsEnum, IsObject } from 'class-validator';
+import { VariationType } from '@prisma/client';
 
 export class CreateProductVariationDto {
   @IsUUID()
@@ -23,4 +24,12 @@ export class CreateProductVariationDto {
   @IsOptional()
   @IsBoolean()
   isAvailable?: boolean;
+
+  @IsOptional()
+  @IsEnum(VariationType)
+  variationType?: VariationType;
+
+  @IsOptional()
+  @IsObject()
+  attributes?: Record<string, any>;
 }

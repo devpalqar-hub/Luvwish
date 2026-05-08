@@ -190,6 +190,8 @@ export class ProductsService {
               discountedPrice: variation.discountedPrice,
               stockCount: variation.stockCount,
               isAvailable: variation.isAvailable ?? true,
+                          variationType: (variation.variationType as any) ?? 'size',
+                          attributes: variation.attributes ?? null,
             })),
           }
           : undefined,
@@ -557,6 +559,8 @@ export class ProductsService {
               ...(v.discountedPrice !== undefined && { discountedPrice: v.discountedPrice }),
               ...(v.stockCount !== undefined && { stockCount: v.stockCount }),
               ...(v.isAvailable !== undefined && { isAvailable: v.isAvailable }),
+                          ...(v.variationType !== undefined && { variationType: v.variationType as any }),
+                          ...(v.attributes !== undefined && { attributes: v.attributes }),
             },
           });
         }
