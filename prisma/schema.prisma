@@ -87,6 +87,12 @@ enum RefundMethod {
   wallet
 }
 
+enum VariationType {
+  size
+  color
+  both
+}
+
 model User {
   id                String    @id @default(uuid()) @map("id")
   email             String    @unique @map("email")
@@ -241,16 +247,18 @@ model ProductImage {
 }
 
 model ProductVariation {
-  id              String   @id @default(uuid())
+  id              String        @id @default(uuid())
   productId       String
   variationName   String
-  sku             String   @unique
-  discountedPrice Decimal  @default(0.00) @db.Decimal(10, 2)
-  actualPrice     Decimal  @default(0.00) @db.Decimal(10, 2)
-  stockCount      Int      @default(0)
-  isAvailable     Boolean  @default(true)
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  variationType   VariationType @default(size)
+  attributes      Json?         // { "size": "XL", "color": "Orange" }
+  sku             String        @unique
+  discountedPrice Decimal       @default(0.00) @db.Decimal(10, 2)
+  actualPrice     Decimal       @default(0.00) @db.Decimal(10, 2)
+  stockCount      Int           @default(0)
+  isAvailable     Boolean       @default(true)
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
 
   product    Product     @relation(fields: [productId], references: [id], onDelete: Cascade)
   cartItems  CartItem[]

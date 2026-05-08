@@ -46,6 +46,12 @@ export class CreateProductVariationDto {
   @IsOptional()
   @IsBoolean()
   isAvailable?: boolean;
+
+  @IsOptional()
+  variationType?: string;
+
+  @IsOptional()
+  attributes?: Record<string, any>;
 }
 
 

@@ -39,6 +39,13 @@ export class UpdateProductVariationDto {
     @Transform(({ value }) => value === true || value === 'true')
     isAvailable?: boolean;
 
+    @IsOptional()
+    @IsString()
+    variationType?: string;
+
+    @IsOptional()
+    attributes?: Record<string, any>;
+
     /** ✅ Explicitly allowed but NEVER used */
     @IsOptional()
     @IsDateString()
