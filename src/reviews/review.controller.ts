@@ -5,6 +5,7 @@ import { CreateReviewDto } from './dto/create-review.dto';
 import { CreateMockReviewDto } from './dto/create-mock-review.dto';
 import { UpdateReviewDto } from './dto/update-review.dto';
 import { ListReviewsFilterDto } from './dto/list-reviews-filter.dto';
+import { PaginationDto } from 'src/pagination/dto/pagination.dto';
 import { MarkHelpfulDto } from './dto/mark-helpful.dto';
 import { JwtAuthGuard } from 'src/common/guards/jwt-auth.guard';
 import { RolesGuard } from 'src/common/decorators/roles.guard';
@@ -88,9 +89,11 @@ export class ReviewController {
     @Get('product/:productId')
     @ApiOperation({ summary: 'Get reviews for a product' })
     @ApiParam({ name: 'productId', description: 'Product id' })
+    @ApiQuery({ name: 'page', required: false, type: Number })
+    @ApiQuery({ name: 'limit', required: false, type: Number })
     @ApiOkResponse({ description: 'Reviews returned successfully' })
-    findByProduct(@Param('productId') productId: string) {
-        return this.reviewService.findByProduct(productId);
+    findByProduct(@Param('productId') productId: string, @Query() pagination: PaginationDto) {
+        return this.reviewService.findByProduct(productId, pagination);
     }
 
     @Get(':id')

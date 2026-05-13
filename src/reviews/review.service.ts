@@ -10,6 +10,7 @@ import { CreateMockReviewDto } from './dto/create-mock-review.dto';
 import { UpdateReviewDto } from './dto/update-review.dto';
 import { ListReviewsFilterDto } from './dto/list-reviews-filter.dto';
 import { PaginationResponseDto } from 'src/pagination/pagination-response.dto';
+import { PaginationDto } from 'src/pagination/dto/pagination.dto';
 
 @Injectable()
 export class ReviewService {
@@ -90,20 +91,27 @@ export class ReviewService {
     });
   }
 
-  async findByProduct(productId: string) {
-    return this.prisma.review.findMany({
-      where: { productId },
-      include: {
-        images: true,
-        customerProfile: {
-          select: {
-            name: true,
-            profilePicture: true,
+  async findByProduct(productId: string, pagination: PaginationDto) {
+    const [data, total] = await this.prisma.$transaction([
+      this.prisma.review.findMany({
+        where: { productId },
+        include: {
+          images: true,
+          customerProfile: {
+            select: {
+              name: true,
+              profilePicture: true,
+            },
           },
         },
-      },
-      orderBy: { createdAt: 'desc' },
-    });
+        skip: pagination.skip,
+        take: pagination.limit,
+        orderBy: { createdAt: 'desc' },
+      }),
+      this.prisma.review.count({ where: { productId } }),
+    ]);
+
+    return new PaginationResponseDto(data, total, pagination.page, pagination.limit);
   }
 
   async findOne(id: string) {
