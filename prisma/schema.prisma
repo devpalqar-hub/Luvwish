@@ -397,12 +397,15 @@ model Review {
   createdAt DateTime @default(now())
 
   productId         String
-  customerProfileId String
-  orderItemId       String @unique // ✅ ensure only one review per order item
+  customerProfileId String?
+  orderItemId       String? @unique // ✅ ensure only one review per order item
 
-  product         Product         @relation(fields: [productId], references: [id])
-  customerProfile CustomerProfile @relation(fields: [customerProfileId], references: [id])
-  orderItem       OrderItem       @relation(fields: [orderItemId], references: [id])
+  isMock           Boolean @default(false)
+  mockReviewerName String? // display name for admin-created mock reviews
+
+  product         Product          @relation(fields: [productId], references: [id])
+  customerProfile CustomerProfile? @relation(fields: [customerProfileId], references: [id])
+  orderItem       OrderItem?       @relation(fields: [orderItemId], references: [id])
 
   images ReviewImage[]
 
