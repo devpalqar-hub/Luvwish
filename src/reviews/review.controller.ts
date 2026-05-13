@@ -2,6 +2,7 @@
 import { Controller, Post, Body, Get, Param, Patch, Delete, UseGuards, Request } from '@nestjs/common';
 import { ReviewService } from './review.service';
 import { CreateReviewDto } from './dto/create-review.dto';
+import { CreateMockReviewDto } from './dto/create-mock-review.dto';
 import { UpdateReviewDto } from './dto/update-review.dto';
 import { MarkHelpfulDto } from './dto/mark-helpful.dto';
 import { JwtAuthGuard } from 'src/common/guards/jwt-auth.guard';
@@ -21,6 +22,18 @@ import {
 @Controller('reviews')
 export class ReviewController {
     constructor(private readonly reviewService: ReviewService) { }
+
+    @UseGuards(JwtAuthGuard, RolesGuard)
+    @Roles('ADMIN', 'SUPER_ADMIN')
+    @Post('mock')
+    @ApiBearerAuth()
+    @ApiOperation({ summary: 'Create a mock review for a product (Admin only)' })
+    @ApiBody({ type: CreateMockReviewDto })
+    @ApiOkResponse({ description: 'Mock review created successfully' })
+    @ApiUnauthorizedResponse({ description: 'Unauthorized - Missing or invalid token' })
+    createMockReview(@Body() dto: CreateMockReviewDto) {
+        return this.reviewService.createMockReview(dto);
+    }
 
     @UseGuards(JwtAuthGuard)
     @Post()

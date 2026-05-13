@@ -6,6 +6,7 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { CreateReviewDto } from './dto/create-review.dto';
+import { CreateMockReviewDto } from './dto/create-mock-review.dto';
 import { UpdateReviewDto } from './dto/update-review.dto';
 
 @Injectable()
@@ -259,5 +260,32 @@ export class ReviewService {
       reviewableProducts,
       total: reviewableProducts.length,
     };
+  }
+
+  async createMockReview(dto: CreateMockReviewDto) {
+    // Validate that the product exists
+    const product = await this.prisma.product.findUnique({
+      where: { id: dto.productId },
+    });
+
+    if (!product) {
+      throw new NotFoundException('Product not found');
+    }
+
+    return this.prisma.review.create({
+      data: {
+        rating: dto.rating,
+        comment: dto.comment,
+        productId: dto.productId,
+        isMock: true,
+        mockReviewerName: dto.reviewerName,
+        images: {
+          create: dto.images?.map((url) => ({ url })) || [],
+        },
+      },
+      include: {
+        images: true,
+      },
+    });
   }
 }
