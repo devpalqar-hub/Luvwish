@@ -8,6 +8,8 @@ import { PrismaService } from 'src/prisma/prisma.service';
 import { CreateReviewDto } from './dto/create-review.dto';
 import { CreateMockReviewDto } from './dto/create-mock-review.dto';
 import { UpdateReviewDto } from './dto/update-review.dto';
+import { ListReviewsFilterDto } from './dto/list-reviews-filter.dto';
+import { PaginationResponseDto } from 'src/pagination/pagination-response.dto';
 
 @Injectable()
 export class ReviewService {
@@ -287,5 +289,73 @@ export class ReviewService {
         images: true,
       },
     });
+  }
+
+  async listAllReviews(filters: ListReviewsFilterDto) {
+    const where: any = {};
+
+    if (filters.productId) {
+      where.productId = filters.productId;
+    }
+
+    if (filters.customerProfileId) {
+      where.customerProfileId = filters.customerProfileId;
+    }
+
+    if (filters.isMock !== undefined) {
+      where.isMock = filters.isMock;
+    }
+
+    // Exact rating takes priority over range
+    if (filters.rating) {
+      where.rating = filters.rating;
+    } else {
+      if (filters.minRating || filters.maxRating) {
+        where.rating = {};
+        if (filters.minRating) where.rating.gte = filters.minRating;
+        if (filters.maxRating) where.rating.lte = filters.maxRating;
+      }
+    }
+
+    if (filters.search) {
+      where.OR = [
+        { comment: { contains: filters.search } },
+        { mockReviewerName: { contains: filters.search } },
+      ];
+    }
+
+    const sortField = ['createdAt', 'rating'].includes(filters.sortBy)
+      ? filters.sortBy
+      : 'createdAt';
+    const sortOrder = filters.sortOrder === 'asc' ? 'asc' : 'desc';
+
+    const [data, total] = await this.prisma.$transaction([
+      this.prisma.review.findMany({
+        where,
+        include: {
+          images: true,
+          product: {
+            select: {
+              id: true,
+              name: true,
+              images: { take: 1, orderBy: { sortOrder: 'asc' } },
+            },
+          },
+          customerProfile: {
+            select: {
+              id: true,
+              name: true,
+              profilePicture: true,
+            },
+          },
+        },
+        skip: filters.skip,
+        take: filters.limit,
+        orderBy: { [sortField]: sortOrder },
+      }),
+      this.prisma.review.count({ where }),
+    ]);
+
+    return new PaginationResponseDto(data, total, filters.page, filters.limit);
   }
 }

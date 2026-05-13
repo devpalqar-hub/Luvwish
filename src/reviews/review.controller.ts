@@ -1,9 +1,10 @@
 // review.controller.ts
-import { Controller, Post, Body, Get, Param, Patch, Delete, UseGuards, Request } from '@nestjs/common';
+import { Controller, Post, Body, Get, Param, Patch, Delete, UseGuards, Request, Query } from '@nestjs/common';
 import { ReviewService } from './review.service';
 import { CreateReviewDto } from './dto/create-review.dto';
 import { CreateMockReviewDto } from './dto/create-mock-review.dto';
 import { UpdateReviewDto } from './dto/update-review.dto';
+import { ListReviewsFilterDto } from './dto/list-reviews-filter.dto';
 import { MarkHelpfulDto } from './dto/mark-helpful.dto';
 import { JwtAuthGuard } from 'src/common/guards/jwt-auth.guard';
 import { RolesGuard } from 'src/common/decorators/roles.guard';
@@ -14,6 +15,7 @@ import {
     ApiOkResponse,
     ApiOperation,
     ApiParam,
+    ApiQuery,
     ApiTags,
     ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
@@ -22,6 +24,28 @@ import {
 @Controller('reviews')
 export class ReviewController {
     constructor(private readonly reviewService: ReviewService) { }
+
+    @UseGuards(JwtAuthGuard, RolesGuard)
+    @Roles('ADMIN', 'SUPER_ADMIN')
+    @Get('admin/all')
+    @ApiBearerAuth()
+    @ApiOperation({ summary: 'List all reviews with filters (Admin only)' })
+    @ApiQuery({ name: 'productId', required: false, description: 'Filter by product ID' })
+    @ApiQuery({ name: 'customerProfileId', required: false, description: 'Filter by customer profile ID' })
+    @ApiQuery({ name: 'rating', required: false, description: 'Filter by exact rating (1-5)' })
+    @ApiQuery({ name: 'minRating', required: false, description: 'Filter by minimum rating' })
+    @ApiQuery({ name: 'maxRating', required: false, description: 'Filter by maximum rating' })
+    @ApiQuery({ name: 'isMock', required: false, description: 'Filter mock reviews (true/false)' })
+    @ApiQuery({ name: 'search', required: false, description: 'Search in comment or reviewer name' })
+    @ApiQuery({ name: 'sortBy', required: false, enum: ['createdAt', 'rating'], description: 'Sort field' })
+    @ApiQuery({ name: 'sortOrder', required: false, enum: ['asc', 'desc'], description: 'Sort order' })
+    @ApiQuery({ name: 'page', required: false, description: 'Page number' })
+    @ApiQuery({ name: 'limit', required: false, description: 'Items per page' })
+    @ApiOkResponse({ description: 'Paginated list of reviews' })
+    @ApiUnauthorizedResponse({ description: 'Unauthorized - Missing or invalid token' })
+    listAllReviews(@Query() filters: ListReviewsFilterDto) {
+        return this.reviewService.listAllReviews(filters);
+    }
 
     @UseGuards(JwtAuthGuard, RolesGuard)
     @Roles('ADMIN', 'SUPER_ADMIN')
