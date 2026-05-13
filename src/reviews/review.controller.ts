@@ -37,6 +37,8 @@ export class ReviewController {
     @ApiQuery({ name: 'maxRating', required: false, description: 'Filter by maximum rating' })
     @ApiQuery({ name: 'isMock', required: false, description: 'Filter mock reviews (true/false)' })
     @ApiQuery({ name: 'search', required: false, description: 'Search in comment or reviewer name' })
+    @ApiQuery({ name: 'startDate', required: false, description: 'Start date (ISO format, e.g. 2026-01-01)' })
+    @ApiQuery({ name: 'endDate', required: false, description: 'End date (ISO format, e.g. 2026-12-31)' })
     @ApiQuery({ name: 'sortBy', required: false, enum: ['createdAt', 'rating'], description: 'Sort field' })
     @ApiQuery({ name: 'sortOrder', required: false, enum: ['asc', 'desc'], description: 'Sort order' })
     @ApiQuery({ name: 'page', required: false, description: 'Page number' })

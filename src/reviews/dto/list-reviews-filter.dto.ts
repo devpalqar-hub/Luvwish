@@ -1,6 +1,6 @@
 // dto/list-reviews-filter.dto.ts
 import { ApiPropertyOptional } from '@nestjs/swagger';
-import { IsOptional, IsString, IsUUID, IsInt, Min, Max, IsBoolean, IsPositive } from 'class-validator';
+import { IsOptional, IsString, IsUUID, IsInt, Min, Max, IsBoolean, IsPositive, IsDateString } from 'class-validator';
 import { Type, Transform } from 'class-transformer';
 
 export class ListReviewsFilterDto {
@@ -48,6 +48,16 @@ export class ListReviewsFilterDto {
     @IsOptional()
     @IsString()
     search?: string;
+
+    @ApiPropertyOptional({ description: 'Start date (ISO format)', example: '2026-01-01' })
+    @IsOptional()
+    @IsDateString()
+    startDate?: string;
+
+    @ApiPropertyOptional({ description: 'End date (ISO format)', example: '2026-12-31' })
+    @IsOptional()
+    @IsDateString()
+    endDate?: string;
 
     @ApiPropertyOptional({ description: 'Sort by field', enum: ['createdAt', 'rating'], default: 'createdAt' })
     @IsOptional()

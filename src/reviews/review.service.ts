@@ -324,6 +324,16 @@ export class ReviewService {
       ];
     }
 
+    if (filters.startDate || filters.endDate) {
+      where.createdAt = {};
+      if (filters.startDate) where.createdAt.gte = new Date(filters.startDate);
+      if (filters.endDate) {
+        const end = new Date(filters.endDate);
+        end.setHours(23, 59, 59, 999);
+        where.createdAt.lte = end;
+      }
+    }
+
     const sortField = ['createdAt', 'rating'].includes(filters.sortBy)
       ? filters.sortBy
       : 'createdAt';
