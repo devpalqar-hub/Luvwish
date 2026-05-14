@@ -219,6 +219,7 @@ model Product {
   isFeatured      Boolean  @default(false)
   isActive        Boolean  @default(true)
   variationTitle  String?
+  sizeChart       String?  @db.Text
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
