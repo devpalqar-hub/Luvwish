@@ -773,6 +773,15 @@ export class ReturnsService {
                         where: { isMain: true },
                         take: 1,
                       },
+                      variations: {
+                        select: {
+                          id: true,
+                          variationName: true,
+                          variationType: true,
+                          sku: true,
+                          attributes: true
+                      }
+                      },
                     },
                   },
                 },
