@@ -520,6 +520,7 @@ export class ProductsService {
       if (dto.stockCount !== undefined) updateData.stockCount = dto.stockCount;
       if (dto.description !== undefined) updateData.description = dto.description;
       if (dto.variationTitle !== undefined) updateData.variationTitle = dto.variationTitle;
+      if (dto.sizeChart !== undefined) updateData.sizeChart = dto.sizeChart;
 
       // ✅ Correct boolean handling
       if (dto.isActive !== undefined) updateData.isActive = dto.isActive;

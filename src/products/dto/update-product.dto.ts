@@ -37,7 +37,11 @@ export class UpdateProductDto {
 
     @IsOptional()
     @IsString()
-    variationTitle: string
+    variationTitle?: string;
+
+    @IsOptional()
+    @IsString()
+    sizeChart?: string;
 
     @IsOptional()
     @IsBoolean()
