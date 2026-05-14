@@ -39,16 +39,16 @@ export class ProductsService {
     createProductDto: CreateProductDto,
     imageFiles?: Express.Multer.File[],
   ) {
-    const { images, variations, ...productData } = createProductDto;
+    const { images, variations, subCategoryId, ...productData } = createProductDto;
 
     // Verify subCategoryId exists
-    if (productData.subCategoryId) {
+    if (subCategoryId) {
       const subCategory = await this.prisma.subCategory.findUnique({
-        where: { id: productData.subCategoryId },
+        where: { id: subCategoryId },
       });
       if (!subCategory) {
         throw new NotFoundException(
-          `SubCategory with ID ${productData.subCategoryId} not found`,
+          `SubCategory with ID ${subCategoryId} not found`,
         );
       }
     }
@@ -171,6 +171,7 @@ export class ProductsService {
     const createdProduct = await this.prisma.product.create({
       data: {
         ...productData,
+        ...(subCategoryId ? { subCategory: { connect: { id: subCategoryId } } } : {}),
         images: allImages.length
           ? {
             create: allImages.map((img) => ({
