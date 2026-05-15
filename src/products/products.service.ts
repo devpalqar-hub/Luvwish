@@ -39,16 +39,16 @@ export class ProductsService {
     createProductDto: CreateProductDto,
     imageFiles?: Express.Multer.File[],
   ) {
-    const { images, variations, ...productData } = createProductDto;
+    const { images, variations, subCategoryId, ...productData } = createProductDto;
 
     // Verify subCategoryId exists
-    if (productData.subCategoryId) {
+    if (subCategoryId) {
       const subCategory = await this.prisma.subCategory.findUnique({
-        where: { id: productData.subCategoryId },
+        where: { id: subCategoryId },
       });
       if (!subCategory) {
         throw new NotFoundException(
-          `SubCategory with ID ${productData.subCategoryId} not found`,
+          `SubCategory with ID ${subCategoryId} not found`,
         );
       }
     }
@@ -171,6 +171,7 @@ export class ProductsService {
     const createdProduct = await this.prisma.product.create({
       data: {
         ...productData,
+        ...(subCategoryId ? { subCategory: { connect: { id: subCategoryId } } } : {}),
         images: allImages.length
           ? {
             create: allImages.map((img) => ({
@@ -190,6 +191,8 @@ export class ProductsService {
               discountedPrice: variation.discountedPrice,
               stockCount: variation.stockCount,
               isAvailable: variation.isAvailable ?? true,
+                          variationType: (variation.variationType as any) ?? 'size',
+                          attributes: variation.attributes ?? null,
             })),
           }
           : undefined,
@@ -518,6 +521,7 @@ export class ProductsService {
       if (dto.stockCount !== undefined) updateData.stockCount = dto.stockCount;
       if (dto.description !== undefined) updateData.description = dto.description;
       if (dto.variationTitle !== undefined) updateData.variationTitle = dto.variationTitle;
+      if (dto.sizeChart !== undefined) updateData.sizeChart = dto.sizeChart;
 
       // ✅ Correct boolean handling
       if (dto.isActive !== undefined) updateData.isActive = dto.isActive;
@@ -557,6 +561,8 @@ export class ProductsService {
               ...(v.discountedPrice !== undefined && { discountedPrice: v.discountedPrice }),
               ...(v.stockCount !== undefined && { stockCount: v.stockCount }),
               ...(v.isAvailable !== undefined && { isAvailable: v.isAvailable }),
+                          ...(v.variationType !== undefined && { variationType: v.variationType as any }),
+                          ...(v.attributes !== undefined && { attributes: v.attributes }),
             },
           });
         }

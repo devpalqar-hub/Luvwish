@@ -87,6 +87,12 @@ enum RefundMethod {
   wallet
 }
 
+enum VariationType {
+  size
+  color
+  both
+}
+
 model User {
   id                String    @id @default(uuid()) @map("id")
   email             String    @unique @map("email")
@@ -213,6 +219,7 @@ model Product {
   isFeatured      Boolean  @default(false)
   isActive        Boolean  @default(true)
   variationTitle  String?
+  sizeChart       String?  @db.Text
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
@@ -241,16 +248,18 @@ model ProductImage {
 }
 
 model ProductVariation {
-  id              String   @id @default(uuid())
+  id              String        @id @default(uuid())
   productId       String
   variationName   String
-  sku             String   @unique
-  discountedPrice Decimal  @default(0.00) @db.Decimal(10, 2)
-  actualPrice     Decimal  @default(0.00) @db.Decimal(10, 2)
-  stockCount      Int      @default(0)
-  isAvailable     Boolean  @default(true)
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  variationType   VariationType @default(size)
+  attributes      Json?         // { "size": "XL", "color": "Orange" }
+  sku             String        @unique
+  discountedPrice Decimal       @default(0.00) @db.Decimal(10, 2)
+  actualPrice     Decimal       @default(0.00) @db.Decimal(10, 2)
+  stockCount      Int           @default(0)
+  isAvailable     Boolean       @default(true)
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
 
   product    Product     @relation(fields: [productId], references: [id], onDelete: Cascade)
   cartItems  CartItem[]
@@ -389,12 +398,15 @@ model Review {
   createdAt DateTime @default(now())
 
   productId         String
-  customerProfileId String
-  orderItemId       String @unique // ✅ ensure only one review per order item
+  customerProfileId String?
+  orderItemId       String? @unique // ✅ ensure only one review per order item
 
-  product         Product         @relation(fields: [productId], references: [id])
-  customerProfile CustomerProfile @relation(fields: [customerProfileId], references: [id])
-  orderItem       OrderItem       @relation(fields: [orderItemId], references: [id])
+  isMock           Boolean @default(false)
+  mockReviewerName String? // display name for admin-created mock reviews
+
+  product         Product          @relation(fields: [productId], references: [id])
+  customerProfile CustomerProfile? @relation(fields: [customerProfileId], references: [id])
+  orderItem       OrderItem?       @relation(fields: [orderItemId], references: [id])
 
   images ReviewImage[]
 

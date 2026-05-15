@@ -6,7 +6,11 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { CreateReviewDto } from './dto/create-review.dto';
+import { CreateMockReviewDto } from './dto/create-mock-review.dto';
 import { UpdateReviewDto } from './dto/update-review.dto';
+import { ListReviewsFilterDto } from './dto/list-reviews-filter.dto';
+import { PaginationResponseDto } from 'src/pagination/pagination-response.dto';
+import { PaginationDto } from 'src/pagination/dto/pagination.dto';
 
 @Injectable()
 export class ReviewService {
@@ -87,20 +91,27 @@ export class ReviewService {
     });
   }
 
-  async findByProduct(productId: string) {
-    return this.prisma.review.findMany({
-      where: { productId },
-      include: {
-        images: true,
-        customerProfile: {
-          select: {
-            name: true,
-            profilePicture: true,
+  async findByProduct(productId: string, pagination: PaginationDto) {
+    const [data, total] = await this.prisma.$transaction([
+      this.prisma.review.findMany({
+        where: { productId },
+        include: {
+          images: true,
+          customerProfile: {
+            select: {
+              name: true,
+              profilePicture: true,
+            },
           },
         },
-      },
-      orderBy: { createdAt: 'desc' },
-    });
+        skip: pagination.skip,
+        take: pagination.limit,
+        orderBy: { createdAt: 'desc' },
+      }),
+      this.prisma.review.count({ where: { productId } }),
+    ]);
+
+    return new PaginationResponseDto(data, total, pagination.page, pagination.limit);
   }
 
   async findOne(id: string) {
@@ -259,5 +270,110 @@ export class ReviewService {
       reviewableProducts,
       total: reviewableProducts.length,
     };
+  }
+
+  async createMockReview(dto: CreateMockReviewDto) {
+    // Validate that the product exists
+    const product = await this.prisma.product.findUnique({
+      where: { id: dto.productId },
+    });
+
+    if (!product) {
+      throw new NotFoundException('Product not found');
+    }
+
+    return this.prisma.review.create({
+      data: {
+        rating: dto.rating,
+        comment: dto.comment,
+        productId: dto.productId,
+        isMock: true,
+        mockReviewerName: dto.reviewerName,
+        images: {
+          create: dto.images?.map((url) => ({ url })) || [],
+        },
+      },
+      include: {
+        images: true,
+      },
+    });
+  }
+
+  async listAllReviews(filters: ListReviewsFilterDto) {
+    const where: any = {};
+
+    if (filters.productId) {
+      where.productId = filters.productId;
+    }
+
+    if (filters.customerProfileId) {
+      where.customerProfileId = filters.customerProfileId;
+    }
+
+    if (filters.isMock !== undefined) {
+      where.isMock = filters.isMock;
+    }
+
+    // Exact rating takes priority over range
+    if (filters.rating) {
+      where.rating = filters.rating;
+    } else {
+      if (filters.minRating || filters.maxRating) {
+        where.rating = {};
+        if (filters.minRating) where.rating.gte = filters.minRating;
+        if (filters.maxRating) where.rating.lte = filters.maxRating;
+      }
+    }
+
+    if (filters.search) {
+      where.OR = [
+        { comment: { contains: filters.search } },
+        { mockReviewerName: { contains: filters.search } },
+      ];
+    }
+
+    if (filters.startDate || filters.endDate) {
+      where.createdAt = {};
+      if (filters.startDate) where.createdAt.gte = new Date(filters.startDate);
+      if (filters.endDate) {
+        const end = new Date(filters.endDate);
+        end.setHours(23, 59, 59, 999);
+        where.createdAt.lte = end;
+      }
+    }
+
+    const sortField = ['createdAt', 'rating'].includes(filters.sortBy)
+      ? filters.sortBy
+      : 'createdAt';
+    const sortOrder = filters.sortOrder === 'asc' ? 'asc' : 'desc';
+
+    const [data, total] = await this.prisma.$transaction([
+      this.prisma.review.findMany({
+        where,
+        include: {
+          images: true,
+          product: {
+            select: {
+              id: true,
+              name: true,
+              images: { take: 1, orderBy: { sortOrder: 'asc' } },
+            },
+          },
+          customerProfile: {
+            select: {
+              id: true,
+              name: true,
+              profilePicture: true,
+            },
+          },
+        },
+        skip: filters.skip,
+        take: filters.limit,
+        orderBy: { [sortField]: sortOrder },
+      }),
+      this.prisma.review.count({ where }),
+    ]);
+
+    return new PaginationResponseDto(data, total, filters.page, filters.limit);
   }
 }

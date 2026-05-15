@@ -110,9 +110,10 @@ export class WishlistService {
         include: {
           product: {
             include: {
-              images: true, // ✅ fixed include syntax
+              images: true,
             },
           },
+          productVariation: true,
         },
         skip: pagination.skip,
         take: pagination.limit,
