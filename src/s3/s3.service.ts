@@ -18,6 +18,11 @@ export class S3Service {
   private bucket: string;
   private publicEndpoint: string;
 
+  // Optional legacy AWS delete support (for existing AWS-hosted image URLs)
+  private awsClient?: S3Client;
+  private awsRegion?: string;
+  private awsBucket?: string;
+
   constructor(private readonly configService: ConfigService) {
     const endPoint = this.configService.get<string>('MINIO_ENDPOINT', 'localhost');
     const port = Number.parseInt(this.configService.get<string>('MINIO_PORT', '9000'), 10);
@@ -39,6 +44,23 @@ export class S3Service {
         secretAccessKey: secretKey,
       },
     });
+
+    const awsAccessKeyId = this.configService.get<string>('AWS_ACCESS_KEY_ID');
+    const awsSecretAccessKey = this.configService.get<string>('AWS_SECRET_ACCESS_KEY');
+    const awsRegion = this.configService.get<string>('AWS_REGION');
+    const awsBucket = this.configService.get<string>('AWS_S3_BUCKET');
+
+    if (awsAccessKeyId && awsSecretAccessKey && awsRegion && awsBucket) {
+      this.awsRegion = awsRegion;
+      this.awsBucket = awsBucket;
+      this.awsClient = new S3Client({
+        region: awsRegion,
+        credentials: {
+          accessKeyId: awsAccessKeyId,
+          secretAccessKey: awsSecretAccessKey,
+        },
+      });
+    }
   }
 
   private buildPublicUrl(key: string): string {
@@ -91,6 +113,32 @@ export class S3Service {
     return raw;
   }
 
+  private isAwsUrl(value: string): boolean {
+    return /^https?:\/\//i.test(value) && /amazonaws\.com$/i.test(new URL(value).hostname);
+  }
+
+  private parseAwsUrl(urlString: string): { bucket?: string; key: string; region?: string } {
+    const url = new URL(urlString);
+    const key = url.pathname.replace(/^\/+/, '');
+
+    // Most common: https://<bucket>.s3.<region>.amazonaws.com/<key>
+    const host = url.hostname;
+    const match = host.match(/^(.+?)\.s3[.-]([a-z0-9-]+)\.amazonaws\.com$/i);
+    if (match) {
+      return { bucket: match[1], region: match[2], key };
+    }
+
+    // Path-style: https://s3.<region>.amazonaws.com/<bucket>/<key>
+    const match2 = host.match(/^s3[.-]([a-z0-9-]+)\.amazonaws\.com$/i);
+    if (match2) {
+      const parts = key.split('/');
+      const bucket = parts.shift();
+      return { bucket, region: match2[1], key: parts.join('/') };
+    }
+
+    return { key };
+  }
+
   /**
    * Upload a single file to S3
    */
@@ -120,6 +168,9 @@ export class S3Service {
     const fileName = safeFolder ? `${safeFolder}/${objectName}` : objectName;
 
     try {
+      const setAclPublicRead =
+        this.configService.get<string>('MINIO_SET_PUBLIC_READ_ACL', 'false') === 'true';
+
       const upload = new Upload({
         client: this.s3Client,
         params: {
@@ -127,8 +178,8 @@ export class S3Service {
           Key: fileName,
           Body: file.buffer,
           ContentType: file.mimetype,
-          // Public access should be handled by bucket policy in MinIO.
-          ACL: 'public-read',
+          // For MinIO, prefer bucket policy for public access.
+          ...(setAclPublicRead ? { ACL: 'public-read' } : {}),
         },
       });
 
@@ -169,13 +220,49 @@ export class S3Service {
    */
   async deleteFile(key: string): Promise<void> {
     try {
-      const normalizedKey = this.normalizeKey(key);
-      const command = new DeleteObjectCommand({
-        Bucket: this.bucket,
-        Key: normalizedKey,
-      });
+      const raw = (key || '').trim();
 
-      await this.s3Client.send(command);
+      // If this is an AWS URL, delete from AWS (legacy support)
+      if (raw && /^https?:\/\//i.test(raw)) {
+        try {
+          if (this.isAwsUrl(raw)) {
+            if (!this.awsClient) {
+              throw new InternalServerErrorException(
+                'AWS delete requested but AWS credentials are not configured',
+              );
+            }
+
+            const parsed = this.parseAwsUrl(raw);
+            const bucket = parsed.bucket || this.awsBucket;
+            const objectKey = parsed.key;
+
+            if (!bucket) {
+              throw new InternalServerErrorException(
+                'Unable to determine AWS bucket for deletion',
+              );
+            }
+
+            await this.awsClient.send(
+              new DeleteObjectCommand({
+                Bucket: bucket,
+                Key: objectKey,
+              }),
+            );
+            return;
+          }
+        } catch (e) {
+          // If URL parsing fails, fall back to MinIO delete below.
+        }
+      }
+
+      // Default: delete from MinIO using normalized key
+      const normalizedKey = this.normalizeKey(raw);
+      await this.s3Client.send(
+        new DeleteObjectCommand({
+          Bucket: this.bucket,
+          Key: normalizedKey,
+        }),
+      );
     } catch (error) {
       throw new InternalServerErrorException(
         `Failed to delete file: ${error.message}`,
@@ -195,6 +282,8 @@ export class S3Service {
    * Get a file URL from S3
    */
   getFileUrl(key: string): string {
-    return this.buildPublicUrl(this.normalizeKey(key));
+    const raw = (key || '').trim();
+    if (/^https?:\/\//i.test(raw)) return raw;
+    return this.buildPublicUrl(this.normalizeKey(raw));
   }
 }
