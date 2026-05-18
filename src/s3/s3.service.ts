@@ -47,6 +47,23 @@ export class S3Service {
     return `${base}/${this.bucket}/${normalizedKey}`;
   }
 
+  private normalizeFolder(folder: string): string {
+    const raw = (folder || '').trim();
+    if (!raw) return '';
+    // Convert backslashes, strip leading/trailing slashes, and collapse repeats.
+    return raw
+      .replace(/\\/g, '/')
+      .replace(/^\/+/, '')
+      .replace(/\/+$/, '')
+      .replace(/\/{2,}/g, '/');
+  }
+
+  private sanitizeExtension(originalName: string): string {
+    const ext = (originalName || '').split('.').pop() || '';
+    const safe = ext.toLowerCase().replace(/[^a-z0-9]/g, '');
+    return safe || 'bin';
+  }
+
   private normalizeKey(input: string): string {
     const raw = (input || '').trim();
     if (!raw) return raw;
@@ -97,8 +114,10 @@ export class S3Service {
       throw new BadRequestException('Only image files are allowed (JPEG, PNG, GIF, WebP)');
     }
 
-    const fileExtension = file.originalname.split('.').pop();
-    const fileName = `${folder}/${uuidv4()}.${fileExtension}`;
+    const safeFolder = this.normalizeFolder(folder);
+    const fileExtension = this.sanitizeExtension(file.originalname);
+    const objectName = `${uuidv4()}.${fileExtension}`;
+    const fileName = safeFolder ? `${safeFolder}/${objectName}` : objectName;
 
     try {
       const upload = new Upload({
