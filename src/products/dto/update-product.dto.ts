@@ -8,6 +8,7 @@ import {
     IsInt,
 } from 'class-validator';
 import { Type } from 'class-transformer';
+import { CreateProductImageDto } from './create-product.dto';
 import { UpdateProductVariationDto } from './update-product-variation.dto';
 
 export class UpdateProductDto {
@@ -50,6 +51,13 @@ export class UpdateProductDto {
     @IsOptional()
     @IsBoolean()
     isFeatured?: boolean;
+
+    /* product images (optional) */
+    @IsOptional()
+    @IsArray()
+    @ValidateNested({ each: true })
+    @Type(() => CreateProductImageDto)
+    images?: CreateProductImageDto[];
 
     /* variations (pure JSON array) */
     @IsOptional()

@@ -540,6 +540,31 @@ export class ProductsService {
       });
 
       /* ============================
+         IMAGES UPDATE (optional)
+         - If dto.images is omitted => keep existing images
+         - If dto.images is provided => replace images
+         ============================ */
+      if (dto.images !== undefined) {
+        await tx.productImage.deleteMany({
+          where: { productId },
+        });
+
+        if (dto.images.length > 0) {
+          const normalizedImages = dto.images.map((img, index) => ({
+            productId,
+            url: img.url,
+            altText: img.altText ?? null,
+            isMain: img.isMain ?? false,
+            sortOrder: img.sortOrder ?? index,
+          }));
+
+          await tx.productImage.createMany({
+            data: normalizedImages,
+          });
+        }
+      }
+
+      /* ============================
          VARIATIONS UPDATE
          ============================ */
 
