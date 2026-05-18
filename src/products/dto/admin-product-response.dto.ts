@@ -3,6 +3,7 @@ export class AdminProductItemDto {
   productName: string;
   firstImage: string | null;
   images: string[];
+  variationImages?: string[];
   subCategory: string | null;
   stockPrice: number;
   discountedPrice: number;

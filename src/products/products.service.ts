@@ -193,6 +193,7 @@ export class ProductsService {
               isAvailable: variation.isAvailable ?? true,
                           variationType: (variation.variationType as any) ?? 'size',
                           attributes: variation.attributes ?? null,
+              images: variation.images ?? [],
             })),
           }
           : undefined,
@@ -556,6 +557,7 @@ export class ProductsService {
             where: { id: v.id },
             data: {
               ...(v.variationName !== undefined && { variationName: v.variationName }),
+              ...(v.images !== undefined && { images: v.images }),
               ...(v.sku !== undefined && { sku: v.sku }),
               ...(v.actualPrice !== undefined && { actualPrice: v.actualPrice }),
               ...(v.discountedPrice !== undefined && { discountedPrice: v.discountedPrice }),
@@ -964,6 +966,10 @@ export class ProductsService {
           const stockCount = variation.stockCount;
           const varStockStatus = this.getStockStatus(stockCount, variation.isAvailable);
 
+          const variationImages = Array.isArray(variation.images)
+            ? (variation.images as string[])
+            : [];
+
           // Apply stock status filter
           if (stockStatus && varStockStatus !== stockStatus) {
             continue;
@@ -974,6 +980,7 @@ export class ProductsService {
             productName: `${product.name} - ${variation.variationName}`,
             firstImage,
             images,
+            variationImages,
             subCategory: product.subCategory?.name || null,
             stockPrice: Number(product.actualPrice),
             discountedPrice: Number(variation.discountedPrice),

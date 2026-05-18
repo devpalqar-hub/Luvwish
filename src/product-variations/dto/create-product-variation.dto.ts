@@ -1,4 +1,4 @@
-import { IsString, IsNumber, IsBoolean, IsOptional, IsUUID, IsEnum, IsObject } from 'class-validator';
+import { IsArray, IsString, IsNumber, IsBoolean, IsOptional, IsUUID, IsEnum, IsObject } from 'class-validator';
 import { VariationType } from '@prisma/client';
 
 export class CreateProductVariationDto {
@@ -7,6 +7,11 @@ export class CreateProductVariationDto {
 
   @IsString()
   variationName: string;
+
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  images?: string[];
 
   @IsOptional()
   @IsString()

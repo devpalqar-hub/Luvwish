@@ -31,6 +31,11 @@ export class CreateProductVariationDto {
   variationName: string;
 
   @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  images?: string[];
+
+  @IsOptional()
   @IsString()
   sku?: string;
 

@@ -253,6 +253,7 @@ model ProductVariation {
   variationName   String
   variationType   VariationType @default(size)
   attributes      Json?         // { "size": "XL", "color": "Orange" }
+  images          Json?         // string[] (e.g. ["https://...", "https://..."])
   sku             String        @unique
   discountedPrice Decimal       @default(0.00) @db.Decimal(10, 2)
   actualPrice     Decimal       @default(0.00) @db.Decimal(10, 2)
