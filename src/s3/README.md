@@ -1,6 +1,6 @@
-# AWS S3 Image Upload Module
+# MinIO (S3-Compatible) Image Upload Module
 
-This module provides AWS S3 integration for uploading, managing, and deleting images in your NestJS application.
+This module provides S3-compatible integration (MinIO) for uploading, managing, and deleting images in your NestJS application.
 
 ## Features
 
@@ -26,18 +26,20 @@ The required packages are already installed:
 Add the following variables to your `.env` file:
 
 ```env
-AWS_ACCESS_KEY_ID=your_aws_access_key_id
-AWS_SECRET_ACCESS_KEY=your_aws_secret_access_key
-AWS_REGION=us-east-1
-AWS_S3_BUCKET=your_bucket_name
+MINIO_ENDPOINT=localhost
+MINIO_PORT=9000
+MINIO_USE_SSL=false
+MINIO_ACCESS_KEY=palqaradmin
+MINIO_SECRET_KEY=StrongPassword123!
+MINIO_REGION=us-east-1
+MINIO_BUCKET=raheeb
+MINIO_PUBLIC_ENDPOINT=https://storage.palqar.cloud
 ```
 
-### 2. AWS S3 Bucket Setup
+### 2. MinIO Bucket Setup
 
-1. Create an S3 bucket in AWS Console
-2. Configure bucket permissions:
-   - Enable public access for uploaded files
-   - Add bucket policy for public read access:
+1. Create a bucket in MinIO named `raheeb` (or set `MINIO_BUCKET`)
+2. Configure bucket policy for public read access (so returned URLs are reachable)
 
 ```json
 {
@@ -48,7 +50,7 @@ AWS_S3_BUCKET=your_bucket_name
       "Effect": "Allow",
       "Principal": "*",
       "Action": "s3:GetObject",
-      "Resource": "arn:aws:s3:::your_bucket_name/*"
+      "Resource": "arn:aws:s3:::raheeb/*"
     }
   ]
 }

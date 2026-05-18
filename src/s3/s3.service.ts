@@ -5,9 +5,7 @@ import {
 } from '@nestjs/common';
 import {
   S3Client,
-  PutObjectCommand,
   DeleteObjectCommand,
-  GetObjectCommand,
 } from '@aws-sdk/client-s3';
 import { Upload } from '@aws-sdk/lib-storage';
 import { ConfigService } from '@nestjs/config';
@@ -18,16 +16,62 @@ import { UploadResponseDto } from './dto/upload-response.dto';
 export class S3Service {
   private s3Client: S3Client;
   private bucket: string;
+  private publicEndpoint: string;
 
   constructor(private readonly configService: ConfigService) {
+    const endPoint = this.configService.get<string>('MINIO_ENDPOINT', 'localhost');
+    const port = Number.parseInt(this.configService.get<string>('MINIO_PORT', '9000'), 10);
+    const useSSL = this.configService.get<string>('MINIO_USE_SSL', 'false') === 'true';
+    const accessKey = this.configService.get<string>('MINIO_ACCESS_KEY', 'palqaradmin');
+    const secretKey = this.configService.get<string>('MINIO_SECRET_KEY', 'StrongPassword123!');
+
+    const internalEndpoint = `${useSSL ? 'https' : 'http'}://${endPoint}${port ? `:${port}` : ''}`;
+
+    this.publicEndpoint = this.configService.get<string>('MINIO_PUBLIC_ENDPOINT', 'https://storage.palqar.cloud');
+    this.bucket = this.configService.get<string>('MINIO_BUCKET', 'raheeb');
+
     this.s3Client = new S3Client({
-      region: this.configService.get<string>('AWS_REGION'),
+      region: this.configService.get<string>('MINIO_REGION', 'us-east-1'),
+      endpoint: internalEndpoint,
+      forcePathStyle: true,
       credentials: {
-        accessKeyId: this.configService.get<string>('AWS_ACCESS_KEY_ID'),
-        secretAccessKey: this.configService.get<string>('AWS_SECRET_ACCESS_KEY'),
+        accessKeyId: accessKey,
+        secretAccessKey: secretKey,
       },
     });
-    this.bucket = this.configService.get<string>('AWS_S3_BUCKET');
+  }
+
+  private buildPublicUrl(key: string): string {
+    const base = (this.publicEndpoint || '').replace(/\/+$/, '');
+    const normalizedKey = (key || '').replace(/^\/+/, '');
+    return `${base}/${this.bucket}/${normalizedKey}`;
+  }
+
+  private normalizeKey(input: string): string {
+    const raw = (input || '').trim();
+    if (!raw) return raw;
+
+    // If a full URL is passed, extract the object path.
+    if (/^https?:\/\//i.test(raw)) {
+      try {
+        const url = new URL(raw);
+        const path = url.pathname.replace(/^\/+/, '');
+        // MinIO path-style URLs are usually: /<bucket>/<key>
+        if (path.startsWith(`${this.bucket}/`)) {
+          return path.slice(this.bucket.length + 1);
+        }
+        return path;
+      } catch {
+        // fall through
+      }
+    }
+
+    // If someone passed `bucket/key`, strip bucket.
+    if (raw.startsWith(`${this.bucket}/`)) {
+      return raw.slice(this.bucket.length + 1);
+    }
+
+    return raw;
   }
 
   /**
@@ -64,13 +108,14 @@ export class S3Service {
           Key: fileName,
           Body: file.buffer,
           ContentType: file.mimetype,
-          ACL: 'public-read', // Make file publicly accessible
+          // Public access should be handled by bucket policy in MinIO.
+          ACL: 'public-read',
         },
       });
 
       await upload.done();
 
-      const fileUrl = `https://${this.bucket}.s3.${this.configService.get<string>('AWS_REGION')}.amazonaws.com/${fileName}`;
+      const fileUrl = this.buildPublicUrl(fileName);
 
       return {
         url: fileUrl,
@@ -105,9 +150,10 @@ export class S3Service {
    */
   async deleteFile(key: string): Promise<void> {
     try {
+      const normalizedKey = this.normalizeKey(key);
       const command = new DeleteObjectCommand({
         Bucket: this.bucket,
-        Key: key,
+        Key: normalizedKey,
       });
 
       await this.s3Client.send(command);
@@ -130,6 +176,6 @@ export class S3Service {
    * Get a file URL from S3
    */
   getFileUrl(key: string): string {
-    return `https://${this.bucket}.s3.${this.configService.get<string>('AWS_REGION')}.amazonaws.com/${key}`;
+    return this.buildPublicUrl(this.normalizeKey(key));
   }
 }
