@@ -1,0 +1,31 @@
+doctype html
+html
+  head
+    meta(charset="UTF-8")
+    title Return Request Created
+  body
+    h2 Return Request Created
+
+    p Hello #{customerName || 'Customer'},
+    p Your return request has been created successfully.
+
+    hr
+
+    p
+      strong Order Number:
+      |  #{orderNumber}
+
+    p
+      strong Return Type:
+      |  #{returnType}
+
+    p
+      strong Estimated Refund Amount:
+      |  ₹#{refundAmount}
+
+    p
+      strong Return Fee:
+      |  ₹#{returnFee}
+
+    br
+    p This is an automated notification.

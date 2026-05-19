@@ -20,6 +20,59 @@ export class ReturnsService {
     private readonly emailService: MailService,
   ) { }
 
+  private uniqueStrings(values: Array<string | null | undefined>): string[] {
+    return [...new Set(values.map((v) => (v ?? '').trim()).filter(Boolean))];
+  }
+
+  private async getUserPushTokens(userId?: string | null, fallbackToken?: string | null): Promise<string[]> {
+    if (!userId) return this.uniqueStrings([fallbackToken]);
+
+    const deviceTokens = await this.prisma.deviceToken.findMany({
+      where: {
+        userId,
+        isActive: true,
+      },
+      select: {
+        token: true,
+      },
+    });
+
+    return this.uniqueStrings([
+      fallbackToken,
+      ...deviceTokens.map((t) => t.token),
+    ]);
+  }
+
+  private async getAdminRecipients(): Promise<{ tokens: string[]; emails: string[] }> {
+    const admins = await this.prisma.user.findMany({
+      where: {
+        isActive: true,
+        role: { in: ['ADMIN', 'SUPER_ADMIN'] },
+      },
+      select: {
+        email: true,
+        AdminProfile: {
+          select: {
+            fcmToken: true,
+          },
+        },
+        DeviceToken: {
+          where: { isActive: true },
+          select: { token: true },
+        },
+      },
+    });
+
+    const tokens = this.uniqueStrings([
+      ...admins.map((a) => a.AdminProfile?.fcmToken ?? null),
+      ...admins.flatMap((a) => a.DeviceToken.map((t) => t.token)),
+    ]);
+
+    const emails = this.uniqueStrings(admins.map((a) => a.email));
+
+    return { tokens, emails };
+  }
+
   /**
    * Create a new return request
    */
@@ -261,16 +314,33 @@ export class ReturnsService {
     }
 
 
-    // 6️⃣ Send notification to delivery partner
-    if (order.deliveryPartner?.AdminProfile?.fcmToken) {
+    // 6️⃣ Send notifications to delivery partner + admins
+    const adminRecipients = await this.getAdminRecipients();
+    if (adminRecipients.tokens.length > 0) {
       try {
-        await this.firebaseSender.sendPush(
-          order.deliveryPartner.AdminProfile.fcmToken,
+        await this.firebaseSender.sendPushMultiple(
+          adminRecipients.tokens,
+          'New Return Request',
+          `Return requested for order #${order.orderNumber}.`,
+        );
+      } catch (error) {
+        console.error('Failed to send push notification to admins:', error);
+      }
+    }
+
+    const deliveryPartnerTokens = await this.getUserPushTokens(
+      order.deliveryPartner?.id,
+      order.deliveryPartner?.AdminProfile?.fcmToken,
+    );
+    if (deliveryPartnerTokens.length > 0) {
+      try {
+        await this.firebaseSender.sendPushMultiple(
+          deliveryPartnerTokens,
           'New Return Request',
           `Return requested for order #${order.orderNumber}. Please pick up the items.`,
         );
       } catch (error) {
-        console.error('Failed to send push notification:', error);
+        console.error('Failed to send push notification to delivery partner:', error);
       }
     }
 
@@ -283,7 +353,46 @@ export class ReturnsService {
 
 
 
-    // 7️⃣ Send email to customer
+    // 7️⃣ Send email notifications
+    if (adminRecipients.emails.length > 0) {
+      try {
+        await this.emailService.sendMail({
+          to: adminRecipients.emails,
+          subject: `Return Initiated - Order #${order.orderNumber}`,
+          template: 'admin-return-initiated',
+          context: {
+            orderNumber: order.orderNumber,
+            returnType: ReturnTypeLabel[dto.returnType],
+            refundAmount,
+            returnFee,
+            reason: dto.reason,
+            customerName: order.CustomerProfile?.name,
+          },
+        });
+      } catch (error) {
+        console.error('Failed to send email to admins:', error);
+      }
+    }
+
+    if (order.deliveryPartner?.email) {
+      try {
+        await this.emailService.sendMail({
+          to: order.deliveryPartner.email,
+          subject: `Return Pickup Requested - Order #${order.orderNumber}`,
+          template: 'delivery-partner-return-initiated',
+          context: {
+            deliveryPartnerName: order.deliveryPartner.AdminProfile?.name || 'Delivery Partner',
+            orderNumber: order.orderNumber,
+            returnType: ReturnTypeLabel[dto.returnType],
+            reason: dto.reason,
+          },
+        });
+      } catch (error) {
+        console.error('Failed to send email to delivery partner:', error);
+      }
+    }
+
+    // Customer email
     if (order.CustomerProfile?.user?.email) {
       try {
         await this.emailService.sendMail({

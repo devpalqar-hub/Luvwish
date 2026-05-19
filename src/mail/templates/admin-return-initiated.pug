@@ -1,0 +1,38 @@
+doctype html
+html
+  head
+    meta(charset="UTF-8")
+    title Return Initiated
+  body
+    h2 Return Initiated
+
+    p A customer has initiated a return request.
+
+    hr
+
+    p
+      strong Order Number:
+      |  #{orderNumber}
+
+    p
+      strong Customer:
+      |  #{customerName || 'N/A'}
+
+    p
+      strong Return Type:
+      |  #{returnType}
+
+    p
+      strong Reason:
+      |  #{reason}
+
+    p
+      strong Refund Amount:
+      |  ₹#{refundAmount}
+
+    p
+      strong Return Fee:
+      |  ₹#{returnFee}
+
+    br
+    p This is an automated notification.

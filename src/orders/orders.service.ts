@@ -23,6 +23,60 @@ export class OrdersService {
     private readonly firebaseSender: FirebaseSender
   ) { }
 
+  private uniqueStrings(values: Array<string | null | undefined>): string[] {
+    return [...new Set(values.map((v) => (v ?? '').trim()).filter(Boolean))];
+  }
+
+  private async getUserPushTokens(userId?: string | null, fallbackToken?: string | null): Promise<string[]> {
+    if (!userId) return this.uniqueStrings([fallbackToken]);
+
+    const deviceTokens = await this.prisma.deviceToken.findMany({
+      where: {
+        userId,
+        isActive: true,
+      },
+      select: {
+        token: true,
+      },
+    });
+
+    return this.uniqueStrings([
+      fallbackToken,
+      ...deviceTokens.map((t) => t.token),
+    ]);
+  }
+
+  private async getAdminRecipients(): Promise<{ tokens: string[]; emails: string[] }> {
+    const admins = await this.prisma.user.findMany({
+      where: {
+        isActive: true,
+        role: { in: ['ADMIN', 'SUPER_ADMIN'] },
+      },
+      select: {
+        id: true,
+        email: true,
+        AdminProfile: {
+          select: {
+            fcmToken: true,
+          },
+        },
+        DeviceToken: {
+          where: { isActive: true },
+          select: { token: true },
+        },
+      },
+    });
+
+    const tokens = this.uniqueStrings([
+      ...admins.map((a) => a.AdminProfile?.fcmToken ?? null),
+      ...admins.flatMap((a) => a.DeviceToken.map((t) => t.token)),
+    ]);
+
+    const emails = this.uniqueStrings(admins.map((a) => a.email));
+
+    return { tokens, emails };
+  }
+
   /**
    * Get next delivery partner in round-robin rotation
    */
@@ -83,8 +137,27 @@ export class OrdersService {
           },
         },
         include: {
-          items: true,
+          items: {
+            include: {
+              product: {
+                select: {
+                  name: true,
+                },
+              },
+            },
+          },
           shippingAddress: true,
+          CustomerProfile: {
+            select: {
+              name: true,
+              phone: true,
+              user: {
+                select: {
+                  email: true,
+                },
+              },
+            },
+          },
           deliveryPartner: {
             select: {
               id: true,
@@ -128,24 +201,12 @@ export class OrdersService {
       return createdOrder;
     });
 
-    // Notify active admin users about new order.
-    const adminProfiles = await this.prisma.adminProfile.findMany({
-      where: {
-        fcmToken: { not: null },
-        user: {
-          isActive: true,
-          role: { in: ['ADMIN', 'SUPER_ADMIN'] },
-        },
-      },
-      select: { fcmToken: true },
-    });
+    const adminRecipients = await this.getAdminRecipients();
 
-    const adminTokens = [...new Set(adminProfiles.map((p) => p.fcmToken).filter(Boolean))] as string[];
-
-    if (adminTokens.length > 0) {
+    if (adminRecipients.tokens.length > 0) {
       try {
         await this.firebaseSender.sendPushMultiple(
-          adminTokens,
+          adminRecipients.tokens,
           'New Order Received',
           `Order #${order.orderNumber} placed. Total: ${order.totalAmount}`,
         );
@@ -154,11 +215,44 @@ export class OrdersService {
       }
     }
 
-    // Send push notification and email to assigned delivery partner
-    if (order.deliveryPartner?.AdminProfile?.fcmToken) {
+    if (adminRecipients.emails.length > 0) {
       try {
-        await this.firebaseSender.sendPush(
-          order.deliveryPartner.AdminProfile.fcmToken,
+        await this.emailService.sendMail({
+          to: adminRecipients.emails,
+          subject: `New Order Placed - #${order.orderNumber}`,
+          template: 'admin-order-placed',
+          context: {
+            orderNumber: order.orderNumber,
+            createdAt: order.createdAt,
+            customer: {
+              name: order.CustomerProfile?.name,
+              email: order.CustomerProfile?.user?.email,
+              phone: order.CustomerProfile?.phone,
+            },
+            items: order.items.map((item) => ({
+              name: item.product?.name ?? 'Item',
+              quantity: item.quantity,
+              price: Number(item.discountedPrice ?? item.actualPrice ?? 0),
+            })),
+            paymentMethod: order.paymentMethod,
+            totalAmount: order.totalAmount,
+          },
+        });
+      } catch (error) {
+        console.error('Failed to send email notification to admins:', error);
+      }
+    }
+
+    // Send push notification and email to assigned delivery partner
+    const deliveryPartnerTokens = await this.getUserPushTokens(
+      order.deliveryPartner?.id,
+      order.deliveryPartner?.AdminProfile?.fcmToken,
+    );
+
+    if (deliveryPartnerTokens.length > 0) {
+      try {
+        await this.firebaseSender.sendPushMultiple(
+          deliveryPartnerTokens,
           'New Order Assigned',
           `Order #${order.orderNumber} has been assigned to you. Total: ${order.totalAmount}`,
         );

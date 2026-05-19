@@ -1,0 +1,27 @@
+doctype html
+html
+  head
+    meta(charset="UTF-8")
+    title Return Pickup Requested
+  body
+    h2 Return Pickup Requested
+
+    p Hello #{deliveryPartnerName || 'Delivery Partner'},
+    p A return pickup has been requested. Please review the details below.
+
+    hr
+
+    p
+      strong Order Number:
+      |  #{orderNumber}
+
+    p
+      strong Return Type:
+      |  #{returnType}
+
+    p
+      strong Reason:
+      |  #{reason}
+
+    br
+    p This is an automated notification.
