@@ -83,6 +83,7 @@ export class TrackingService {
             id: true,
             orderNumber: true,
             status: true,
+            paymentMethod: true,
             CustomerProfile: {
               select: {
                 name: true,
@@ -133,7 +134,7 @@ export class TrackingService {
     });
 
     // Auto-update order status based on tracking status
-    await this.syncOrderStatus(orderId, dto.status);
+    await this.syncOrderStatus(orderId, dto.status, tracking.order.paymentMethod);
     const TrackingStatusLabel: Record<TrackingStatus, string> = {
       order_placed: 'Order Placed',
       processing: 'Processing',
@@ -194,7 +195,11 @@ export class TrackingService {
 
 
   // Sync order status with tracking status
-  private async syncOrderStatus(orderId: string, trackingStatus: TrackingStatus) {
+  private async syncOrderStatus(
+    orderId: string,
+    trackingStatus: TrackingStatus,
+    paymentMethod?: string | null,
+  ) {
     const statusMap: Record<TrackingStatus, string> = {
       order_placed: 'confirmed',
       processing: 'processing',
@@ -210,9 +215,16 @@ export class TrackingService {
 
     const orderStatus = statusMap[trackingStatus];
     if (orderStatus) {
+      // Auto-complete payment for COD when order is delivered
+      const isCodDelivered =
+        trackingStatus === 'delivered' && paymentMethod === 'cash_on_delivery';
+
       await this.prisma.order.update({
         where: { id: orderId },
-        data: { status: orderStatus as any },
+        data: {
+          status: orderStatus as any,
+          ...(isCodDelivered ? { paymentStatus: 'completed' } : {}),
+        },
       });
     }
   }
