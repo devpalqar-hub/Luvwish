@@ -125,6 +125,8 @@ export class OrdersService {
       const createdOrder = await prisma.order.create({
         data: {
           ...orderData,
+          // Always start with pending – payment is confirmed only after delivery (COD) or gateway verification
+          paymentStatus: 'pending',
           deliveryPartnerId,
           items: {
             create: items.map((item) => ({
@@ -604,6 +606,7 @@ export class OrdersService {
         orderNumber: true,
         status: true,
         paymentStatus: true,
+        paymentMethod: true,
         CustomerProfile: {
           select: {
             name: true,
@@ -625,6 +628,11 @@ export class OrdersService {
     const paymentStatusChanged =
       dto.paymentStatus && dto.paymentStatus !== existing.paymentStatus;
 
+    // Auto-complete payment for COD when order is delivered
+    const isCodDelivered =
+      dto.status === 'delivered' &&
+      existing.paymentMethod === 'cash_on_delivery';
+
     // 2️⃣ Update order
     const updated = await this.prisma.trackingDetail.update({
       where: { id },
@@ -633,6 +641,14 @@ export class OrdersService {
         ...(dto.paymentStatus && { paymentStatus: dto.paymentStatus }),
       },
     });
+
+    // Auto-set payment to completed for COD on delivery
+    if (isCodDelivered && !dto.paymentStatus) {
+      await this.prisma.order.update({
+        where: { id },
+        data: { paymentStatus: 'completed' },
+      });
+    }
 
     // 3️⃣ Send mail ONLY if something changed
     if ((statusChanged || paymentStatusChanged) && existing.CustomerProfile?.user?.email) {
@@ -781,11 +797,20 @@ export class OrdersService {
             // Sync order status based on tracking status
             const orderStatus = this.mapTrackingToOrderStatus(dto.status);
             if (orderStatus) {
+              // Auto-complete payment for COD when delivered
+              const isDelivered = dto.status === 'delivered';
+              const isCod = existing.paymentMethod === 'cash_on_delivery';
+              const autoCompletePayment = isDelivered && isCod && !dto.paymentStatus;
+
               await tx.order.update({
                 where: { id: orderId },
                 data: {
                   status: orderStatus as any,
-                  ...(dto.paymentStatus && { paymentStatus: dto.paymentStatus }),
+                  ...(dto.paymentStatus
+                    ? { paymentStatus: dto.paymentStatus }
+                    : autoCompletePayment
+                      ? { paymentStatus: 'completed' }
+                      : {}),
                 },
               });
 
@@ -793,6 +818,7 @@ export class OrdersService {
                 orderId,
                 trackingStatus: dto.status,
                 orderStatus: orderStatus,
+                autoCompletePayment,
               });
             }
           } else if (dto.paymentStatus) {
@@ -1579,18 +1605,32 @@ export class OrdersService {
             },
           });
 
+          // Auto-complete payment for COD when bulk-delivered
+          const isDelivered = toTrackingStatus === 'delivered';
+          const isCod = order.paymentMethod === 'cash_on_delivery';
+          const autoCompletePayment = isDelivered && isCod && !paymentStatus;
+
           if (orderStatus) {
             await tx.order.update({
               where: { id: order.id },
               data: {
                 status: orderStatus as any,
-                ...(paymentStatus && { paymentStatus }),
+                ...(paymentStatus
+                  ? { paymentStatus }
+                  : autoCompletePayment
+                    ? { paymentStatus: 'completed' }
+                    : {}),
               },
             });
           } else if (paymentStatus) {
             await tx.order.update({
               where: { id: order.id },
               data: { paymentStatus },
+            });
+          } else if (autoCompletePayment) {
+            await tx.order.update({
+              where: { id: order.id },
+              data: { paymentStatus: 'completed' },
             });
           }
         }
