@@ -17,6 +17,7 @@ export function getTrackingPushContent(
         failed_delivery: 'Delivery Attempt Failed',
         return_processing: 'Return in Progress',
         returned: 'Returned',
+        cancelled: 'Cancelled',
     };
 
     const name = customerName ?? 'Customer';
@@ -65,6 +66,11 @@ export function getTrackingPushContent(
         case 'returned':
             title = '📦 Order Returned';
             body = `Your order #${orderNumber} has been returned successfully.`;
+            break;
+
+        case 'cancelled':
+            title = '❌ Order Cancelled';
+            body = `Your order #${orderNumber} has been cancelled. Stock has been restored.`;
             break;
     }
 
