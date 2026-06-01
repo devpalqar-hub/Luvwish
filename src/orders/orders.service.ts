@@ -125,8 +125,8 @@ export class OrdersService {
       const createdOrder = await prisma.order.create({
         data: {
           ...orderData,
-          // Always start with pending – payment is confirmed only after delivery (COD) or gateway verification
-          paymentStatus: 'pending',
+          // COD stays pending until delivery; online payments are already verified, mark as completed
+          paymentStatus: orderData.paymentMethod === 'cash_on_delivery' ? 'pending' : 'completed',
           deliveryPartnerId,
           items: {
             create: items.map((item) => ({
@@ -543,6 +543,7 @@ export class OrdersService {
       failed_delivery: 'Delivery Attempt Failed',
       return_processing: 'Return in Progress',
       returned: 'Returned',
+      cancelled: 'Cancelled',
     };
 
     const name = customerName ?? 'Customer';
@@ -922,6 +923,7 @@ export class OrdersService {
       failed_delivery: 'shipped',
       return_processing: 'return_processing',
       returned: 'cancelled',
+      cancelled: 'cancelled',
     };
 
     return statusMap[trackingStatus] || null;
@@ -1116,6 +1118,7 @@ export class OrdersService {
       // Admin can cancel any order
       order = await this.prisma.order.findUnique({
         where: { id: orderId },
+        include: { items: true },
       });
     } else {
       // User can only cancel their own orders
@@ -1135,6 +1138,7 @@ export class OrdersService {
       // Find the order belonging to this customer
       order = await this.prisma.order.findFirst({
         where: { id: orderId, customerProfileId: profile.id },
+        include: { items: true },
       });
     }
 
@@ -1149,51 +1153,60 @@ export class OrdersService {
       );
     }
 
-    // Update order status to cancelled
-    const cancelledOrder = await this.prisma.order.update({
-      where: { id: orderId },
-      data: {
-        status: 'cancelled',
-      },
-      include: {
-        items: {
-          include: {
-            product: {
-              include: {
-                images: true,
-              },
+    // Cancel order + restore stock in a single transaction
+    const cancelledOrder = await this.prisma.$transaction(async (tx) => {
+      // 1️⃣ Mark order as cancelled
+      const updated = await tx.order.update({
+        where: { id: orderId },
+        data: { status: 'cancelled' },
+        include: {
+          items: {
+            include: {
+              product: { include: { images: true } },
             },
           },
-        },
-        shippingAddress: true,
-        tracking: true,
-      },
-    });
-
-    // Update tracking status if exists
-    const tracking = await this.prisma.trackingDetail.findUnique({
-      where: { orderId },
-    });
-
-    if (tracking) {
-      const statusHistory = (tracking.statusHistory as any[]) || [];
-      statusHistory.push({
-        status: 'returned',
-        timestamp: new Date().toISOString(),
-        notes: isAdmin
-          ? 'Order cancelled by admin'
-          : 'Order cancelled by customer',
-      });
-
-      await this.prisma.trackingDetail.update({
-        where: { orderId },
-        data: {
-          status: 'returned',
-          statusHistory,
-          lastUpdatedAt: new Date(),
+          shippingAddress: true,
+          tracking: true,
         },
       });
-    }
+
+      // 2️⃣ Restore stock for each cancelled item
+      for (const item of order.items) {
+        if (item.productVariationId) {
+          await tx.productVariation.update({
+            where: { id: item.productVariationId },
+            data: { stockCount: { increment: item.quantity } },
+          });
+        } else {
+          await tx.product.update({
+            where: { id: item.productId },
+            data: { stockCount: { increment: item.quantity } },
+          });
+        }
+      }
+
+      // 3️⃣ Update tracking status to 'cancelled' (not 'returned')
+      const tracking = await tx.trackingDetail.findUnique({ where: { orderId } });
+      if (tracking) {
+        const statusHistory = (tracking.statusHistory as any[]) || [];
+        statusHistory.push({
+          status: 'cancelled',
+          timestamp: new Date().toISOString(),
+          notes: isAdmin ? 'Order cancelled by admin' : 'Order cancelled by customer',
+        });
+
+        await tx.trackingDetail.update({
+          where: { orderId },
+          data: {
+            status: 'cancelled',
+            statusHistory,
+            lastUpdatedAt: new Date(),
+          },
+        });
+      }
+
+      return updated;
+    });
 
     return {
       message: 'Order cancelled successfully',

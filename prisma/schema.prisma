@@ -69,6 +69,7 @@ enum TrackingStatus {
   failed_delivery
   return_processing
   returned
+  cancelled
 }
 
 enum ReturnStatus {

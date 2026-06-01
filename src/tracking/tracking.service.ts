@@ -146,6 +146,7 @@ export class TrackingService {
       failed_delivery: 'Delivery Failed',
       return_processing: 'Return Processing',
       returned: 'Returned',
+      cancelled: 'Cancelled',
     };
 
     // 📧📲 Notify customer ONLY if tracking status changed
@@ -200,7 +201,7 @@ export class TrackingService {
     trackingStatus: TrackingStatus,
     paymentMethod?: string | null,
   ) {
-    const statusMap: Record<TrackingStatus, string> = {
+    const statusMap: Record<TrackingStatus, string | null> = {
       order_placed: 'confirmed',
       processing: 'processing',
       ready_to_ship: 'processing',
@@ -211,6 +212,7 @@ export class TrackingService {
       failed_delivery: 'shipped',
       return_processing: 'return_processing',
       returned: 'returned',
+      cancelled: 'cancelled',
     };
 
     const orderStatus = statusMap[trackingStatus];
@@ -226,6 +228,28 @@ export class TrackingService {
           ...(isCodDelivered ? { paymentStatus: 'completed' } : {}),
         },
       });
+
+      // When cancelled via tracking, restore stock back to inventory
+      if (trackingStatus === 'cancelled') {
+        const orderItems = await this.prisma.orderItem.findMany({
+          where: { orderId },
+          select: { productId: true, productVariationId: true, quantity: true },
+        });
+
+        for (const item of orderItems) {
+          if (item.productVariationId) {
+            await this.prisma.productVariation.update({
+              where: { id: item.productVariationId },
+              data: { stockCount: { increment: item.quantity } },
+            });
+          } else {
+            await this.prisma.product.update({
+              where: { id: item.productId },
+              data: { stockCount: { increment: item.quantity } },
+            });
+          }
+        }
+      }
     }
   }
 }
